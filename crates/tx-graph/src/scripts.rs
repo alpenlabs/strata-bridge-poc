@@ -14,16 +14,12 @@ use bitcoin_script::script;
 use lazy_static::lazy_static;
 
 lazy_static! {
-    // TODO replace these public keys
-    pub static ref UNSPENDABLE_PUBLIC_KEY: PublicKey = PublicKey::from_str(
-        "0405f818748aecbc8c67a4e61a03cee506888f49480cf343363b04908ed51e25b9615f244c38311983fb0f5b99e3fd52f255c5cc47a03ee2d85e78eaf6fa76bb9d"
-    )
-    .unwrap();
-    /// Random pubkey: Hash(G) as per BIP 341
-    pub static ref UNSPENDABLE_TAPROOT_PUBLIC_KEY: XOnlyPublicKey = XOnlyPublicKey::from_str(
-        "50929b74c1a04954b78b4b6035e97a5e078a5a0f28ec96d547bfee9ace803ac0"
-    )
-    .unwrap();
+    /// This is an unspendable pubkey.
+    ///
+    /// This is generated via <https://github.com/alpenlabs/unspendable-pubkey-gen> following [BIP 341](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki#constructing-and-spending-taproot-outputs)
+    /// with `r = 0x82758434e13488368e0781c4a94019d3d6722f854d26c15d2d157acd1f464723`.
+    pub static ref UNSPENDABLE_INTERNAL_KEY: XOnlyPublicKey =
+        XOnlyPublicKey::from_str("2be4d02127fedf4c956f8e6d8248420b9af78746232315f72894f0b263c80e81").unwrap();
 }
 
 /// Creates a script locked with an unspendable pubkey.
@@ -31,7 +27,15 @@ lazy_static! {
 /// The funds sent to this address are not exactly burnt but are just unspendable possibly forever
 /// till the private key is discovered.
 pub fn generate_burn_script() -> ScriptBuf {
-    generate_pay_to_pubkey_script(&UNSPENDABLE_PUBLIC_KEY)
+    let mut unspendable_public_key = [0u8; 33];
+
+    unspendable_public_key[0] = 0x02; // Even parity
+    unspendable_public_key[1..].clone_from_slice(&UNSPENDABLE_INTERNAL_KEY.serialize());
+
+    let unspendable_public_key =
+        PublicKey::from_slice(&unspendable_public_key).expect("must be valid");
+
+    generate_pay_to_pubkey_script(&unspendable_public_key)
 }
 
 /// Creates first a burn script and then, creates a `p2wsh` address from it.
@@ -41,7 +45,7 @@ pub fn generate_burn_script_address(network: Network) -> Address {
 
 /// Creates first a burn script and then, creates a `p2tr` address from it.
 pub fn generate_burn_taproot_script() -> ScriptBuf {
-    generate_pay_to_pubkey_taproot_script(&UNSPENDABLE_TAPROOT_PUBLIC_KEY)
+    generate_pay_to_pubkey_taproot_script(&UNSPENDABLE_INTERNAL_KEY)
 }
 
 /// Creates a p2wsh script that anyone can spend.

@@ -6,6 +6,7 @@ use secp256k1::SECP256K1;
 use serde::{Deserialize, Serialize};
 
 use super::{super::transactions::base::Input, connector::*};
+use crate::scripts::UNSPENDABLE_INTERNAL_KEY;
 
 #[derive(Debug, Serialize, Deserialize, Eq, PartialEq, Clone)]
 pub struct ConnectorK {
@@ -28,7 +29,7 @@ impl ConnectorK {
     }
 
     fn generate_taproot_leaf_0_script(&self) -> ScriptBuf {
-        todo!("add a script that allows bitcommitments to `T_s` and `BridgeOutOutPoint`")
+        todo!("add a script that allows bitcommitments to `T_s` and `BridgeOutOutPoint` (may or may not require N/N)")
     }
 
     fn generate_taproot_leaf_0_tx_in(&self, input: &Input) -> TxIn {
@@ -56,7 +57,7 @@ impl TaprootConnector for ConnectorK {
         TaprootBuilder::new()
             .add_leaf(0, self.generate_taproot_leaf_0_script())
             .expect("Unable to add leaf 0")
-            .finalize(SECP256K1, self.n_of_n_taproot_public_key)
+            .finalize(SECP256K1, *UNSPENDABLE_INTERNAL_KEY)
             .expect("should be able to finalize taproot")
     }
 
