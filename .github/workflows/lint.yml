@@ -33,7 +33,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rustfmt
-          toolchain: nightly-2024-07-27
+          toolchain: nightly-2024-10-14
       - run: cargo fmt --all --check
 
   codespell:
