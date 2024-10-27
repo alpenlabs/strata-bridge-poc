@@ -5530,6 +5530,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-prover-manager"
+version = "0.1.0"
+dependencies = [
+ "bitcoin 0.31.0",
+ "borsh",
+ "serde",
+ "strata-bridge-guest-builder",
+ "strata-primitives",
+ "strata-state",
+ "strata-zkvm",
+]
+
+[[package]]
 name = "strata-state"
 version = "0.1.0"
 source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#1038dd849f9d1d3f2ca17940dc4631072852a25a"

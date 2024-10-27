@@ -1,0 +1,13 @@
+[package]
+edition = "2021"
+name = "strata-prover-manager"
+version = "0.1.0"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }
+borsh.workspace = true
+strata-state.workspace = true
+strata-primitives.workspace = true
+strata-zkvm.workspace = true
+bitcoin.workspace = true
+strata-bridge-guest-builder.workspace = true
