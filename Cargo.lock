@@ -7374,10 +7374,14 @@ dependencies = [
  "bitcoin 0.31.0",
  "chrono",
  "clap",
+ "esplora-client",
+ "hex",
  "jsonrpsee",
  "secp256k1 0.28.2",
  "strata-bridge-client",
  "strata-bridge-rpc-api",
+ "strata-bridge-task-manager",
+ "strata-bridge-tx-graph",
  "strata-common",
  "strata-primitives",
  "strata-rpc-api",
@@ -7442,6 +7446,34 @@ dependencies = [
  "strata-primitives",
  "strata-storage",
  "thiserror",
+ "tracing",
+]
+
+[[package]]
+name = "strata-bridge-task-manager"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bitcoin 0.31.0",
+ "bitcoin-script",
+ "bitcoin-scriptexec",
+ "esplora-client",
+ "hex",
+ "jsonrpsee",
+ "lazy_static",
+ "musig2 0.0.11",
+ "rand",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strata-bridge-client",
+ "strata-bridge-contexts",
+ "strata-bridge-tx-builder",
+ "strata-bridge-tx-graph",
+ "strata-rpc-api",
+ "strata-rpc-types",
+ "strata-state",
+ "tokio",
  "tracing",
 ]
 

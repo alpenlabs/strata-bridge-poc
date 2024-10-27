@@ -1,12 +1,21 @@
 //! Module to bootstrap the operator node by hooking up all the required services.
 
+use std::{str::FromStr, sync::Arc, time::Duration};
+
+use anyhow::Context;
 use bitcoin::{
     bip32::Xpriv,
+    hex,
     key::Parity,
     secp256k1::{PublicKey, SecretKey, XOnlyPublicKey},
+    Network,
 };
+use esplora_client::Builder as EsploraBuilder;
+use hex::prelude::*;
 use jsonrpsee::{core::client::async_client::Client as L2RpcClient, ws_client::WsClientBuilder};
 use secp256k1::SECP256K1;
+use strata_bridge_client::BitVMClient;
+use strata_bridge_task_manager::{config::TaskConfig, operator::TaskManager};
 use strata_primitives::bridge::OperatorIdx;
 use strata_rpc_api::StrataApiClient;
 use tracing::{error, info};
@@ -21,36 +30,11 @@ use crate::{
 /// including database, rpc server, etc. Logging needs to be initialized at the call
 /// site (main function) itself.
 pub(crate) async fn bootstrap(args: Cli) -> anyhow::Result<()> {
-    // // Parse the data_dir
-    // let data_dir = args.datadir.map(PathBuf::from);
-    //
-    // // Initialize a rocksdb instance with the required column families.
-    // let rbdb = open_rocksdb_database(data_dir)?;
-    // let retry_count = args.retry_count.unwrap_or(ROCKSDB_RETRY_COUNT);
-    // let ops_config = DbOpsConfig::new(retry_count);
-    //
-    // // Setup Threadpool for the database I/O ops.
-    // let bridge_db_pool = ThreadPool::new(DB_THREAD_COUNT);
-    //
-    // // Setup bridge duty databases.
-    // let bridge_duty_db = BridgeDutyRocksDb::new(rbdb.clone(), ops_config);
-    // let bridge_duty_db_ctx = DutyContext::new(Arc::new(bridge_duty_db));
-    // let bridge_duty_db_ops = Arc::new(bridge_duty_db_ctx.into_ops(bridge_db_pool.clone()));
-    //
-    // let bridge_duty_idx_db = BridgeDutyIndexRocksDb::new(rbdb.clone(), ops_config);
-    // let bridge_duty_idx_db_ctx = DutyIndexContext::new(Arc::new(bridge_duty_idx_db));
-    // let bridge_duty_idx_db_ops =
-    // Arc::new(bridge_duty_idx_db_ctx.into_ops(bridge_db_pool.clone()));
-    //
-    // // Setup RPC clients.
-    // let l1_rpc_client = Arc::new(
-    //     BitcoinClient::new(args.btc_url, args.btc_user, args.btc_pass)
-    //         .expect("error creating the bitcoin client"),
-    // );
     let l2_rpc_client: L2RpcClient = WsClientBuilder::default()
         .build(args.strata_url)
         .await
         .expect("failed to connect to the rollup RPC server");
+    let l2_rpc_client = Arc::new(l2_rpc_client);
 
     // Get the keypair after deriving the wallet xpriv.
     let root_xpriv = args
@@ -86,17 +70,66 @@ pub(crate) async fn bootstrap(args: Cli) -> anyhow::Result<()> {
         .expect("could not find this operator's pubkey in the rollup pubkey table");
 
     info!(%own_index, "got own index");
-    //
-    // // Set up the signature manager.
-    // let bridge_tx_db = BridgeTxRocksDb::new(rbdb, ops_config);
-    // let bridge_tx_db_ctx = TxContext::new(Arc::new(bridge_tx_db));
-    // let bridge_tx_db_ops = Arc::new(bridge_tx_db_ctx.into_ops(bridge_db_pool));
-    // let sig_manager = SignatureManager::new(bridge_tx_db_ops, own_index, keypair);
-    //
-    // // Set up the TxBuildContext.
-    // let network = l1_rpc_client.network().await?;
-    // let tx_context = TxBuildContext::new(network, operator_pubkeys, own_index);
-    //
+
+    let source_network = l2_rpc_client
+        .get_l1_status()
+        .await
+        .context("unable to get bitcoin status from strata")
+        .expect("should be able to connect to strata node")
+        .network
+        .to_string();
+    let source_network = Network::from_str(&source_network).unwrap();
+
+    let n_of_n_public_keys = &operator_pubkeys
+        .0
+        .values()
+        .copied()
+        .map(|pk| bitcoin::PublicKey::from_str(&pk.to_string()).unwrap())
+        .collect::<Vec<_>>()[..];
+
+    let operator_secret = format!("{:x}", sk.as_ref().as_hex());
+    let bitvm_client = BitVMClient::new(
+        source_network,
+        &args.esplora_url,
+        n_of_n_public_keys,
+        None,
+        Some(operator_secret.as_str()),
+        None,
+        None,
+    )
+    .await;
+    let bitvm_client = Arc::new(bitvm_client);
+
+    let esplora_client = EsploraBuilder::new(&args.esplora_url)
+        .build_async()
+        .expect("Could not build esplora client");
+    let esplora_client = Arc::new(esplora_client);
+
+    let task_config = TaskConfig {
+        task_queue_size: 100,
+    };
+
+    let rollup_block_time = l2_rpc_client
+        .block_time()
+        .await
+        .expect("should be able to get block time from rollup RPC client");
+
+    let duty_poll_interval = args.duty_interval.unwrap_or(rollup_block_time);
+    let duty_poll_interval = Duration::from_millis(duty_poll_interval);
+
+    let task_manager = TaskManager {
+        bitvm_client: bitvm_client.clone(),
+        duty_poll_interval,
+        l2_rpc_client,
+        esplora_client,
+        config: task_config,
+    };
+
+    // Spawn operator task manager
+    let duty_task = tokio::spawn(async move {
+        task_manager.start().await;
+    });
+
     // Spawn RPC server.
     let bridge_rpc = BridgeRpc::new();
 
@@ -108,50 +141,10 @@ pub(crate) async fn bootstrap(args: Cli) -> anyhow::Result<()> {
         }
     });
 
-    //
-    // let rollup_block_time = l2_rpc_client
-    //     .block_time()
-    //     .await
-    //     .expect("should be able to get block time from rollup RPC client");
-    //
-    // let msg_polling_interval = args.message_interval.map_or(
-    //     Duration::from_millis(rollup_block_time / 2),
-    //     Duration::from_millis,
-    // );
-    //
-    // // Spawn poll duties task.
-    // let exec_handler = ExecHandler {
-    //     tx_build_ctx: tx_context,
-    //     sig_manager,
-    //     l2_rpc_client,
-    //     keypair,
-    //     own_index,
-    //     msg_polling_interval,
-    // };
-    //
-    // let task_manager = TaskManager {
-    //     exec_handler: Arc::new(exec_handler),
-    //     broadcaster: l1_rpc_client,
-    //     bridge_duty_db_ops,
-    //     bridge_duty_idx_db_ops,
-    // };
-    //
-    // let duty_polling_interval = args.duty_interval.map_or(
-    //     Duration::from_millis(rollup_block_time),
-    //     Duration::from_millis,
-    // );
-    //
-    // // TODO: wrap these in `strata-tasks`
-    // // let duty_task = tokio::spawn(async move {
-    // //     if let Err(e) = task_manager.start(duty_polling_interval).await {
-    // //         error!(error = %e, "could not start task manager");
-    // //     };
-    // // });
-
     // Wait for all tasks to run
     // They are supposed to run indefinitely in most cases
     // tokio::try_join!(rpc_task, duty_task)?;
-    tokio::try_join!(rpc_task)?;
+    tokio::try_join!(rpc_task, duty_task)?;
 
     Ok(())
 }

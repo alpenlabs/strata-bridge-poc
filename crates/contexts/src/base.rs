@@ -4,7 +4,6 @@ use bitcoin::{
     Network, PrivateKey, PublicKey, XOnlyPublicKey,
 };
 use musig2::{secp::Point, KeyAggContext};
-
 /// Defines the methods expected of context required to create bridge-related transactions.
 ///
 /// This includes the bitcoin [`Network`], the secp engine [`Secp256k1`], the list of bridge

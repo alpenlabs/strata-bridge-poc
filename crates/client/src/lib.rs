@@ -18,7 +18,6 @@ use strata_bridge_contexts::{
     verifier::VerifierContext, withdrawer::WithdrawerContext,
 };
 use strata_bridge_tx_graph::{
-    constants::DestinationNetwork,
     graphs::{
         base::BaseGraph,
         peg_in::{generate_id as peg_in_generate_id, PegInGraph},
@@ -28,7 +27,7 @@ use strata_bridge_tx_graph::{
     transactions::base::{Input, InputWithScript},
 };
 
-const ESPLORA_URL: &str = "https://mutinynet.com/api";
+// const ESPLORA_URL: &str = "https://mutinynet.com/api";
 const TEN_MINUTES: u64 = 10 * 60;
 
 pub type UtxoSet = HashMap<OutPoint, Height>;
@@ -49,7 +48,6 @@ pub type PublicKeyToGraph = HashMap<PublicKey, GraphToTxid>;
 pub struct BitVMClientPrivateData {
     // Peg in and peg out nonces all go into the same file for now
     // Verifier public key -> Graph ID -> Tx ID -> Input index
-    // FIXME: what sorcery is this? Should be split into semantically meaningful types.
     pub secret_nonces: PublicKeyToGraph,
 }
 
@@ -73,7 +71,7 @@ pub struct BitVMClient {
 impl BitVMClient {
     pub async fn new(
         source_network: Network,
-        destination_network: DestinationNetwork,
+        esplora_url: &str,
         n_of_n_public_keys: &[PublicKey],
         depositor_secret: Option<&str>,
         operator_secret: Option<&str>,
@@ -94,8 +92,7 @@ impl BitVMClient {
         // Prepend files with prefix
         // FIXME: `ProjectDirs` might help here
         let (n_of_n_public_key, _) = generate_n_of_n_public_key(n_of_n_public_keys);
-        let file_path =
-            format! {"bridge_data/{source_network}/{destination_network}/{n_of_n_public_key}"};
+        let file_path = format! {"bridge_data/{source_network}/{n_of_n_public_key}"};
         Self::create_directories_if_non_existent(&file_path);
 
         let data = BitVMClientPublicData {
@@ -109,7 +106,7 @@ impl BitVMClient {
         let private_data = Self::get_private_data(&file_path);
 
         Self {
-            esplora: Builder::new(ESPLORA_URL)
+            esplora: Builder::new(esplora_url)
                 .build_async()
                 .expect("Could not build esplora client"),
 
@@ -653,7 +650,7 @@ impl BitVMClient {
         peg_out_graph_id
     }
 
-    pub async fn broadcast_kick_off_1(&mut self, peg_out_graph_id: &str) {
+    pub async fn broadcast_kick_off(&mut self, peg_out_graph_id: &str) {
         let peg_out_graph = self
             .data
             .peg_out_graphs

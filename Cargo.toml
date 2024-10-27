@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/contexts",
+  "crates/task-manager",
   "crates/tx-graph",
   "crates/proof-impl/bitvm-bridge",
   "crates/client",
@@ -18,6 +19,7 @@ resolver = "2"
 strata-bridge-client = { path = "crates/client" }
 strata-bridge-contexts = { path = "crates/contexts" }
 strata-bridge-rpc-api = { path = "crates/rpc/bridge" }
+strata-bridge-task-manager = { path = "crates/task-manager" }
 strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
 
@@ -28,6 +30,8 @@ strata-primitives = { git = "https://github.com/alpenlabs/strata.git", branch = 
 strata-rpc-api = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0", features = [
   "client",
 ] }
+strata-rpc-types = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 
 anyhow = "1.0.86"
 arbitrary = { version = "1.3.2", features = ["derive"] }

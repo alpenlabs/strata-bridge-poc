@@ -14,7 +14,8 @@ use crate::constants::{DEFAULT_RPC_HOST, DEFAULT_RPC_PORT};
 pub(crate) struct Cli {
     #[arg(
         value_enum,
-        help = "What mode to run the client in `Signer` (alias: si), `Operator` (alias: op) or `Verifier` (alias: ve)"
+        help = "What mode to run the client in `Signer` (alias: si), `Operator` (alias: op) or `Verifier` (alias: ve)",
+        default_value_t = OperationMode::Operator,
     )]
     pub mode: OperationMode,
 
@@ -43,13 +44,7 @@ pub(crate) struct Cli {
     pub rpc_port: u32,
 
     #[clap(long, help = "URL for the Bitcoin RPC")]
-    pub btc_url: String,
-
-    #[clap(long, help = "Username for Bitcoin RPC")]
-    pub btc_user: String,
-
-    #[clap(long, help = "Password for Bitcoin RPC")]
-    pub btc_pass: String,
+    pub esplora_url: String,
 
     #[clap(long, help = "URL for the rollup RPC server")]
     pub strata_url: String,
