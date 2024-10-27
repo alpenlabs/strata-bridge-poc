@@ -1,0 +1,38 @@
+# Runs integration tests.
+
+name: Integration Tests
+
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_LOG: debug
+  RUST_BACKTRACE: full
+
+jobs:
+  test:
+    name: Run integration tests and generate report
+    runs-on: self-hosted
+    timeout-minutes: 60 # better fail-safe than the default 360 in github actions
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Install latest nextest release
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Run tests
+        run: |
+          cargo nextest run -p integration-tests --locked --profile ci --no-capture
+      - name: Test Summary
+        uses: test-summary/action@v2
+        if: always()
+        with:
+          paths: "target/nextest/ci/junit.xml"

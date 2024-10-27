@@ -1,0 +1,13 @@
+[toolchain]
+channel = "nightly-2024-07-27"
+components = [
+  "cargo",
+  "clippy",
+  "rustc",
+  "rustfmt",
+  "rust-analyzer",
+  "rust-docs",
+  "rust-src",
+  "rust-std",
+  # "miri" # currently, does not support DB FFIs (results in false positives for `rockbound`)
+]

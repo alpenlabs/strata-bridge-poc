@@ -1,0 +1,7 @@
+[package]
+edition = "2021"
+name = "strata-proofimpl-bitvm-bridge"
+version = "0.1.0"
+
+[dependencies]
+serde = { workspace = true, features = ["derive"] }

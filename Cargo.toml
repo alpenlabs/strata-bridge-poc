@@ -1,0 +1,108 @@
+[workspace]
+members = [
+  "crates/contexts",
+  "crates/tx-graph",
+  "crates/proof-impl/bitvm-bridge",
+  "crates/client",
+  "bridge-proofs",
+
+  # binaries listed separately
+  "bin/strata-cli",
+]
+
+default-members = ["bin/strata-cli"]
+
+resolver = "2"
+
+[workspace.dependencies]
+strata-bridge-client = { path = "crates/client" }
+strata-bridge-contexts = { path = "crates/contexts" }
+strata-bridge-tx-graph = { path = "crates/tx-graph" }
+strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
+
+shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0", features = [
+  "serde",
+] }
+strata-bridge-tx-builder = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+
+anyhow = "1.0.86"
+arbitrary = { version = "1.3.2", features = ["derive"] }
+argh = "0.1"
+async-trait = "0.1.81"
+aws-sdk-s3 = "1.40.0"
+base64 = "0.22.1"
+bincode = "1.3.3"
+bitcoin = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm", features = [
+  "rand-std",
+  "serde",
+] }
+bitcoin-script = { git = "https://github.com/BitVM/rust-bitcoin-script", branch = "chunker" }
+bitcoin-scriptexec = { git = "https://github.com/BitVM/rust-bitcoin-scriptexec/" }
+blake3 = "=1.5.1"
+borsh = { version = "1.5.0", features = ["derive"] }
+bytes = "1.6.0"
+chrono = "0.4.38"
+digest = "0.10"
+dotenvy = "0.15.7"
+esplora-client = { git = "https://github.com/BitVM/rust-esplora-client" }
+ethnum = "1.5.0"
+eyre = "0.6"
+format_serde_error = { git = "https://github.com/AlexanderThaller/format_serde_error" }
+futures = "0.3.30"
+futures-util = "0.3"
+hex = { version = "0.4", features = ["serde"] }
+http = "1.0.0"
+hyper = "0.14.25"
+jmt = "0.10.0"
+jsonrpsee = "0.23"
+jsonrpsee-types = "0.23"
+lazy_static = "1.5.0"
+lru = "0.12"
+miniscript = "12.2.0"
+mockall = "0.11"
+musig2 = { version = "0.0.11", features = ["serde", "rand"] }
+once_cell = "1.19.0"
+openssh = { version = "0.10.4", features = ["native-mux"] }
+openssh-sftp-client = { version = "0.14.6", features = ["openssh"] }
+paste = "1.0.15"
+rand = "0.8.5"
+rand_chacha = { version = "0.3.1", default-features = false }
+rand_core = { version = "0.6", default-features = false }
+regex = "1.10.5"
+reqwest = { version = "0.12.7", default-features = false, features = [
+  "http2",
+  "rustls-tls",
+  "charset",
+  "zstd",
+  "json",
+] }
+secp256k1 = "0.28.0"
+serde = { version = "1.0", features = ["derive"] }
+serde-hex = "0.1.0"
+serde_json = { version = "1.0", default-features = false, features = [
+  "alloc",
+  "raw_value",
+] }
+serde_with = "3.9.0"
+sha2 = "0.10"
+suppaftp = { version = "6.0.1", features = ["async", "async-native-tls"] }
+tempfile = "3.10.1"
+terrors = "0.3.0"
+thiserror = "1.0"
+threadpool = "1.8"
+tokio = { version = "1.37", features = ["full"] }
+toml = "0.5"
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+
+# This is needed for custom build of SP1
+[profile.release.build-override]
+opt-level = 3
+
+[patch.crates-io]
+base58check = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
+bitcoin = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
+bitcoin_hashes = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
+bitcoin-internals = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
+bitcoin-io = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
+bitcoin-units = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }

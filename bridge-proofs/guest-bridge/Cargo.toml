@@ -1,0 +1,10 @@
+[package]
+edition = "2021"
+name = "guest-bridge"
+version = "0.1.0"
+
+[workspace]
+
+[dependencies]
+sp1-zkvm = { version = "2.0.0", features = ["verify"] }
+strata-proofimpl-bitvm-bridge = { path = "../../crates/proof-impl/bitvm-bridge" }
