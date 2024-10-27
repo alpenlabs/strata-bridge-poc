@@ -25,6 +25,7 @@ strata-bridge-tx-builder = { git = "https://github.com/alpenlabs/strata.git", br
 strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 strata-primitives = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 
 anyhow = "1.0.86"
 arbitrary = { version = "1.3.2", features = ["derive"] }
