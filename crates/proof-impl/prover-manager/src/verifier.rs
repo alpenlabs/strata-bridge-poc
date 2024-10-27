@@ -1,10 +1,9 @@
 use num_bigint::BigUint;
 use num_traits::Num;
-use sp1_sdk::{HashableKey, SP1ProofWithPublicValues, SP1VerifyingKey};
 use strata_sp1_adapter::SP1Verifier;
 use strata_zkvm::{Proof, ZKVMVerifier};
 
-fn verify_proof(proof: Proof, vkey: String, comitted_values: &[u8]) -> anyhow::Result<()> {
+pub fn verify_proof(proof: Proof, vkey: String, comitted_values: &[u8]) -> anyhow::Result<()> {
     let vkey_hash = BigUint::from_str_radix(
         vkey.strip_prefix("0x")
             .expect("vkey should start with '0x'"),
@@ -21,6 +20,7 @@ fn verify_proof(proof: Proof, vkey: String, comitted_values: &[u8]) -> anyhow::R
 #[cfg(test)]
 mod test {
     use bitcoin::Txid;
+    use sp1_sdk::{HashableKey, SP1ProofWithPublicValues, SP1VerifyingKey};
 
     use super::*;
 

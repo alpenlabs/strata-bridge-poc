@@ -4,9 +4,9 @@ name = "strata-proofimpl-bitvm-bridge"
 version = "0.1.0"
 
 [dependencies]
-serde = { workspace = true, features = ["derive"] }
-borsh.workspace = true
-strata-state.workspace = true
-strata-primitives.workspace = true
-strata-zkvm.workspace = true
 bitcoin = { workspace = true }
+borsh.workspace = true
+serde = { workspace = true, features = ["derive"] }
+strata-primitives.workspace = true
+strata-state.workspace = true
+strata-zkvm.workspace = true

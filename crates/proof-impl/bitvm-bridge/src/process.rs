@@ -1,3 +1,4 @@
+#![allow(unused)]
 use strata_primitives::{buf::Buf32, params::RollupParams};
 use strata_state::{batch::BatchCheckpoint, bridge_state::DepositState, chain_state::ChainState};
 use strata_zkvm::Proof;
@@ -20,7 +21,7 @@ pub fn process_bridge_proof() -> BridgeProofPublicParams {
     // TODO:
     // Read L2 chain
     // From the L2 state verify the inclusion of the deposit and assignee on that state
-    // Verify the settlement of that Withdrawl request on the chain
+    // Verify the settlement of that Withdrawal request on the chain
     // Add the assumptions
 
     // TODO:
@@ -44,7 +45,7 @@ pub fn assert_deposit_state(
     // TODO: compute_root(l2_state) == l2_state_root
 
     // TODO: Later on we will have that particular UTXO in the deposit table itself
-    // Assert Deposit table contains the `DepositState` operator intrested in
+    // Assert Deposit table contains the `DepositState` operator interested in
     let deposits: Vec<DepositState> = l2_state
         .deposits_table()
         .deposits()
