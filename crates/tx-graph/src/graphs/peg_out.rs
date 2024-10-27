@@ -115,12 +115,11 @@ pub enum PegOutOperatorStatus {
     PegOutComplete,    // peg-out complete
     PegOutFailed,      // timeouts or disproves executed
     PegOutStartPegOut, // should execute peg-out tx
-    PegOutKickOff1Available,
-    PegOutStartTimeAvailable,
-    PegOutClaimLcAvailable,
+    PegOutKickOffAvailable,
+    PegOutClaimAvailable,
     PegOutAssertAvailable,
-    PegOutTake1Available,
-    PegOutTake2Available,
+    PegOutPayoutOptimisticAvailable,
+    PegOutPayoutAvailable,
 }
 
 impl Display for PegOutOperatorStatus {
@@ -136,23 +135,20 @@ impl Display for PegOutOperatorStatus {
             PegOutOperatorStatus::PegOutStartPegOut => {
                 write!(f, "Peg-out requested. Broadcast peg-out transaction?")
             }
-            PegOutOperatorStatus::PegOutKickOff1Available => {
+            PegOutOperatorStatus::PegOutKickOffAvailable => {
                 write!(f, "Peg-out confirmed. Broadcast kick-off 1 transaction?")
             }
-            PegOutOperatorStatus::PegOutStartTimeAvailable => {
-                write!(f, "Kick-off confirmed. Broadcast start time transaction?")
-            }
-            PegOutOperatorStatus::PegOutClaimLcAvailable => {
+            PegOutOperatorStatus::PegOutClaimAvailable => {
                 write!(f, "Start time confirmed. Broadcast kick-off 2 transaction?")
             }
             PegOutOperatorStatus::PegOutAssertAvailable => {
                 write!(f, "Dispute raised. Broadcast assert transaction?")
             }
-            PegOutOperatorStatus::PegOutTake1Available => write!(
+            PegOutOperatorStatus::PegOutPayoutOptimisticAvailable => write!(
                 f,
                 "Dispute timed out, reimbursement available. Broadcast take 1 transaction?"
             ),
-            PegOutOperatorStatus::PegOutTake2Available => write!(
+            PegOutOperatorStatus::PegOutPayoutAvailable => write!(
                 f,
                 "Dispute timed out, reimbursement available. Broadcast take 2 transaction?"
             ),
@@ -665,7 +661,7 @@ impl PegOutGraph {
                                         <= blockchain_height
                                 },
                             ) {
-                                return PegOutOperatorStatus::PegOutTake2Available;
+                                return PegOutOperatorStatus::PegOutPayoutAvailable;
                             } else {
                                 return PegOutOperatorStatus::PegOutWait;
                             }
@@ -686,7 +682,7 @@ impl PegOutGraph {
                                 <= blockchain_height
                         },
                     ) {
-                        return PegOutOperatorStatus::PegOutTake1Available;
+                        return PegOutOperatorStatus::PegOutPayoutOptimisticAvailable;
                     } else {
                         return PegOutOperatorStatus::PegOutWait;
                     }
@@ -694,21 +690,9 @@ impl PegOutGraph {
                     .as_ref()
                     .is_ok_and(|status| status.confirmed)
                 {
-                    if kick_off_status
-                        .as_ref()
-                        .unwrap()
-                        .block_height
-                        .is_some_and(|block_height| {
-                            block_height + self.claim_transaction.num_blocks_timelock_0()
-                                <= blockchain_height
-                        })
-                    {
-                        return PegOutOperatorStatus::PegOutClaimLcAvailable;
-                    } else {
-                        return PegOutOperatorStatus::PegOutWait;
-                    }
+                    return PegOutOperatorStatus::PegOutClaimAvailable;
                 } else {
-                    return PegOutOperatorStatus::PegOutKickOff1Available;
+                    return PegOutOperatorStatus::PegOutKickOffAvailable;
                 }
             } else {
                 return PegOutOperatorStatus::PegOutStartPegOut;

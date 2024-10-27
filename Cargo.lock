@@ -8047,6 +8047,7 @@ dependencies = [
  "lazy_static",
  "musig2 0.0.11",
  "rand",
+ "secp256k1 0.28.2",
  "serde",
  "serde_json",
  "sha2",

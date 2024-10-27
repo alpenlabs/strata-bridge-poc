@@ -46,13 +46,13 @@ impl PreSignedTransaction for ClaimTransaction {
 }
 
 impl ClaimTransaction {
-    pub fn new(context: &OperatorContext, input_0: Input) -> Self {
+    pub fn new(context: &OperatorContext, input_from_kickoff: Input) -> Self {
         let mut this = Self::new_for_validation(
             context.network,
             &context.operator_public_key,
             &context.operator_taproot_public_key,
             &context.n_of_n_taproot_public_key,
-            input_0,
+            input_from_kickoff,
         );
 
         this.sign_input_0(context);
@@ -109,7 +109,8 @@ impl ClaimTransaction {
     }
 
     pub fn num_blocks_timelock_0(&self) -> u32 {
-        self.connector_k.num_blocks_timelock_0
+        // this should return the time commitment
+        unimplemented!("return T_s commitment")
     }
 
     fn sign_input_0(&mut self, context: &OperatorContext) {

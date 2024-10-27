@@ -103,8 +103,9 @@ impl KickOffTransaction {
             },
             prev_outs: vec![TxOut {
                 value: operator_input.amount,
+                // this could be p2tr too
                 script_pubkey: generate_pay_to_pubkey_script_address(network, operator_public_key)
-                    .script_pubkey(), // TODO: Add address of Commit y
+                    .script_pubkey(),
             }],
             prev_scripts: vec![generate_pay_to_pubkey_script(operator_public_key)],
         }
