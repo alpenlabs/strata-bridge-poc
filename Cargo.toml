@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/proof-impl/bitvm-bridge",
+  "crates/tx-graph",
   "bridge-proofs",
 
   # binaries listed separately
@@ -11,6 +12,7 @@ default-members = []
 resolver = "2"
 
 [workspace.dependencies]
+strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
 
 shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0", features = [
