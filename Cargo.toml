@@ -1,5 +1,6 @@
 [workspace]
 members = [
+  "crates/btcio",
   "crates/proof-impl/bitvm-bridge",
   "crates/tx-graph",
   "bridge-proofs",
