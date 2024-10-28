@@ -23,4 +23,4 @@ tokio.workspace = true
 tracing.workspace = true
 
 [dev-dependencies]
-bitcoind = { version = "0.36.0", features = ["26_0"] }
+strata-common.workspace = true

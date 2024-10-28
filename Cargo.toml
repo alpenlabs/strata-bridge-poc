@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/btcio",
+  "crates/common",
   "crates/proof-impl/bitvm-bridge",
   "crates/tx-graph",
   "bridge-proofs",
@@ -15,9 +16,9 @@ resolver = "2"
 [workspace.dependencies]
 # deps in this workspace
 strata-bridge-tx-graph = { path = "crates/tx-graph" }
+strata-common = { path = "crates/common" }
 strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
 
-# deps from original strata repo
 shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0", features = [
   "serde",
 ] }
@@ -27,14 +28,7 @@ strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch =
 strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 
-# transitive deps with patches for `bitvm`
-ark-bn254 = { git = "https://github.com/Antalpha-Labs/algebra/", features = [
-  "curve",
-], default-features = false }
-ark-serialize = { version = "0.4.2", features = ["std"] }
-ark-std = { version = "0.4.0", features = ["std"] }
 
-# external deps
 anyhow = "1.0.86"
 arbitrary = { version = "1.3.2", features = ["derive"] }
 argh = "0.1"
@@ -74,6 +68,9 @@ musig2 = { version = "0.0.11", features = ["serde", "rand"] }
 once_cell = "1.19.0"
 openssh = { version = "0.10.4", features = ["native-mux"] }
 openssh-sftp-client = { version = "0.14.6", features = ["openssh"] }
+opentelemetry = "0.26"
+opentelemetry-otlp = { version = "0.26", features = ["grpc-tonic"] }
+opentelemetry_sdk = { version = "0.26", features = ["rt-tokio"] }
 paste = "1.0.15"
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", default-features = false }
@@ -95,6 +92,10 @@ serde_json = { version = "1.0", default-features = false, features = [
 ] }
 serde_with = "3.9.0"
 sha2 = "0.10"
+shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0", features = [
+  "serde",
+] }
+strata-bridge-tx-builder = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 suppaftp = { version = "6.0.1", features = ["async", "async-native-tls"] }
 tempfile = "3.10.1"
 terrors = "0.3.0"
@@ -103,6 +104,7 @@ threadpool = "1.8"
 tokio = { version = "1.37", features = ["full"] }
 toml = "0.5"
 tracing = "0.1.40"
+tracing-opentelemetry = "0.27"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 
 # This is needed for custom build of SP1
