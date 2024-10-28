@@ -5435,6 +5435,7 @@ dependencies = [
 name = "strata-bridge-tx-graph"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "bitcoin",
  "bitcoin-script",
  "bitcoin-scriptexec",
@@ -5443,6 +5444,7 @@ dependencies = [
  "lazy_static",
  "musig2",
  "rand",
+ "secp256k1",
  "serde",
  "serde_json",
  "sha2",
