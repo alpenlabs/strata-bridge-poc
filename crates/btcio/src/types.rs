@@ -317,7 +317,7 @@ pub struct ListTransactions {
     pub txid: Txid,
 }
 
-/// Models the result ot JSON-RPC method `testmempoolaccept`.
+/// Models the result of JSON-RPC method `testmempoolaccept`.
 #[derive(Clone, Debug, PartialEq, Deserialize, Serialize)]
 pub struct TestMempoolAccept {
     /// The transaction id.
