@@ -19,9 +19,9 @@ jobs:
       - uses: dtolnay/rust-toolchain@nightly
         with:
           toolchain: nightly-2024-10-15
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit
 
         #  HACK: not denying warnings as we depend on `yaml-rust` via `format-serde-error` which is unmaintained
       - name: Check for audit warnings
