@@ -25,11 +25,11 @@ use tracing::*;
 
 use crate::{
     error::{BitcoinRpcError, ClientError},
-    traits::{Broadcaster, Reader, Signer, Wallet},
+    traits::{BlockGenerator, Broadcaster, Reader, Signer, Wallet},
     types::{
         CreateWallet, GetBlockVerbosityZero, GetBlockchainInfo, GetNewAddress, GetTransaction,
         ImportDescriptor, ImportDescriptorResult, ListDescriptors, ListTransactions, ListUnspent,
-        SignRawTransactionWithWallet,
+        SignRawTransactionWithWallet, TestMempoolAccept,
     },
 };
 
@@ -132,6 +132,7 @@ impl BitcoinClient {
                         .json::<Response<T>>()
                         .await
                         .map_err(|e| ClientError::Parse(e.to_string()))?;
+                    trace!(?data, "Response data");
                     if let Some(err) = data.error {
                         return Err(ClientError::Server(err.code, err.message));
                     }
@@ -273,6 +274,13 @@ impl Broadcaster for BitcoinClient {
             Err(e) => Err(ClientError::Other(e.to_string())),
         }
     }
+
+    async fn test_mempool_accept(&self, tx: &Transaction) -> ClientResult<Vec<TestMempoolAccept>> {
+        let txstr = serialize_hex(tx);
+        trace!(%txstr, "Testing mempool accept");
+        self.call::<Vec<TestMempoolAccept>>("testmempoolaccept", &[to_value([txstr])?])
+            .await
+    }
 }
 
 #[async_trait]
@@ -287,6 +295,7 @@ impl Wallet for BitcoinClient {
             .assume_checked();
         Ok(address_unchecked)
     }
+
     async fn get_transaction(&self, txid: &Txid) -> ClientResult<GetTransaction> {
         Ok(self
             .call::<GetTransaction>("gettransaction", &[to_value(txid.to_string())?])
@@ -385,40 +394,85 @@ impl Signer for BitcoinClient {
     }
 }
 
+#[async_trait]
+impl BlockGenerator for BitcoinClient {
+    async fn generate_to_address(
+        &self,
+        count: u16,
+        address: &Address,
+    ) -> ClientResult<Vec<BlockHash>> {
+        let hashes = self
+            .call::<Vec<BlockHash>>(
+                "generatetoaddress",
+                &[to_value(count)?, to_value(address.to_string())?],
+            )
+            .await?;
+        Ok(hashes)
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use std::env::set_var;
+    use std::{env::set_var, process::Command};
 
     use bitcoin::{consensus, hashes::Hash, NetworkKind};
-    use bitcoind::{bitcoincore_rpc::RpcApi, BitcoinD};
     use strata_common::logging;
+    use tokio::time;
+    use tracing::trace;
 
     use super::*;
 
-    /// Get the authentication credentials for a given `bitcoind` instance.
-    fn get_auth(bitcoind: &BitcoinD) -> (String, String) {
-        let params = &bitcoind.params;
-        let cookie_values = params.get_cookie_values().unwrap().unwrap();
-        (cookie_values.user, cookie_values.password)
+    /// Spawn a `bitcoind` daemon in regtest.
+    fn spawn_bitcoind() {
+        let _ = Command::new("bitcoind")
+            .arg("-regtest")
+            .arg("-daemon")
+            .arg("-rpcuser=strata")
+            .arg("-rpcpassword=strata")
+            .arg("-fallbackfee=0.00001")
+            .output()
+            .expect("Failed to start bitcoind");
+    }
+
+    /// Create a wallet named `strata`.
+    fn createwallet() {
+        let _ = Command::new("bitcoin-cli")
+            .arg("-regtest")
+            .arg("-rpcuser=strata")
+            .arg("-rpcpassword=strata")
+            .arg("createwallet")
+            .arg("strata")
+            .output()
+            .expect("Failed to create wallet");
+    }
+
+    /// Stop the `bitcoind` daemon.
+    fn stop_bitcoind() {
+        let _ = Command::new("bitcoin-cli")
+            .arg("-regtest")
+            .arg("-rpcuser=strata")
+            .arg("-rpcpassword=strata")
+            .arg("stop")
+            .output()
+            .expect("Failed to stop bitcoind");
     }
 
     /// Mine a number of blocks of a given size `count`, which may be specified to a given coinbase
     /// `address`.
-    pub fn mine_blocks(
-        bitcoind: &BitcoinD,
-        count: usize,
+    pub async fn mine_blocks(
+        client: &BitcoinClient,
+        count: u16,
         address: Option<Address>,
     ) -> anyhow::Result<Vec<BlockHash>> {
         let coinbase_address = match address {
             Some(address) => address,
-            None => bitcoind
-                .client
-                .get_new_address(None, None)?
-                .assume_checked(),
+            None => client.get_new_address().await?,
         };
-        let block_hashes = bitcoind
-            .client
-            .generate_to_address(count as _, &coinbase_address)?;
+
+        trace!(%coinbase_address, "generatedtoaddress");
+        let block_hashes = client.generate_to_address(count, &coinbase_address).await?;
+        trace!(?block_hashes, "generatedtoaddress");
+
         Ok(block_hashes)
     }
 
@@ -426,11 +480,15 @@ mod test {
     async fn client_works() {
         logging::init(logging::LoggerConfig::with_base_name("btcio-tests"));
 
+        spawn_bitcoind();
+        time::sleep(time::Duration::from_secs(1)).await; // wait for bitcoind to start
+        createwallet();
+
         // setting the ENV variable `BITCOIN_XPRIV_RETRIEVABLE` to retrieve the xpriv
         set_var("BITCOIN_XPRIV_RETRIEVABLE", "true");
-        let bitcoind = BitcoinD::from_downloaded().unwrap();
-        let url = bitcoind.rpc_url();
-        let (user, password) = get_auth(&bitcoind);
+        let url = "http://127.0.0.1:18443".to_string();
+        let user = "strata".to_string();
+        let password = "strata".to_string();
         let client = BitcoinClient::new(url, user, password).unwrap();
 
         // network
@@ -442,7 +500,7 @@ mod test {
         let get_blockchain_info = client.get_blockchain_info().await.unwrap();
         assert_eq!(get_blockchain_info.blocks, 0);
 
-        let blocks = mine_blocks(&bitcoind, 101, None).unwrap();
+        let blocks = mine_blocks(&client, 101, None).await.unwrap();
 
         // get_block
         let expected = blocks.last().unwrap();
@@ -503,6 +561,11 @@ mod test {
         assert!(got.complete);
         assert!(consensus::encode::deserialize_hex::<Transaction>(&got.hex).is_ok());
 
+        // test_mempool_accept
+        let txids = client.test_mempool_accept(&tx).await.unwrap();
+        let got = txids.first().unwrap();
+        assert_eq!(got.txid, tx.compute_txid());
+
         // send_raw_transaction
         let got = client.send_raw_transaction(&tx).await.unwrap();
         assert!(got.as_byte_array().len() == 32);
@@ -513,7 +576,7 @@ mod test {
 
         // get_utxos
         // let's mine one more block
-        mine_blocks(&bitcoind, 1, None).unwrap();
+        mine_blocks(&client, 1, None).await.unwrap();
         let got = client.get_utxos().await.unwrap();
         assert_eq!(got.len(), 3);
 
@@ -537,5 +600,7 @@ mod test {
             .unwrap();
         let expected = vec![ImportDescriptorResult { success: true }];
         assert_eq!(expected, got);
+
+        stop_bitcoind();
     }
 }

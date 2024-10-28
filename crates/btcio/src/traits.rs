@@ -5,7 +5,7 @@ use crate::{
     client::ClientResult,
     types::{
         GetBlockchainInfo, GetTransaction, ImportDescriptor, ImportDescriptorResult,
-        ListTransactions, ListUnspent, SignRawTransactionWithWallet,
+        ListTransactions, ListUnspent, SignRawTransactionWithWallet, TestMempoolAccept,
     },
 };
 
@@ -85,6 +85,9 @@ pub trait Broadcaster {
     /// - `tx`: The raw transaction to send. This should be a byte array containing the serialized
     ///   raw transaction data.
     async fn send_raw_transaction(&self, tx: &Transaction) -> ClientResult<Txid>;
+
+    /// Tests if a raw transaction is valid.
+    async fn test_mempool_accept(&self, tx: &Transaction) -> ClientResult<Vec<TestMempoolAccept>>;
 }
 
 /// Wallet functionality that any Bitcoin client **without private keys** that
@@ -164,4 +167,20 @@ pub trait Signer {
         descriptors: Vec<ImportDescriptor>,
         wallet_name: String,
     ) -> ClientResult<Vec<ImportDescriptorResult>>;
+}
+
+/// Generating RPCs for the Bitcoin client.
+///
+/// # Note
+///
+/// This is only if your `bitcoind` is a miner.
+/// Useful for testing.
+#[async_trait]
+pub trait BlockGenerator {
+    /// Mine blocks immediately to a specified address
+    async fn generate_to_address(
+        &self,
+        nblocks: u16,
+        address: &Address,
+    ) -> ClientResult<Vec<BlockHash>>;
 }
