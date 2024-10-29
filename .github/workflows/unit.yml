@@ -61,6 +61,11 @@ jobs:
         run: |
           cargo llvm-cov --workspace --locked nextest --profile ci --lcov --output-path lcov.info
 
+      - name: Delete bitciond state
+        if: always()
+        run: |
+          rm -rf $HOME/.bitcoin
+
       - name: Test Summary
         uses: test-summary/action@v2
         if: always()
