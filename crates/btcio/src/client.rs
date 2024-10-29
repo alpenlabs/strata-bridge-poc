@@ -478,7 +478,7 @@ mod test {
 
     #[tokio::test()]
     async fn client_works() {
-        logging::init(logging::LoggerConfig::with_base_name("btcio-tests"));
+        logging::init();
 
         spawn_bitcoind();
         time::sleep(time::Duration::from_secs(1)).await; // wait for bitcoind to start
