@@ -491,7 +491,7 @@ mod test {
     }
 
     #[tokio::test()]
-    async fn bitcoind_client_works() {
+    async fn client_works() {
         logging::init();
 
         spawn_bitcoind();
