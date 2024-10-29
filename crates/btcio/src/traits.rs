@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bitcoin::{bip32::Xpriv, Address, Block, BlockHash, Network, Transaction, Txid};
 
 use crate::{
-    client::ClientResult,
+    error::ClientResult,
     types::{
         GetBlockchainInfo, GetTransaction, ImportDescriptor, ImportDescriptorResult,
         ListTransactions, ListUnspent, SignRawTransactionWithWallet, TestMempoolAccept,

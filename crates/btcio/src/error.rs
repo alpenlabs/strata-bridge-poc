@@ -6,6 +6,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Error as SerdeJsonError;
 use thiserror::Error;
 
+/// This is an alias for the result type returned by any bitcoin client.
+pub type ClientResult<T> = Result<T, ClientError>;
+
 /// The error type for errors produced in this library.
 #[derive(Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum ClientError {
