@@ -134,6 +134,39 @@ impl From<BitcoinRpcError> for ClientError {
     }
 }
 
+// FIXME: proper types and translations.
+impl From<esplora_client::Error> for ClientError {
+    fn from(value: esplora_client::Error) -> Self {
+        match value {
+            esplora_client::Error::Minreq(e) => Self::Request(e.to_string()),
+            esplora_client::Error::Reqwest(e) => Self::Request(e.to_string()),
+            esplora_client::Error::HttpResponse { status, message } => {
+                Self::Status(status.to_string(), message)
+            }
+            esplora_client::Error::Parsing(e) => Self::MalformedResponse(e.to_string()),
+            esplora_client::Error::StatusCode(e) => Self::MalformedResponse(e.to_string()),
+            esplora_client::Error::BitcoinEncoding(e) => Self::MalformedResponse(e.to_string()),
+            esplora_client::Error::HexToArray(e) => Self::MalformedResponse(e.to_string()),
+            esplora_client::Error::HexToBytes(e) => Self::MalformedResponse(e.to_string()),
+            esplora_client::Error::TransactionNotFound(txid) => {
+                Self::Other(format!("Transaction not found: {txid}"))
+            }
+            esplora_client::Error::HeaderHeightNotFound(height) => {
+                Self::Other(format!("Header height not found: {height}"))
+            }
+            esplora_client::Error::HeaderHashNotFound(hash) => {
+                Self::Other(format!("Header hash not found: {hash}"))
+            }
+            esplora_client::Error::InvalidHttpHeaderName(header) => {
+                Self::Other(format!("Invalid HTTP header name: {header}"))
+            }
+            esplora_client::Error::InvalidHttpHeaderValue(header) => {
+                Self::Other(format!("Invalid HTTP header name: {header}"))
+            }
+        }
+    }
+}
+
 /// Error returned when signing a raw transaction with a wallet fails.
 #[derive(Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SignRawTransactionWithWalletError {
