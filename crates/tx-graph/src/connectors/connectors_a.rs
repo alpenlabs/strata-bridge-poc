@@ -66,7 +66,7 @@ pub struct ConnectorA256<const N_PUBLIC_KEYS: usize> {
 }
 
 impl<const N_PUBLIC_KEYS: usize> ConnectorA256<N_PUBLIC_KEYS> {
-    fn create_locking_script(&self) -> ScriptBuf {
+    pub fn create_locking_script(&self) -> ScriptBuf {
         script! {
             for (_, public_key) in self.public_keys {
                 { wots256::checksig_verify(public_key) }
@@ -179,7 +179,7 @@ pub struct ConnectorA160<const N_PUBLIC_KEYS: usize> {
 }
 
 impl<const N_PUBLIC_KEYS: usize> ConnectorA160<N_PUBLIC_KEYS> {
-    fn create_locking_script(&self) -> ScriptBuf {
+    pub fn create_locking_script(&self) -> ScriptBuf {
         script! {
             for (_, public_key) in self.public_keys {
                 { wots160::checksig_verify(public_key) }

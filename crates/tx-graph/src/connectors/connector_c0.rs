@@ -1,7 +1,9 @@
 use bitcoin::{
+    psbt::Input,
     taproot::{ControlBlock, LeafVersion, TaprootSpendInfo},
     Address, Network, ScriptBuf, XOnlyPublicKey,
 };
+use secp256k1::schnorr::Signature;
 
 use super::params::{PAYOUT_OPTIMISTIC_TIMELOCK, SUPERBLOCK_MEASUREMENT_PERIOD};
 use crate::scripts::prelude::*;
@@ -65,5 +67,28 @@ impl ConnectorC0 {
 
         create_taproot_addr(&self.network, SpendPath::ScriptSpend { scripts })
             .expect("should be able to create taproot address")
+    }
+
+    pub fn finalize_input_with_n_of_n(
+        &self,
+        input: &mut Input,
+        n_of_n_signature: Signature,
+        tapleaf: ConnectorC0Leaf,
+    ) {
+        if let ConnectorC0Leaf::InvalidateTs = tapleaf {
+            // do nothing since this does not take an n_of_n sig
+            return;
+        }
+
+        let (script, control_block) = self.generate_spend_info(tapleaf);
+
+        finalize_input(
+            input,
+            [
+                n_of_n_signature.serialize().to_vec(),
+                script.to_bytes(),
+                control_block.serialize(),
+            ],
+        );
     }
 }
