@@ -21,9 +21,9 @@ pub fn secret_key_for_bridge_out_txid(msk: &str) -> String {
     secret_key_from_msk(msk, var)
 }
 
-pub fn secret_keys_for_groth16_proof_verification(msk: &str) -> (Vec<String>, Vec<String>) {
-    let var = "groth16_proof_verification";
-    secret_key_from_msk(msk, var)
+pub fn secret_key_for_proof_element(msk: &str, id: u32) -> String {
+    let var = &format!("proof_element_{}", id);
+    secret_key_from_msk(var, id)
 }
 
 pub fn public_key_for_superblock_hash(msk: &str) -> wots256::PublicKey {
@@ -35,24 +35,18 @@ pub fn public_key_for_superblock_period_start_ts(msk: &str) -> wots32::PublicKey
     let secret_key = secret_key_for_superblock_period_start_ts(msk);
     wots32::generate_public_key(&secret_key)
 }
+
 pub fn public_key_for_bridge_out_txid(msk: &str) -> wots256::PublicKey {
     let secret_key = secret_key_for_bridge_out_txid(msk);
     wots256::generate_public_key(&secret_key)
 }
-pub fn public_key_for_groth16_proof_verification(
-    msk: &str,
-) -> (Vec<wots256::PublicKey>, Vec<wots160::PublicKey>) {
-    let secret_keys = secret_keys_for_groth16_proof_verification(msk);
-    (
-        secret_keys
-            .0
-            .iter()
-            .map(|secret_key| wots256::generate_public_key(secret_key))
-            .collect(),
-        secret_keys
-            .1
-            .iter()
-            .map(|secret_key| wots160::generate_public_key(secret_key))
-            .collect(),
-    )
+
+pub fn public_key_for_proof_element_160(msk: &str, id: u32) -> wots160::PublicKey {
+    let secret_key = secret_key_for_proof_element(msk, id);
+    wots160::generate_public_key(&secret_key)
+}
+
+pub fn public_key_for_proof_element_256(msk: &str, id: u32) -> wots256::PublicKey {
+    let secret_key = secret_key_for_proof_element(msk, id);
+    wots256::generate_public_key(&secret_key)
 }
