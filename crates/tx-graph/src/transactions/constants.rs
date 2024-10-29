@@ -1,19 +1,22 @@
-pub const ASSERT_DATA_TX1_COUNT: usize = 5;
-pub const ASSERT_DATA_TX1_A160_PK11_COUNT: usize = 10;
-pub const ASSERT_DATA_TX1_A256_PK7_COUNT: usize = 1;
+use crate::connectors::constants::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256};
 
-pub const ASSERT_DATA_TX2_COUNT: usize = 1;
-pub const ASSERT_DATA_TX2_A160_PK11_COUNT: usize = 4;
-pub const ASSERT_DATA_TX2_A256_PK7_COUNT: usize = 2;
-pub const ASSERT_DATA_TX2_A160_PK4_COUNT: usize = 1;
+pub const NUM_ASSERT_DATA_TX1: usize = 5;
+pub const NUM_ASSERT_DATA_TX1_A160_PK11: usize = 10;
+pub const NUM_ASSERT_DATA_TX1_A256_PK7: usize = 1;
 
-pub const TOTAL_CONNECTORS: usize = (49 / 7) + (598 / 11) + 1;
+pub const NUM_ASSERT_DATA_TX2: usize = 1;
+pub const NUM_ASSERT_DATA_TX2_A160_PK11: usize = 4;
+pub const NUM_ASSERT_DATA_TX2_A256_PK7: usize = 2;
+pub const NUM_ASSERT_DATA_TX2_A160_PK4: usize = 1;
+
+pub const TOTAL_CONNECTORS: usize = NUM_CONNECTOR_A256 + NUM_CONNECTOR_A160 + 1; // +1 for the
+                                                                                 // residual A160 connecor with 4 scripts
+pub const TOTAL_VALUES: usize = NUM_ASSERT_DATA_TX1
+    * (NUM_ASSERT_DATA_TX1_A160_PK11 + NUM_ASSERT_DATA_TX1_A256_PK7)
+    + NUM_ASSERT_DATA_TX2
+        * (NUM_ASSERT_DATA_TX2_A160_PK11
+            + NUM_ASSERT_DATA_TX2_A256_PK7
+            + NUM_ASSERT_DATA_TX2_A160_PK4);
 
 // compile time to check to ensure that the numbers are sound.
-const _: usize = ASSERT_DATA_TX1_COUNT
-    * (ASSERT_DATA_TX1_A160_PK11_COUNT + ASSERT_DATA_TX1_A256_PK7_COUNT)
-    + ASSERT_DATA_TX2_COUNT
-        * (ASSERT_DATA_TX2_A160_PK11_COUNT
-            + ASSERT_DATA_TX2_A256_PK7_COUNT
-            + ASSERT_DATA_TX2_A160_PK4_COUNT)
-    - TOTAL_CONNECTORS;
+const _: [(); 0] = [(); (TOTAL_VALUES - TOTAL_CONNECTORS)];

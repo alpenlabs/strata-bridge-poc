@@ -3,10 +3,19 @@ use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
 
 use super::constants::{
-    ASSERT_DATA_TX1_A160_PK11_COUNT, ASSERT_DATA_TX1_A256_PK7_COUNT, ASSERT_DATA_TX1_COUNT,
-    ASSERT_DATA_TX2_A160_PK11_COUNT, ASSERT_DATA_TX2_A256_PK7_COUNT, ASSERT_DATA_TX2_COUNT,
+    NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
+    NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A256_PK7,
 };
-use crate::{connectors::prelude::*, scripts::prelude::*};
+use crate::{
+    connectors::{
+        constants::{
+            NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL, NUM_PKS_A256,
+            NUM_PKS_A256_PER_CONNECTOR,
+        },
+        prelude::*,
+    },
+    scripts::prelude::*,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreAssertData {
@@ -20,16 +29,16 @@ impl PreAssertTx {
     pub fn new(
         data: PreAssertData,
         connector_s: ConnectorS,
-        connector_a256: ConnectorA256Factory<7, 49>,
-        connector_a160: ConnectorA160Factory<11, 598>,
+        connector_a256: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256>,
+        connector_a160: ConnectorA160Factory<NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160>,
     ) -> Self {
         let (connector160_batch, connector160_remainder): (
-            Vec<ConnectorA160<11>>,
-            ConnectorA160<4>,
+            Vec<ConnectorA160<NUM_PKS_A160_PER_CONNECTOR>>,
+            ConnectorA160<NUM_PKS_A160_RESIDUAL>,
         ) = connector_a160.create_connectors();
 
         let (connector256_batch, _connector256_remainder): (
-            Vec<ConnectorA256<7>>,
+            Vec<ConnectorA256<NUM_PKS_A256_PER_CONNECTOR>>,
             ConnectorA256<0>,
         ) = connector_a256.create_connectors();
 
@@ -54,12 +63,12 @@ impl PreAssertTx {
 
         scripts_and_amounts.push((connector_s_script, connector_s_amt));
 
-        for _ in 0..ASSERT_DATA_TX1_COUNT {
+        for _ in 0..NUM_ASSERT_DATA_TX1 {
             scripts_and_amounts.extend(
                 connector160_batch
                     .iter()
                     .by_ref()
-                    .take(ASSERT_DATA_TX1_A160_PK11_COUNT)
+                    .take(NUM_ASSERT_DATA_TX1_A160_PK11)
                     .map(|conn| {
                         let script = conn.create_locking_script();
                         let amount = script.minimal_non_dust();
@@ -72,7 +81,7 @@ impl PreAssertTx {
                 connector256_batch
                     .iter()
                     .by_ref()
-                    .take(ASSERT_DATA_TX1_A256_PK7_COUNT)
+                    .take(NUM_ASSERT_DATA_TX1_A256_PK7)
                     .map(|conn| {
                         let script = conn.create_locking_script();
                         let amount = script.minimal_non_dust();
@@ -82,12 +91,12 @@ impl PreAssertTx {
             );
         }
 
-        for _ in 0..ASSERT_DATA_TX2_COUNT {
+        for _ in 0..NUM_ASSERT_DATA_TX2 {
             scripts_and_amounts.extend(
                 connector160_batch
                     .iter()
                     .by_ref()
-                    .take(ASSERT_DATA_TX2_A160_PK11_COUNT)
+                    .take(NUM_ASSERT_DATA_TX2_A160_PK11)
                     .map(|conn| {
                         let script = conn.create_locking_script();
                         let amount = script.minimal_non_dust();
@@ -100,7 +109,7 @@ impl PreAssertTx {
                 connector256_batch
                     .iter()
                     .by_ref()
-                    .take(ASSERT_DATA_TX2_A256_PK7_COUNT)
+                    .take(NUM_ASSERT_DATA_TX2_A256_PK7)
                     .map(|conn| {
                         let script = conn.create_locking_script();
                         let amount = script.minimal_non_dust();
