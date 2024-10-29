@@ -239,6 +239,23 @@ impl Reader for BitcoinClient {
             .await
     }
 
+    async fn get_superblock(&self, start_time: u64, end_time: u64) -> ClientResult<BlockHash> {
+        if start_time >= end_time {
+            return Err(ClientError::Other("Invalid time range".to_string()));
+        }
+
+        let mut block_hashes = Vec::with_capacity((end_time as usize - start_time as usize) + 1);
+        for height in start_time..=end_time {
+            // inclusive range
+            block_hashes.push(self.get_block_hash(height).await.expect("block hash"))
+        }
+        block_hashes
+            .iter()
+            .min()
+            .copied()
+            .ok_or(ClientError::Other("No block found".to_string()))
+    }
+
     async fn get_raw_mempool(&self) -> ClientResult<Vec<Txid>> {
         self.call::<Vec<Txid>>("getrawmempool", &[]).await
     }
@@ -600,6 +617,13 @@ mod test {
             .unwrap();
         let expected = vec![ImportDescriptorResult { success: true }];
         assert_eq!(expected, got);
+
+        // superblock
+        let got = client.get_superblock(50, 100).await.unwrap();
+        let block_hash_50 = client.get_block_hash(50).await.unwrap();
+        let block_hash_100 = client.get_block_hash(100).await.unwrap();
+        assert!(got <= block_hash_50);
+        assert!(got <= block_hash_100);
 
         stop_bitcoind();
     }
