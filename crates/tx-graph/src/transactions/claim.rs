@@ -11,15 +11,10 @@ pub struct ClaimData {
     pub kickoff_txid: Txid,
 
     pub n_of_n_sig: Signature,
-    // WOTS data
 }
 
 #[derive(Debug, Clone)]
-pub struct ClaimTx {
-    psbt: Psbt,
-
-    data: ClaimData,
-}
+pub struct ClaimTx(Psbt);
 
 impl ClaimTx {
     pub fn new(data: ClaimData, connector_c0: ConnectorC0, connector_c1: ConnectorC1) -> Self {
@@ -44,25 +39,36 @@ impl ClaimTx {
 
         let psbt = Psbt::from_unsigned_tx(tx).expect("tx should have an empty witness");
 
-        Self { psbt, data }
+        Self(psbt)
     }
 
     pub fn psbt(&self) -> &Psbt {
-        &self.psbt
+        &self.0
     }
 
     pub fn psbt_mut(&mut self) -> &mut Psbt {
-        &mut self.psbt
+        &mut self.0
     }
 
     pub fn txid(&self) -> Txid {
-        self.psbt.unsigned_tx.compute_txid()
+        self.0.unsigned_tx.compute_txid()
     }
 
-    pub fn finalize(mut self, connector_k: ConnectorK) -> Transaction {
-        self.psbt.inputs[0] = connector_k.create_tx_input(self.data.n_of_n_sig);
+    pub fn finalize(
+        mut self,
+        connector_k: ConnectorK,
+        msk: &str,
+        bridge_out_txid: Txid,
+        superblock_period_start_ts: u32,
+    ) -> Transaction {
+        connector_k.create_tx_input(
+            &mut self.0.inputs[0],
+            msk,
+            bridge_out_txid,
+            superblock_period_start_ts,
+        );
 
-        self.psbt
+        self.0
             .extract_tx()
             .expect("should be able to extract signed tx")
     }

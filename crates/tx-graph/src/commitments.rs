@@ -1,3 +1,6 @@
+use std::str::FromStr;
+
+use bitcoin::hashes::hash160;
 use bitvm::signatures::wots::{wots160, wots256, wots32};
 
 fn secret_key_from_msk(msk: &str, var: &str) -> String {

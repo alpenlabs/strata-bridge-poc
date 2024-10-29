@@ -1,5 +1,6 @@
 use bitvm::{
     bigint::{H256, U254},
+    pseudo::NMUL,
     treepp::*,
 };
 
