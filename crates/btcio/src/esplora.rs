@@ -148,15 +148,19 @@ impl Broadcaster for EsploraClient {
 }
 
 mod tests {
+    #[allow(unused_imports)] // Don't know why this is flagging unused
     use std::str::FromStr;
 
     use tokio::test;
 
     use super::*;
 
+    #[allow(dead_code)] // Don't know why this is flagging unused
     const BASE_URL: &str = "https://mempool.space/testnet4/api";
+    #[allow(dead_code)] // Don't know why this is flagging unused
     const NETWORK: Network = Network::Testnet;
 
+    #[allow(dead_code)] // Don't know why this is flagging unused
     fn create_client() -> EsploraClient {
         EsploraClient::new(BASE_URL.to_string(), NETWORK)
     }
