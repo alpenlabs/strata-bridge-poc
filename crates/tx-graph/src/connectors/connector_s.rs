@@ -1,8 +1,9 @@
-use bitcoin::{psbt::Input, Address, Network, Witness};
+use bitcoin::{psbt::Input, Address, Network};
 use secp256k1::{schnorr::Signature, XOnlyPublicKey};
 
 use crate::scripts::prelude::*;
 
+#[derive(Debug, Clone, Copy)]
 pub struct ConnectorS {
     pub agg_key: XOnlyPublicKey,
     pub network: Network,
@@ -26,11 +27,7 @@ impl ConnectorS {
         signature: Signature,
         input: &'input mut Input,
     ) -> &'input Input {
-        let mut witness_stack = Witness::new();
-
-        witness_stack.push(signature.as_ref());
-
-        finalize_input(input, witness_stack.into_iter());
+        finalize_input(input, [signature.as_ref()]);
 
         input
     }

@@ -4,23 +4,23 @@ use serde::{Deserialize, Serialize};
 use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AssertWithOutputChunksData {
+pub struct PreAssertData {
     claim_txid: Txid,
 }
 
 #[derive(Debug, Clone)]
-pub struct AssertWithOutputChunks {
-    psbt: Psbt,
+pub struct PreAssertTx {
+    _psbt: Psbt,
 
-    data: AssertWithOutputChunksData,
+    _data: PreAssertData,
 }
 
-impl AssertWithOutputChunksData {
+impl PreAssertTx {
     pub fn new(
-        data: AssertWithOutputChunksData,
-        connector_c0: ConnectorC0,
-        connector_s: ConnectorS,
-        connector_a1: ConnectorA1Factory,
+        _data: PreAssertData,
+        _connector_c0: ConnectorC0,
+        _connector_s: ConnectorS,
+        _connector_a1: ConnectorA256Factory,
     ) -> Self {
         todo!()
     }

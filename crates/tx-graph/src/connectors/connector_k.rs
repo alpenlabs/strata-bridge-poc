@@ -1,23 +1,20 @@
 use bitcoin::{
-    opcodes::all::OP_VERIFY,
     psbt::Input,
-    taproot::{ControlBlock, LeafVersion, Signature},
-    Address, Network, ScriptBuf, Transaction, Txid, Witness,
+    taproot::{ControlBlock, LeafVersion},
+    Address, Network, ScriptBuf, Txid,
 };
 use bitvm::{
-    bridge::transactions::base::Input,
     signatures::wots::{wots256, wots32},
     treepp::*,
 };
 use secp256k1::XOnlyPublicKey;
-use serde::{Deserialize, Serialize};
 
 use crate::{
     commitments::{secret_key_for_bridge_out_txid, secret_key_for_superblock_period_start_ts},
-    scripts::{prelude::*, transform::ts_from_nibbles},
+    scripts::prelude::*,
 };
 
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash)]
 pub struct ConnectorK {
     pub n_of_n_agg_key: XOnlyPublicKey,
 
@@ -40,6 +37,7 @@ impl ConnectorK {
             OP_DUP OP_NOT OP_VERIFY // assert the most significant nibble is zero
             for _ in 0..32 { OP_2DROP }
         }
+        .compile()
     }
 
     pub fn create_taproot_address(&self) -> Address {
@@ -70,13 +68,13 @@ impl ConnectorK {
         (script, control_block)
     }
 
-    pub fn create_tx_input<'input>(
+    pub fn create_tx_input(
         &self,
-        input: &'input mut Input,
+        input: &mut Input,
         msk: &str,
         bridge_out_txid: Txid, // starts with 0x0..
         superblock_period_start_ts: u32,
-    ) -> &'input Input {
+    ) {
         // 1. Create an array of witness data (`[Vec<u8>]`) `n_of_n_sig` and bitcommitments.
         // 2. Call taproot::finalize_input() to create the signed psbt input.
         // unimplemented!("call the bitvm impl to generate witness data for bitcommitments");
@@ -96,7 +94,5 @@ impl ConnectorK {
                 control_block.serialize(),
             ],
         );
-
-        input
     }
 }

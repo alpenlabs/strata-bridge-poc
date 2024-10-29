@@ -1,3 +1,6 @@
+use std::str::FromStr;
+
+use bitcoin::hashes::hash160;
 use bitvm::signatures::wots::{wots160, wots256, wots32};
 
 fn secret_key_from_msk(msk: &str, var: &str) -> String {
@@ -23,7 +26,9 @@ pub fn secret_key_for_bridge_out_txid(msk: &str) -> String {
 
 pub fn secret_keys_for_groth16_proof_verification(msk: &str) -> (Vec<String>, Vec<String>) {
     let var = "groth16_proof_verification";
-    secret_key_from_msk(msk, var)
+    // FIXME: should return a tuple?
+    secret_key_from_msk(msk, var);
+    todo!()
 }
 
 pub fn public_key_for_superblock_hash(msk: &str) -> wots256::PublicKey {
