@@ -14,7 +14,9 @@ rust.unused_must_use = "deny"
 bitcoin = { workspace = true, features = ["rand-std"] }
 bitcoin-script = { workspace = true }
 bitcoin-scriptexec = { workspace = true }
-esplora-client.workspace = true
+esplora-client = { workspace = true, default-features = false, features = [
+  "async-https-rustls",
+] }
 lazy_static.workspace = true
 musig2 = { workspace = true, features = ["serde"] }
 rand.workspace = true

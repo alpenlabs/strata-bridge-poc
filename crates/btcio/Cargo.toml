@@ -10,6 +10,9 @@ base64.workspace = true
 bitcoin.workspace = true
 borsh.workspace = true
 bytes.workspace = true
+esplora-client = { workspace = true, default-features = false, features = [
+  "async-https-rustls",
+] }
 hex.workspace = true
 musig2 = { workspace = true, features = ["serde"] }
 rand.workspace = true

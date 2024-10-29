@@ -24,7 +24,7 @@ use tokio::time::sleep;
 use tracing::*;
 
 use crate::{
-    error::{BitcoinRpcError, ClientError},
+    error::{BitcoinRpcError, ClientError, ClientResult},
     traits::{BlockGenerator, Broadcaster, Reader, Signer, Wallet},
     types::{
         CreateWallet, GetBlockVerbosityZero, GetBlockchainInfo, GetNewAddress, GetTransaction,
@@ -32,9 +32,6 @@ use crate::{
         SignRawTransactionWithWallet, TestMempoolAccept,
     },
 };
-
-/// This is an alias for the result type returned by the [`BitcoinClient`].
-pub type ClientResult<T> = Result<T, ClientError>;
 
 /// The maximum number of retries for a request.
 const MAX_RETRIES: u8 = 3;
@@ -494,7 +491,7 @@ mod test {
     }
 
     #[tokio::test()]
-    async fn client_works() {
+    async fn bitcoind_client_works() {
         logging::init();
 
         spawn_bitcoind();

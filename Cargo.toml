@@ -40,7 +40,10 @@ bytes = "1.6.0"
 chrono = "0.4.38"
 digest = "0.10"
 dotenvy = "0.15.7"
-esplora-client = { git = "https://github.com/BitVM/rust-esplora-client" }
+esplora-client = { git = "https://github.com/BitVM/rust-esplora-client", default-features = false, features = [
+  "blocking-https-rustls",
+  "async-https-rustls",
+] }
 ethnum = "1.5.0"
 eyre = "0.6"
 format_serde_error = { git = "https://github.com/AlexanderThaller/format_serde_error" }
