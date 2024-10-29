@@ -11,7 +11,6 @@ pub struct ClaimData {
     pub kickoff_txid: Txid,
 
     pub n_of_n_sig: Signature,
-    // WOTS data
 }
 
 #[derive(Debug, Clone)]
