@@ -1,10 +1,4 @@
-use bitvm::{
-    bigint::{BigIntImpl, U254},
-    pseudo::NMUL,
-    treepp::*,
-};
-
-pub type H256 = BigIntImpl<256, 30>;
+use bitvm::{bigint::U254, bn254::chunk_superblock::H256, pseudo::NMUL, treepp::*};
 
 fn split_digit(window: u32, index: u32) -> Script {
     script! {
