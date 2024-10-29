@@ -5,6 +5,7 @@ use bitcoin::{
     Address, Network, ScriptBuf, Transaction, Txid, Witness,
 };
 use bitvm::{
+    bridge::transactions::base::Input,
     signatures::wots::{wots256, wots32},
     treepp::*,
 };
@@ -69,28 +70,33 @@ impl ConnectorK {
         (script, control_block)
     }
 
-    pub fn create_tx_input(
+    pub fn create_tx_input<'input>(
         &self,
+        input: &'input mut Input,
         msk: &str,
-        _n_of_n_sig: Signature,
         bridge_out_txid: Txid, // starts with 0x0..
         superblock_period_start_ts: u32,
-    ) -> Input {
-        let mut witness_stack = Witness::new();
-
-        let (script, control_block) = self.generate_spend_info();
-        witness_stack.push(script.to_bytes());
-        witness_stack.push(control_block.serialize());
-
+    ) -> &'input Input {
         // 1. Create an array of witness data (`[Vec<u8>]`) `n_of_n_sig` and bitcommitments.
         // 2. Call taproot::finalize_input() to create the signed psbt input.
         // unimplemented!("call the bitvm impl to generate witness data for bitcommitments");
-        script! {
-            // bridge_out_tx_id
+        let witness = script! {
             { wots256::sign(&secret_key_for_bridge_out_txid(msk), bridge_out_txid.as_ref()) }
 
-            // superblock_period_start_timestamp
             { wots32::sign(&secret_key_for_superblock_period_start_ts(msk), &superblock_period_start_ts.to_le_bytes()) }
-        }
+        }.compile();
+
+        let (script, control_block) = self.generate_spend_info();
+
+        finalize_input(
+            input,
+            [
+                witness.to_bytes(),
+                script.to_bytes(),
+                control_block.serialize(),
+            ],
+        );
+
+        input
     }
 }
