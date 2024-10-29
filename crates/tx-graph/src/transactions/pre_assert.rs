@@ -1,4 +1,4 @@
-use bitcoin::{OutPoint, Psbt, Transaction, Txid};
+use bitcoin::{Amount, OutPoint, Psbt, Transaction, Txid};
 use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
 
@@ -14,6 +14,7 @@ use crate::{
         },
         prelude::*,
     },
+    constants::{MIN_RELAY_FEE, OPERATOR_STAKE},
     scripts::prelude::*,
 };
 
@@ -23,7 +24,11 @@ pub struct PreAssertData {
 }
 
 #[derive(Debug, Clone)]
-pub struct PreAssertTx(Psbt);
+pub struct PreAssertTx {
+    psbt: Psbt,
+
+    remaining_stake: Amount,
+}
 
 impl PreAssertTx {
     pub fn new(
@@ -59,7 +64,8 @@ impl PreAssertTx {
         let mut scripts_and_amounts = vec![];
 
         let connector_s_script = connector_s.create_taproot_address().script_pubkey();
-        let connector_s_amt = connector_s_script.minimal_non_dust();
+        let connector_s_amt = Amount::from_int_btc(0); // this is set after all the output
+                                                       // amounts have been calculated for the assertion
 
         scripts_and_amounts.push((connector_s_script, connector_s_amt));
 
@@ -122,6 +128,11 @@ impl PreAssertTx {
         let connector160_remainder_script = connector160_remainder.create_locking_script();
         let connector160_remainder_amt = connector160_remainder_script.minimal_non_dust();
 
+        let total_assertion_amount = scripts_and_amounts.iter().map(|(_, amt)| *amt).sum();
+        let net_stake = OPERATOR_STAKE - total_assertion_amount - MIN_RELAY_FEE;
+
+        scripts_and_amounts[0].1 = net_stake;
+
         scripts_and_amounts.push((connector160_remainder_script, connector160_remainder_amt));
 
         let tx_outs = create_tx_outs(scripts_and_amounts);
@@ -130,15 +141,26 @@ impl PreAssertTx {
 
         let psbt = Psbt::from_unsigned_tx(tx).expect("input should have an empty witness field");
 
-        Self(psbt)
+        Self {
+            psbt,
+            remaining_stake: net_stake,
+        }
     }
 
     pub fn psbt(&self) -> &Psbt {
-        &self.0
+        &self.psbt
     }
 
     pub fn psbt_mut(&mut self) -> &mut Psbt {
-        &mut self.0
+        &mut self.psbt
+    }
+
+    pub fn remaining_stake(&self) -> Amount {
+        self.remaining_stake
+    }
+
+    pub fn txid(&self) -> Txid {
+        self.psbt.unsigned_tx.compute_txid()
     }
 
     pub fn finalize(mut self, n_of_n_sig: Signature, connector_c0: ConnectorC0) -> Transaction {
@@ -148,6 +170,8 @@ impl PreAssertTx {
             ConnectorC0Leaf::Assert,
         );
 
-        self.0.extract_tx().expect("should be able to extract tx")
+        self.psbt
+            .extract_tx()
+            .expect("should be able to extract tx")
     }
 }

@@ -1,4 +1,4 @@
-use bitcoin::{taproot::Signature, OutPoint, Psbt, Transaction, Txid};
+use bitcoin::{taproot::Signature, Amount, OutPoint, Psbt, Transaction, Txid};
 
 use crate::{
     connectors::prelude::*,
@@ -14,7 +14,11 @@ pub struct ClaimData {
 }
 
 #[derive(Debug, Clone)]
-pub struct ClaimTx(Psbt);
+pub struct ClaimTx {
+    psbt: Psbt,
+
+    remaining_stake: Amount,
+}
 
 impl ClaimTx {
     pub fn new(data: ClaimData, connector_c0: ConnectorC0, connector_c1: ConnectorC1) -> Self {
@@ -39,19 +43,26 @@ impl ClaimTx {
 
         let psbt = Psbt::from_unsigned_tx(tx).expect("tx should have an empty witness");
 
-        Self(psbt)
+        Self {
+            psbt,
+            remaining_stake: c0_amt,
+        }
     }
 
     pub fn psbt(&self) -> &Psbt {
-        &self.0
+        &self.psbt
     }
 
     pub fn psbt_mut(&mut self) -> &mut Psbt {
-        &mut self.0
+        &mut self.psbt
+    }
+
+    pub fn remaining_stake(&self) -> Amount {
+        self.remaining_stake
     }
 
     pub fn txid(&self) -> Txid {
-        self.0.unsigned_tx.compute_txid()
+        self.psbt.unsigned_tx.compute_txid()
     }
 
     pub fn finalize(
@@ -62,13 +73,13 @@ impl ClaimTx {
         superblock_period_start_ts: u32,
     ) -> Transaction {
         connector_k.create_tx_input(
-            &mut self.0.inputs[0],
+            &mut self.psbt.inputs[0],
             msk,
             bridge_out_txid,
             superblock_period_start_ts,
         );
 
-        self.0
+        self.psbt
             .extract_tx()
             .expect("should be able to extract signed tx")
     }

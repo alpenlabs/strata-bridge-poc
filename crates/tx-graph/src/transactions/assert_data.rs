@@ -57,12 +57,25 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
         Self(psbts.try_into().expect("should have exactly N elements"))
     }
 
+    pub fn psbts(&self) -> &[Psbt; N] {
+        &self.0
+    }
+
     pub fn psbt_at_index(&self, index: usize) -> Option<&Psbt> {
         self.0.get(index)
     }
 
     pub fn psbt_at_index_mut(&mut self, index: usize) -> Option<&mut Psbt> {
         self.0.get_mut(index)
+    }
+
+    pub fn txids(&self) -> [Txid; N] {
+        self.0
+            .iter()
+            .map(|psbt| psbt.unsigned_tx.compute_txid())
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
     }
 
     pub fn finalize(

@@ -12,3 +12,5 @@ pub const PAYOUT_OPTIMISTIC_TIMELOCK: u32 = 3000;
 const _: u32 =
     PAYOUT_OPTIMISTIC_TIMELOCK - (SUPERBLOCK_MEASUREMENT_PERIOD + TS_COMMITMENT_MARGIN + 100); // 100
                                                                                                // is slack
+
+pub const PAYOUT_TIMELOCK: u32 = 144; // 1 day's worth of blocks in mainnet
