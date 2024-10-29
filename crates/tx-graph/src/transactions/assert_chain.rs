@@ -20,7 +20,7 @@ impl PreAssertTx {
         _data: PreAssertData,
         _connector_c0: ConnectorC0,
         _connector_s: ConnectorS,
-        _connector_a1: ConnectorA256Factory,
+        _connector_a1: ConnectorA256Factory<7, 7, 49>,
     ) -> Self {
         todo!()
     }
