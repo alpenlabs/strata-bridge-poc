@@ -26,7 +26,7 @@ pub fn secret_key_for_bridge_out_txid(msk: &str) -> String {
 
 pub fn secret_key_for_proof_element(msk: &str, id: u32) -> String {
     let var = &format!("proof_element_{}", id);
-    secret_key_from_msk(var, id)
+    secret_key_from_msk(msk, var)
 }
 
 pub fn public_key_for_superblock_hash(msk: &str) -> wots256::PublicKey {
