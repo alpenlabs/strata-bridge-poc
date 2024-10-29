@@ -63,7 +63,7 @@ impl<
 }
 
 #[derive(Debug, Clone)]
-struct ConnectorA256<const N_PUBLIC_KEYS: usize> {
+pub struct ConnectorA256<const N_PUBLIC_KEYS: usize> {
     pub network: Network,
     pub public_keys: [(u32, wots256::PublicKey); N_PUBLIC_KEYS],
 }
@@ -130,7 +130,57 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA256<N_PUBLIC_KEYS> {
     }
 }
 
-struct ConnectorA160<const N_PUBLIC_KEYS: usize> {
+#[derive(Debug, Clone)]
+pub struct ConnectorA160Factory<
+    const N_CONNECTORS: usize,
+    const N_PUBLIC_KEYS_PER_CONNECTOR: usize,
+    const N_PUBLIC_KEYS: usize,
+> {
+    pub network: Network,
+
+    pub public_keys: [(u32, wots160::PublicKey); N_PUBLIC_KEYS],
+}
+
+impl<
+        const N_CONNECTORS: usize,
+        const N_PUBLIC_KEYS_PER_CONNECTOR: usize,
+        const N_PUBLIC_KEYS: usize,
+    > ConnectorA160Factory<N_CONNECTORS, N_PUBLIC_KEYS_PER_CONNECTOR, N_PUBLIC_KEYS>
+{
+    pub fn create_connectors(&self) -> [ConnectorA160<N_PUBLIC_KEYS_PER_CONNECTOR>; N_CONNECTORS] {
+        let mut connectors: Vec<ConnectorA160<N_PUBLIC_KEYS_PER_CONNECTOR>> =
+            Vec::with_capacity(N_PUBLIC_KEYS_PER_CONNECTOR);
+
+        let mut chunks = self.public_keys.chunks_exact(N_PUBLIC_KEYS_PER_CONNECTOR);
+        for chunk in chunks.by_ref() {
+            let connector = ConnectorA160::<N_PUBLIC_KEYS_PER_CONNECTOR> {
+                network: self.network,
+                public_keys:
+                    TryInto::<[(u32, wots160::PublicKey); N_PUBLIC_KEYS_PER_CONNECTOR]>::try_into(
+                        chunk,
+                    )
+                    .unwrap(),
+            };
+
+            connectors.push(connector);
+        }
+
+        let remaining = chunks.remainder();
+        if !remaining.is_empty() {
+            let connector = ConnectorA160 {
+                network: self.network,
+                public_keys: remaining.try_into().unwrap(),
+            };
+
+            connectors.push(connector);
+        }
+
+        connectors.try_into().expect("size should match")
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ConnectorA160<const N_PUBLIC_KEYS: usize> {
     pub network: Network,
     pub public_keys: [(u32, wots160::PublicKey); N_PUBLIC_KEYS],
 }
