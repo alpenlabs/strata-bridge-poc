@@ -18,7 +18,6 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct ConnectorA256Factory<
-    const N_CONNECTORS: usize,
     const N_PUBLIC_KEYS_PER_CONNECTOR: usize,
     const N_PUBLIC_KEYS: usize,
 > {
@@ -27,15 +26,17 @@ pub struct ConnectorA256Factory<
     pub public_keys: [(u32, wots256::PublicKey); N_PUBLIC_KEYS],
 }
 
-impl<
-        const N_CONNECTORS: usize,
-        const N_PUBLIC_KEYS_PER_CONNECTOR: usize,
-        const N_PUBLIC_KEYS: usize,
-    > ConnectorA256Factory<N_CONNECTORS, N_PUBLIC_KEYS_PER_CONNECTOR, N_PUBLIC_KEYS>
+impl<const N_PUBLIC_KEYS_PER_CONNECTOR: usize, const N_PUBLIC_KEYS: usize>
+    ConnectorA256Factory<N_PUBLIC_KEYS_PER_CONNECTOR, N_PUBLIC_KEYS>
 {
-    pub fn create_connectors(&self) -> [ConnectorA256<N_PUBLIC_KEYS_PER_CONNECTOR>; N_CONNECTORS] {
+    pub fn create_connectors(
+        &self,
+    ) -> (
+        Vec<ConnectorA256<N_PUBLIC_KEYS_PER_CONNECTOR>>,
+        ConnectorA256<{ N_PUBLIC_KEYS % N_PUBLIC_KEYS_PER_CONNECTOR }>,
+    ) {
         let mut connectors: Vec<ConnectorA256<N_PUBLIC_KEYS_PER_CONNECTOR>> =
-            Vec::with_capacity(N_PUBLIC_KEYS_PER_CONNECTOR);
+            Vec::with_capacity(N_PUBLIC_KEYS / N_PUBLIC_KEYS_PER_CONNECTOR);
 
         let mut chunks = self.public_keys.chunks_exact(N_PUBLIC_KEYS_PER_CONNECTOR);
         for chunk in chunks.by_ref() {
@@ -52,16 +53,12 @@ impl<
         }
 
         let remaining = chunks.remainder();
-        if !remaining.is_empty() {
-            let connector = ConnectorA256 {
-                network: self.network,
-                public_keys: remaining.try_into().unwrap(),
-            };
+        let connector = ConnectorA256::<{ N_PUBLIC_KEYS % N_PUBLIC_KEYS_PER_CONNECTOR }> {
+            network: self.network,
+            public_keys: remaining.try_into().unwrap(),
+        };
 
-            connectors.push(connector);
-        }
-
-        connectors.try_into().expect("size should match")
+        (connectors, connector)
     }
 }
 
@@ -135,7 +132,6 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA256<N_PUBLIC_KEYS> {
 
 #[derive(Debug, Clone)]
 pub struct ConnectorA160Factory<
-    const N_CONNECTORS: usize,
     const N_PUBLIC_KEYS_PER_CONNECTOR: usize,
     const N_PUBLIC_KEYS: usize,
 > {
@@ -144,15 +140,16 @@ pub struct ConnectorA160Factory<
     pub public_keys: [(u32, wots160::PublicKey); N_PUBLIC_KEYS],
 }
 
-impl<
-        const N_CONNECTORS: usize,
-        const N_PUBLIC_KEYS_PER_CONNECTOR: usize,
-        const N_PUBLIC_KEYS: usize,
-    > ConnectorA160Factory<N_CONNECTORS, N_PUBLIC_KEYS_PER_CONNECTOR, N_PUBLIC_KEYS>
+impl<const N_PUBLIC_KEYS_PER_CONNECTOR: usize, const N_PUBLIC_KEYS: usize>
+    ConnectorA160Factory<N_PUBLIC_KEYS_PER_CONNECTOR, N_PUBLIC_KEYS>
 {
-    pub fn create_connectors(&self) -> [ConnectorA160<N_PUBLIC_KEYS_PER_CONNECTOR>; N_CONNECTORS] {
-        let mut connectors: Vec<ConnectorA160<N_PUBLIC_KEYS_PER_CONNECTOR>> =
-            Vec::with_capacity(N_PUBLIC_KEYS_PER_CONNECTOR);
+    pub fn create_connectors(
+        &self,
+    ) -> (
+        Vec<ConnectorA160<N_PUBLIC_KEYS_PER_CONNECTOR>>,
+        ConnectorA160<{ N_PUBLIC_KEYS % N_PUBLIC_KEYS_PER_CONNECTOR }>,
+    ) {
+        let mut connectors: Vec<ConnectorA160<N_PUBLIC_KEYS_PER_CONNECTOR>> = vec![];
 
         let mut chunks = self.public_keys.chunks_exact(N_PUBLIC_KEYS_PER_CONNECTOR);
         for chunk in chunks.by_ref() {
@@ -169,16 +166,12 @@ impl<
         }
 
         let remaining = chunks.remainder();
-        if !remaining.is_empty() {
-            let connector = ConnectorA160 {
-                network: self.network,
-                public_keys: remaining.try_into().unwrap(),
-            };
+        let connector = ConnectorA160 {
+            network: self.network,
+            public_keys: remaining.try_into().unwrap(),
+        };
 
-            connectors.push(connector);
-        }
-
-        connectors.try_into().expect("size should match")
+        (connectors, connector)
     }
 }
 
