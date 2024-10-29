@@ -58,6 +58,10 @@ pub trait Reader {
     /// Gets various state info regarding blockchain processing.
     async fn get_blockchain_info(&self) -> ClientResult<GetBlockchainInfo>;
 
+    /// Gets the header of the heaviest block (lowest hash) within the time range
+    /// [`start_time`, `end_time`] (inclusive).
+    async fn get_superblock(&self, start_time: u64, end_time: u64) -> ClientResult<BlockHash>;
+
     /// Gets all transaction ids in mempool.
     async fn get_raw_mempool(&self) -> ClientResult<Vec<Txid>>;
 
