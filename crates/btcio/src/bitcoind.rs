@@ -253,6 +253,12 @@ impl Reader for BitcoinClient {
             .ok_or(ClientError::Other("No block found".to_string()))
     }
 
+    async fn get_current_timestamp(&self) -> ClientResult<u64> {
+        let best_block_hash = self.call::<BlockHash>("getbestblockhash", &[]).await?;
+        let block = self.get_block(&best_block_hash).await?;
+        Ok(block.header.time as u64)
+    }
+
     async fn get_raw_mempool(&self) -> ClientResult<Vec<Txid>> {
         self.call::<Vec<Txid>>("getrawmempool", &[]).await
     }
