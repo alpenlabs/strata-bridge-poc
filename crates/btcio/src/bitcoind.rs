@@ -427,50 +427,14 @@ impl BlockGenerator for BitcoinClient {
 
 #[cfg(test)]
 mod test {
-    use std::{env::set_var, process::Command};
+    use std::env::set_var;
 
     use bitcoin::{consensus, hashes::Hash, NetworkKind};
     use strata_common::logging;
-    use tokio::time;
+    use strata_test_utils::bitcoind::BitcoinD;
     use tracing::trace;
 
     use super::*;
-
-    /// Spawn a `bitcoind` daemon in regtest.
-    fn spawn_bitcoind() {
-        let _ = Command::new("bitcoind")
-            .arg("-regtest")
-            .arg("-daemon")
-            .arg("-rpcuser=strata")
-            .arg("-rpcpassword=strata")
-            .arg("-datadir=/tmp/bitcoin")
-            .arg("-fallbackfee=0.00001")
-            .output()
-            .expect("Failed to start bitcoind");
-    }
-
-    /// Create a wallet named `strata`.
-    fn createwallet() {
-        let _ = Command::new("bitcoin-cli")
-            .arg("-regtest")
-            .arg("-rpcuser=strata")
-            .arg("-rpcpassword=strata")
-            .arg("createwallet")
-            .arg("strata")
-            .output()
-            .expect("Failed to create wallet");
-    }
-
-    /// Stop the `bitcoind` daemon.
-    fn stop_bitcoind() {
-        let _ = Command::new("bitcoin-cli")
-            .arg("-regtest")
-            .arg("-rpcuser=strata")
-            .arg("-rpcpassword=strata")
-            .arg("stop")
-            .output()
-            .expect("Failed to stop bitcoind");
-    }
 
     /// Mine a number of blocks of a given size `count`, which may be specified to a given coinbase
     /// `address`.
@@ -495,15 +459,13 @@ mod test {
     async fn client_works() {
         logging::init();
 
-        spawn_bitcoind();
-        time::sleep(time::Duration::from_secs(1)).await; // wait for bitcoind to start
-        createwallet();
+        let bitcoind = BitcoinD::default();
+        let url = bitcoind.url.to_string();
+        let user = bitcoind.user.to_string();
+        let password = bitcoind.password.to_string();
 
         // setting the ENV variable `BITCOIN_XPRIV_RETRIEVABLE` to retrieve the xpriv
         set_var("BITCOIN_XPRIV_RETRIEVABLE", "true");
-        let url = "http://127.0.0.1:18443".to_string();
-        let user = "strata".to_string();
-        let password = "strata".to_string();
         let client = BitcoinClient::new(url, user, password).unwrap();
 
         // network
@@ -622,7 +584,5 @@ mod test {
         let block_hash_100 = client.get_block_hash(100).await.unwrap();
         assert!(got <= block_hash_50);
         assert!(got <= block_hash_100);
-
-        stop_bitcoind();
     }
 }
