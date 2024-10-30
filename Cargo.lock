@@ -7648,6 +7648,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "strata-common",
+ "strata-test-utils",
  "thiserror",
  "threadpool",
  "tokio",
@@ -7727,6 +7728,16 @@ dependencies = [
  "strata-crypto",
  "strata-primitives",
  "strata-zkvm",
+ "tracing",
+]
+
+[[package]]
+name = "strata-test-utils"
+version = "0.1.0"
+dependencies = [
+ "strata-common",
+ "tempfile",
+ "tokio",
  "tracing",
 ]
 
