@@ -8,7 +8,7 @@ use sp1_helper::build_program;
 const RISC_V_COMPILER: &str = "/opt/riscv/bin/riscv-none-elf-gcc";
 const ELF_FILE_PATH: &str = "guest-bridge/elf/riscv32im-succinct-zkvm-elf";
 const MOCK_ELF_CONTENT: &str = r#"
-    pub const RETH_SP1_ELF: &[u8] = &[];
+    pub const GUEST_BRIDGE_ELF: &[u8] = &[];
 "#;
 
 fn main() {
@@ -47,7 +47,7 @@ fn generate_elf_content(elf_path: &str) -> String {
 
     format!(
         r#"
-        pub const RETH_SP1_ELF: &[u8] = &[{}];
+        pub const GUEST_BRIDGE_ELF: &[u8] = &[{}];
     "#,
         contents_str
     )
