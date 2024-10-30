@@ -21,7 +21,7 @@ pub struct AssertDataTxInput {
 }
 
 #[derive(Debug, Clone)]
-pub struct AssertDataTxBatch<const N: usize, const N_INPUTS_PER_TX: usize>([Psbt; N]);
+pub struct AssertDataTxBatch<const N: usize, const N_INPUTS_PER_TX1: usize>([Psbt; N]);
 
 impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS_PER_TX> {
     pub fn new(input: AssertDataTxInput, connector_a2: ConnectorS) -> Self {
@@ -69,7 +69,7 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
         self.0.get_mut(index)
     }
 
-    pub fn txids(&self) -> [Txid; N] {
+    pub fn compute_txids(&self) -> [Txid; N] {
         self.0
             .iter()
             .map(|psbt| psbt.unsigned_tx.compute_txid())

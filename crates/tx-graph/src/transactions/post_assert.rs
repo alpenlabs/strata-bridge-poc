@@ -6,9 +6,9 @@ use crate::{connectors::prelude::*, scripts::prelude::*};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostAssertTxData {
-    assert_data_txids: Vec<Txid>,
+    pub assert_data_txids: Vec<Txid>,
 
-    input_amount: Amount,
+    pub input_amount: Amount,
 }
 
 #[derive(Debug, Clone)]
@@ -58,7 +58,7 @@ impl PostAssertTx {
         self.remaining_stake
     }
 
-    pub fn txid(&self) -> Txid {
+    pub fn compute_txid(&self) -> Txid {
         self.psbt.unsigned_tx.compute_txid()
     }
 

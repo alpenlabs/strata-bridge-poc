@@ -159,7 +159,7 @@ impl PreAssertTx {
         self.remaining_stake
     }
 
-    pub fn txid(&self) -> Txid {
+    pub fn compute_txid(&self) -> Txid {
         self.psbt.unsigned_tx.compute_txid()
     }
 
