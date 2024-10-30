@@ -784,21 +784,6 @@ name = "bytemuck"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8334215b81e418a0a7bdb8ef0849474f40bb10c8b71f1c4ed315cff49f32494d"
-checksum = "94bbb0ad554ad961ddc5da507a12a29b14e4ae5bda06b19f575a3e6079d2e2ae"
-dependencies = [
- "bytemuck_derive",
-]
-
-[[package]]
-name = "bytemuck_derive"
-version = "1.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bcfcc3cd946cb52f0bbfdbbcfa2f4e24f75ebb6c0e1002f7c25904fada18b9ec"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.71",
-]
 
 [[package]]
 name = "byteorder"
@@ -1814,12 +1799,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ethnum"
-version = "1.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b90ca2580b73ab6a1f724b76ca11ab632df820fd6040c336200d2c1df7b3c82c"
-
-[[package]]
 name = "eyre"
 version = "0.6.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2790,7 +2769,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -3137,7 +3116,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 3.1.0",
+ "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
  "syn 2.0.85",
@@ -4883,20 +4862,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3c5e1a9a646d36c3599cd173a41282daf47c44583ad367b8e6837255952e5c67"
 
 [[package]]
-name = "snark-bn254-verifier"
-version = "1.0.2"
-source = "git+https://github.com/succinctlabs/snark-bn254-verifier.git?branch=bhargav/groth16-verf#6e8c1b423b5572c48131ca10b426fb59b6845c02"
-dependencies = [
- "lazy_static",
- "num-bigint 0.4.6",
- "num-traits",
- "rand",
- "sha2",
- "substrate-bn",
- "thiserror",
-]
-
-[[package]]
 name = "snowbridge-amcl"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5072,20 +5037,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f08124c62d09764810783355cff518477e3f36c8e83343623859afeca6f3eeb"
 dependencies = [
  "sp1-build",
-]
-
-[[package]]
-name = "sp1-lib"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bea7811abd2d3a991007fcb284f41152840b8388c171288d0c52c6793956609c"
-dependencies = [
- "anyhow",
- "bincode",
- "cfg-if",
- "hex",
- "serde",
- "snowbridge-amcl",
 ]
 
 [[package]]
@@ -5495,155 +5446,12 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "strata-bridge-contexts",
-]
-
-[[package]]
-name = "strata-cli"
-version = "0.1.0"
-dependencies = [
- "aes-gcm-siv",
- "alloy",
- "argh",
- "argon2",
- "bdk_esplora",
- "bdk_wallet",
- "bip39",
- "config",
- "console",
- "dialoguer",
- "directories",
- "indicatif",
- "keyring",
- "rand",
- "reqwest 0.12.7",
- "serde",
- "sha2",
- "shrex",
- "sled",
- "strata-bridge-tx-builder",
- "terrors",
- "tokio",
-]
-
-[[package]]
-name = "strata-crypto"
-version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#1038dd849f9d1d3f2ca17940dc4631072852a25a"
-dependencies = [
- "borsh",
- "secp256k1 0.29.1",
- "sha2",
- "strata-primitives",
-]
-
-[[package]]
-name = "strata-primitives"
-version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#1038dd849f9d1d3f2ca17940dc4631072852a25a"
-dependencies = [
- "anyhow",
- "arbitrary",
- "bincode",
- "bitcoin 0.32.1",
- "borsh",
- "digest 0.10.7",
- "hex",
- "musig2 0.1.0",
- "rand",
- "reth-primitives",
- "secp256k1 0.29.1",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "tracing",
 ]
 
 [[package]]
 name = "strata-proofimpl-bitvm-bridge"
 version = "0.1.0"
 dependencies = [
- "bitcoin 0.31.0",
- "borsh",
- "serde",
- "strata-primitives",
- "strata-state",
- "strata-zkvm",
-]
-
-[[package]]
-name = "strata-prover-manager"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "bincode",
- "bitcoin 0.31.0",
- "borsh",
- "hex",
- "num-bigint 0.4.6",
- "num-traits",
- "serde",
- "sp1-sdk",
- "strata-bridge-guest-builder",
- "strata-primitives",
- "strata-proofimpl-bitvm-bridge",
- "strata-sp1-adapter",
- "strata-state",
- "strata-zkvm",
-]
-
-[[package]]
-name = "strata-sp1-adapter"
-version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#1038dd849f9d1d3f2ca17940dc4631072852a25a"
-dependencies = [
- "anyhow",
- "bincode",
- "borsh",
- "hex",
- "num-bigint 0.4.6",
- "num-traits",
- "serde",
- "serde_json",
- "sha2",
- "snark-bn254-verifier",
- "sp1-sdk",
- "strata-primitives",
- "strata-zkvm",
- "substrate-bn",
- "tracing",
-]
-
-[[package]]
-name = "strata-state"
-version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#1038dd849f9d1d3f2ca17940dc4631072852a25a"
-dependencies = [
- "arbitrary",
- "bitcoin 0.32.1",
- "borsh",
- "digest 0.10.7",
- "ethnum",
- "hex",
- "num_enum 0.7.2",
- "serde",
- "sha2",
- "strata-bridge-tx-builder",
- "strata-crypto",
- "strata-primitives",
- "strata-zkvm",
- "tracing",
-]
-
-[[package]]
-name = "strata-zkvm"
-version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#1038dd849f9d1d3f2ca17940dc4631072852a25a"
-dependencies = [
- "anyhow",
- "arbitrary",
- "borsh",
  "serde",
 ]
 
@@ -5673,22 +5481,6 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 2.0.85",
-]
-
-[[package]]
-name = "substrate-bn"
-version = "0.7.0"
-source = "git+https://github.com/sp1-patches/bn?branch=patch-v0.7.0#3c53d2561492f26b9428c1d37d134031d0156152"
-dependencies = [
- "bytemuck",
- "byteorder",
- "cfg-if",
- "crunchy",
- "lazy_static",
- "num-bigint 0.4.6",
- "rand",
- "rustc-hex",
- "sp1-lib",
 ]
 
 [[package]]
