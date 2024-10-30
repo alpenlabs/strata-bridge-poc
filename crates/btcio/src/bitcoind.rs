@@ -2,7 +2,6 @@ use std::{
     env::var,
     fmt,
     sync::atomic::{AtomicUsize, Ordering},
-    time::Duration,
 };
 
 use async_trait::async_trait;
@@ -20,7 +19,7 @@ use serde_json::{
     json,
     value::{RawValue, Value},
 };
-use tokio::time::sleep;
+use tokio::time::{sleep, Duration};
 use tracing::*;
 
 use crate::{
@@ -473,12 +472,14 @@ mod test {
         // setting the ENV variable `BITCOIN_XPRIV_RETRIEVABLE` to retrieve the xpriv
         set_var("BITCOIN_XPRIV_RETRIEVABLE", "true");
         let client = BitcoinClient::new(url, user, password).unwrap();
+        // wait for the client to be ready
+        sleep(Duration::from_secs(1)).await;
 
         // network
         let got = client.network().await.unwrap();
         let expected = Network::Regtest;
-
         assert_eq!(expected, got);
+
         // get_blockchain_info
         let get_blockchain_info = client.get_blockchain_info().await.unwrap();
         assert_eq!(get_blockchain_info.blocks, 0);
