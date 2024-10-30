@@ -1,0 +1,25 @@
+[package]
+edition = "2021"
+name = "strata-prover-manager"
+version = "0.1.0"
+
+[dependencies]
+anyhow.workspace = true
+bincode.workspace = true
+bitcoin.workspace = true
+borsh.workspace = true
+hex.workspace = true
+num-bigint = "0.4.6"
+num-traits = "0.2.19"
+serde = { workspace = true, features = ["derive"] }
+sp1-sdk = "2.0.0"
+strata-bridge-guest-builder.workspace = true
+strata-primitives.workspace = true
+strata-proofimpl-bitvm-bridge.workspace = true
+strata-sp1-adapter.workspace = true
+strata-state.workspace = true
+strata-zkvm.workspace = true
+
+
+[features]
+prover = ["strata-sp1-adapter/prover", "strata-bridge-guest-builder/prover"]

@@ -19,6 +19,11 @@ shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.
   "serde",
 ] }
 strata-bridge-tx-builder = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-primitives = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+
 
 anyhow = "1.0.86"
 arbitrary = { version = "1.3.2", features = ["derive"] }
@@ -100,4 +105,4 @@ bitcoin = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitv
 bitcoin_hashes = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
 bitcoin-internals = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
 bitcoin-io = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
-bitcoin-units = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
+# bitcoin-units = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
