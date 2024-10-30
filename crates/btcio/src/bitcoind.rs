@@ -443,6 +443,7 @@ mod test {
             .arg("-daemon")
             .arg("-rpcuser=strata")
             .arg("-rpcpassword=strata")
+            .arg("-datadir=/tmp/bitcoin")
             .arg("-fallbackfee=0.00001")
             .output()
             .expect("Failed to start bitcoind");
