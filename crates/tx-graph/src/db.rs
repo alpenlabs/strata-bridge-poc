@@ -1,7 +1,9 @@
+use bitcoin::Txid;
 use bitvm::{
     signatures::wots::{wots160, wots256, wots32},
     treepp::*,
 };
+use secp256k1::schnorr::Signature;
 
 #[derive(Debug, Clone, Copy)]
 #[allow(dead_code)]
@@ -52,4 +54,6 @@ pub trait Database {
     ) -> (Script, Vec<WotsPublicKeyData>);
 
     fn get_verifier_disprove_signatures(&self, tapleaf_index: usize) -> Vec<WotsSignatureData>;
+
+    fn get_signature(&self, txid: Txid) -> Signature;
 }

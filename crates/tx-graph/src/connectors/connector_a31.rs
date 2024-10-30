@@ -1,7 +1,7 @@
 use bitcoin::{
     psbt::Input,
     taproot::{ControlBlock, LeafVersion, TaprootSpendInfo},
-    Address, Network, ScriptBuf, XOnlyPublicKey,
+    Address, Network, ScriptBuf,
 };
 use bitvm::{
     bn254::chunk_superblock::H256,
@@ -19,7 +19,6 @@ use crate::{
 
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectorA31<DB: Database> {
-    agg_pubkey: XOnlyPublicKey,
     network: Network,
 
     pub superblock_hash_public_key: wots256::PublicKey,
@@ -142,7 +141,7 @@ impl<DB: Database> ConnectorA31<DB> {
             .expect("should be able to create taproot address")
     }
 
-    pub fn finalize_input_with_n_of_n(&self, input: &mut Input, tapleaf: ConnectorA31Leaf) {
+    pub fn finalize_input(&self, input: &mut Input, tapleaf: ConnectorA31Leaf) {
         let (script, control_block) = self.generate_spend_info(tapleaf);
 
         let witness_script = match tapleaf {
@@ -150,7 +149,7 @@ impl<DB: Database> ConnectorA31<DB> {
                 script! {}
             }
             ConnectorA31Leaf::InvalidateProof(tapleaf_index) => {
-                let signatures = self.db.get_verifier_disprove_signatures(tapleaf_index);
+                let _signatures = self.db.get_verifier_disprove_signatures(tapleaf_index);
 
                 script! {
                     // add signatures script

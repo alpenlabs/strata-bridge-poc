@@ -2,7 +2,7 @@ use bitcoin::{Amount, OutPoint, Psbt, Transaction, Txid};
 use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
 
-use crate::{connectors::prelude::*, scripts::prelude::*};
+use crate::{connectors::prelude::*, db::Database, scripts::prelude::*};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostAssertTxData {
@@ -19,7 +19,10 @@ pub struct PostAssertTx {
 }
 
 impl PostAssertTx {
-    pub fn new(data: PostAssertTxData, connector_a30: ConnectorA30) -> Self {
+    pub fn new<Db: Database + Clone>(
+        data: PostAssertTxData,
+        connector_a30: ConnectorA30<Db>,
+    ) -> Self {
         let utxos = data.assert_data_txids.iter().map(|txid| OutPoint {
             txid: *txid,
             vout: 0,

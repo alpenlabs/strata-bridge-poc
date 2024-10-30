@@ -5,11 +5,14 @@ use super::{
     },
     prelude::*,
 };
-use crate::connectors::{
-    constants::{
-        NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
+use crate::{
+    connectors::{
+        constants::{
+            NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
+        },
+        prelude::*,
     },
-    prelude::*,
+    db::Database,
 };
 
 #[derive(Debug, Clone)]
@@ -23,10 +26,10 @@ pub struct AssertChain {
 }
 
 impl AssertChain {
-    pub fn new(
+    pub fn new<Db: Database + Clone>(
         data: PreAssertData,
         connector_s: ConnectorS,
-        connector_a30: ConnectorA30,
+        connector_a30: ConnectorA30<Db>,
         connector_a160_factory: ConnectorA160Factory<NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160>,
         connector_a256_factory: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256>,
     ) -> Self {

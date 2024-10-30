@@ -1,17 +1,18 @@
 use bitcoin::{
     psbt::Input,
     taproot::{ControlBlock, LeafVersion, TaprootSpendInfo},
-    Address, Network, ScriptBuf, XOnlyPublicKey,
+    Address, Network, ScriptBuf, Txid, XOnlyPublicKey,
 };
-use secp256k1::schnorr::Signature;
 
 use super::params::PAYOUT_TIMELOCK;
-use crate::scripts::prelude::*;
+use crate::{db::Database, scripts::prelude::*};
 
 #[derive(Debug, Clone, Copy)]
-pub struct ConnectorA30 {
+pub struct ConnectorA30<Db: Database> {
     agg_pubkey: XOnlyPublicKey,
     network: Network,
+
+    db: Db,
 }
 
 #[derive(Debug, Clone)]
@@ -20,11 +21,13 @@ pub enum ConnectorA30Leaf {
     Disprove,
 }
 
-impl ConnectorA30 {
-    pub fn new(agg_pubkey: &XOnlyPublicKey, network: &Network) -> Self {
+impl<Db: Database + Clone> ConnectorA30<Db> {
+    pub fn new(agg_pubkey: &XOnlyPublicKey, network: &Network, db: Db) -> Self {
         Self {
             agg_pubkey: *agg_pubkey,
             network: *network,
+
+            db: db.clone(),
         }
     }
 
@@ -62,18 +65,14 @@ impl ConnectorA30 {
             .expect("should be able to create taproot address")
     }
 
-    pub fn finalize_input_with_n_of_n(
-        &self,
-        input: &mut Input,
-        n_of_n_signature: Signature,
-        tapleaf: ConnectorA30Leaf,
-    ) {
+    pub fn finalize_input(&self, input: &mut Input, txid: Txid, tapleaf: ConnectorA30Leaf) {
         let (script, control_block) = self.generate_spend_info(tapleaf);
+        let n_of_n_sig = self.db.get_signature(txid);
 
         finalize_input(
             input,
             [
-                n_of_n_signature.serialize().to_vec(),
+                n_of_n_sig.serialize().to_vec(),
                 script.to_bytes(),
                 control_block.serialize(),
             ],
