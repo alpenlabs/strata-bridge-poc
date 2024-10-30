@@ -27,3 +27,4 @@ tracing.workspace = true
 
 [dev-dependencies]
 strata-common.workspace = true
+strata-test-utils.workspace = true
