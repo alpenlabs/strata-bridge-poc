@@ -5,5 +5,6 @@
 pub mod commitments;
 pub mod connectors;
 pub mod constants;
+pub mod db;
 pub mod scripts;
 pub mod transactions;

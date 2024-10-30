@@ -11,7 +11,10 @@ use bitvm::{
     treepp::*,
 };
 
-use crate::{commitments::secret_key_for_proof_element, scripts::prelude::*};
+use crate::{
+    commitments::secret_key_for_proof_element,
+    scripts::{prelude::*, transform::fq_from_nibbles},
+};
 
 #[derive(Debug, Clone)]
 pub struct ConnectorA256Factory<
