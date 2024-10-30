@@ -21,6 +21,11 @@ shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.
   "serde",
 ] }
 strata-bridge-tx-builder = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-primitives = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+
 
 # transitive deps with patches for `bitvm`
 ark-bn254 = { git = "https://github.com/Antalpha-Labs/algebra/", features = [
@@ -110,7 +115,7 @@ bitcoin = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitv
 bitcoin_hashes = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
 bitcoin-internals = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
 bitcoin-io = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
-bitcoin-units = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" }
+# bitcoin-units = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitvm" } # causes compilation issues with const fns
 
 ark-ff = { git = "https://github.com/Antalpha-Labs/algebra/" }
 ark-ec = { git = "https://github.com/Antalpha-Labs/algebra/" }
