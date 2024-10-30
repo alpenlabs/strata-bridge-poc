@@ -6,6 +6,9 @@ members = [
   "bridge-proofs",
 
   # binaries listed separately
+
+  # test utilities
+  "crates/test-utils",
 ]
 
 default-members = []
@@ -19,6 +22,7 @@ strata-btcio = { path = "crates/btcio" }
 # new crates
 strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
+strata-test-utils = { path = "crates/test-utils" }
 
 # external deps
 anyhow = "1.0.86"
