@@ -5,23 +5,22 @@ use bitcoin::{
 };
 use secp256k1::schnorr::Signature;
 
-use super::params::{PAYOUT_OPTIMISTIC_TIMELOCK, SUPERBLOCK_MEASUREMENT_PERIOD};
+use super::params::PAYOUT_TIMELOCK;
 use crate::scripts::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
-pub struct ConnectorC0 {
+pub struct ConnectorA30 {
     agg_pubkey: XOnlyPublicKey,
     network: Network,
 }
 
 #[derive(Debug, Clone)]
-pub enum ConnectorC0Leaf {
-    PayoutOptimistic,
-    Assert,
-    InvalidateTs, // this needs WOTS data
+pub enum ConnectorA30Leaf {
+    Payout,
+    Disprove,
 }
 
-impl ConnectorC0 {
+impl ConnectorA30 {
     pub fn new(agg_pubkey: &XOnlyPublicKey, network: &Network) -> Self {
         Self {
             agg_pubkey: *agg_pubkey,
@@ -29,15 +28,10 @@ impl ConnectorC0 {
         }
     }
 
-    pub fn generate_tapleaf(&self, tapleaf: ConnectorC0Leaf) -> ScriptBuf {
+    pub fn generate_tapleaf(&self, tapleaf: ConnectorA30Leaf) -> ScriptBuf {
         match tapleaf {
-            ConnectorC0Leaf::PayoutOptimistic => {
-                n_of_n_with_timelock(&self.agg_pubkey, PAYOUT_OPTIMISTIC_TIMELOCK)
-            }
-            ConnectorC0Leaf::Assert => unimplemented!("add script for using T_s bitcommitment"),
-            ConnectorC0Leaf::InvalidateTs => {
-                n_of_n_with_timelock(&self.agg_pubkey, SUPERBLOCK_MEASUREMENT_PERIOD)
-            }
+            ConnectorA30Leaf::Payout => n_of_n_with_timelock(&self.agg_pubkey, PAYOUT_TIMELOCK),
+            ConnectorA30Leaf::Disprove => n_of_n_script(&self.agg_pubkey),
         }
     }
 
@@ -47,7 +41,7 @@ impl ConnectorC0 {
         address.script_pubkey()
     }
 
-    pub fn generate_spend_info(&self, tapleaf: ConnectorC0Leaf) -> (ScriptBuf, ControlBlock) {
+    pub fn generate_spend_info(&self, tapleaf: ConnectorA30Leaf) -> (ScriptBuf, ControlBlock) {
         let (_, taproot_spend_info) = self.generate_taproot_address();
 
         let script = self.generate_tapleaf(tapleaf);
@@ -60,9 +54,8 @@ impl ConnectorC0 {
 
     fn generate_taproot_address(&self) -> (Address, TaprootSpendInfo) {
         let scripts = &[
-            self.generate_tapleaf(ConnectorC0Leaf::PayoutOptimistic),
-            self.generate_tapleaf(ConnectorC0Leaf::Assert),
-            self.generate_tapleaf(ConnectorC0Leaf::InvalidateTs),
+            self.generate_tapleaf(ConnectorA30Leaf::Payout),
+            self.generate_tapleaf(ConnectorA30Leaf::Disprove),
         ];
 
         create_taproot_addr(&self.network, SpendPath::ScriptSpend { scripts })
@@ -73,13 +66,8 @@ impl ConnectorC0 {
         &self,
         input: &mut Input,
         n_of_n_signature: Signature,
-        tapleaf: ConnectorC0Leaf,
+        tapleaf: ConnectorA30Leaf,
     ) {
-        if let ConnectorC0Leaf::InvalidateTs = tapleaf {
-            // do nothing since this does not take an n_of_n sig
-            return;
-        }
-
         let (script, control_block) = self.generate_spend_info(tapleaf);
 
         finalize_input(

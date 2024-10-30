@@ -12,23 +12,27 @@ default-members = []
 resolver = "2"
 
 [workspace.dependencies]
+# deps in this workspace
 strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
 
+# deps from original strata repo
 shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0", features = [
   "serde",
 ] }
 strata-bridge-tx-builder = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 
-anyhow = "1.0.86"
-arbitrary = { version = "1.3.2", features = ["derive"] }
-argh = "0.1"
+# transitive deps with patches for `bitvm`
 ark-bn254 = { git = "https://github.com/Antalpha-Labs/algebra/", features = [
   "curve",
 ], default-features = false }
 ark-serialize = { version = "0.4.2", features = ["std"] }
 ark-std = { version = "0.4.0", features = ["std"] }
 
+# external deps
+anyhow = "1.0.86"
+arbitrary = { version = "1.3.2", features = ["derive"] }
+argh = "0.1"
 async-trait = "0.1.81"
 aws-sdk-s3 = "1.40.0"
 base64 = "0.22.1"
@@ -95,7 +99,6 @@ tokio = { version = "1.37", features = ["full"] }
 toml = "0.5"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-
 
 # This is needed for custom build of SP1
 [profile.release.build-override]
