@@ -61,6 +61,12 @@ pub trait Reader {
     /// Gets the header of the heaviest block (lowest hash) within the time range
     /// [`start_time`, `end_time`] (inclusive).
     async fn get_superblock(&self, start_time: u64, end_time: u64) -> ClientResult<BlockHash>;
+    /// Gets the timestamp in the block header of the current best block in bitcoin.
+    ///
+    /// # Note
+    ///
+    /// Time is Unix epoch time in seconds.
+    async fn get_current_timestamp(&self) -> ClientResult<u64>;
 
     /// Gets all transaction ids in mempool.
     async fn get_raw_mempool(&self) -> ClientResult<Vec<Txid>>;
