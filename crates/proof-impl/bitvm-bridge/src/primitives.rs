@@ -1,4 +1,4 @@
-use bitcoin::{hashes::Hash, Txid};
+use bitcoin::{hashes::Hash, BlockHash, Txid};
 use strata_primitives::params::RollupParams;
 use strata_state::{batch::BatchCheckpoint, bridge_state::DepositState, chain_state::ChainState};
 
@@ -8,7 +8,7 @@ pub fn mock_txid() -> Txid {
     Txid::from_slice(&[0u8; 32]).expect("Failed to create Txid from bytes")
 }
 
-pub type BridgeProofPublicParams = Txid;
+pub type BridgeProofPublicParams = (BlockHash, Txid, u32);
 
 /// Necessary information to prove the execution of the bridge proof.
 pub struct BridgeProofInput {

@@ -19,8 +19,8 @@ pub fn verify_proof(proof: Proof, vkey: String, comitted_values: &[u8]) -> anyho
 
 #[cfg(test)]
 mod test {
-    use bitcoin::Txid;
     use sp1_sdk::{HashableKey, SP1ProofWithPublicValues, SP1VerifyingKey};
+    use strata_proofimpl_bitvm_bridge::BridgeProofPublicParams;
 
     use super::*;
 
@@ -33,7 +33,7 @@ mod test {
             Proof,
         ) = bincode::deserialize(proof_data).unwrap();
 
-        let public_value: Txid = sp1_proof.clone().public_values.read();
+        let public_value: BridgeProofPublicParams = sp1_proof.clone().public_values.read();
         println!("got the public param {:?}", public_value);
 
         let vkey_str = sp1_vkey.bytes32();

@@ -1,4 +1,5 @@
 #![allow(unused)]
+use bitcoin::{hashes::Hash, BlockHash, Txid};
 use strata_primitives::{buf::Buf32, params::RollupParams};
 use strata_state::{batch::BatchCheckpoint, bridge_state::DepositState, chain_state::ChainState};
 use strata_zkvm::Proof;
@@ -31,7 +32,12 @@ pub fn process_bridge_proof() -> BridgeProofPublicParams {
     // start := block where ckp proof is there
     // endblock := block where ckp proof + N blocks; N = 2016
 
-    mock_txid()
+    let super_block_hash =
+        BlockHash::from_slice(&[0u8; 32]).expect("Failed to create Block hash from bytes");
+    let withdrawal_txnid = Txid::from_slice(&[0u8; 32]).expect("Failed to create Txid from bytes");
+    let timestamp: u32 = 0;
+
+    (super_block_hash, withdrawal_txnid, timestamp)
 }
 
 pub fn assert_deposit_state(

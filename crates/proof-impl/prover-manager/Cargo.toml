@@ -15,6 +15,7 @@ serde = { workspace = true, features = ["derive"] }
 sp1-sdk = "2.0.0"
 strata-bridge-guest-builder.workspace = true
 strata-primitives.workspace = true
+strata-proofimpl-bitvm-bridge.workspace = true
 strata-sp1-adapter.workspace = true
 strata-state.workspace = true
 strata-zkvm.workspace = true

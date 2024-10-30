@@ -5587,6 +5587,7 @@ dependencies = [
  "sp1-sdk",
  "strata-bridge-guest-builder",
  "strata-primitives",
+ "strata-proofimpl-bitvm-bridge",
  "strata-sp1-adapter",
  "strata-state",
  "strata-zkvm",
