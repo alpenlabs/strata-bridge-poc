@@ -217,16 +217,16 @@ impl Reader for BitcoinClient {
         Ok(block)
     }
 
-    async fn get_block_at(&self, height: u64) -> ClientResult<Block> {
+    async fn get_block_at(&self, height: u32) -> ClientResult<Block> {
         let hash = self.get_block_hash(height).await?;
         self.get_block(&hash).await
     }
 
-    async fn get_block_count(&self) -> ClientResult<u64> {
-        self.call::<u64>("getblockcount", &[]).await
+    async fn get_block_count(&self) -> ClientResult<u32> {
+        self.call::<u32>("getblockcount", &[]).await
     }
 
-    async fn get_block_hash(&self, height: u64) -> ClientResult<BlockHash> {
+    async fn get_block_hash(&self, height: u32) -> ClientResult<BlockHash> {
         self.call::<BlockHash>("getblockhash", &[to_value(height)?])
             .await
     }
@@ -236,7 +236,7 @@ impl Reader for BitcoinClient {
             .await
     }
 
-    async fn get_superblock(&self, start_time: u64, end_time: u64) -> ClientResult<BlockHash> {
+    async fn get_superblock(&self, start_time: u32, end_time: u32) -> ClientResult<BlockHash> {
         if start_time >= end_time {
             return Err(ClientError::Other("Invalid time range".to_string()));
         }
@@ -253,10 +253,10 @@ impl Reader for BitcoinClient {
             .ok_or(ClientError::Other("No block found".to_string()))
     }
 
-    async fn get_current_timestamp(&self) -> ClientResult<u64> {
+    async fn get_current_timestamp(&self) -> ClientResult<u32> {
         let best_block_hash = self.call::<BlockHash>("getbestblockhash", &[]).await?;
         let block = self.get_block(&best_block_hash).await?;
-        Ok(block.header.time as u64)
+        Ok(block.header.time)
     }
 
     async fn get_raw_mempool(&self) -> ClientResult<Vec<Txid>> {
@@ -491,7 +491,7 @@ mod test {
         assert_eq!(*expected, got);
 
         // get_block_at
-        let target_height = blocks.len() as u64;
+        let target_height = blocks.len() as u32;
         let expected = blocks.last().unwrap();
         let got = client
             .get_block_at(target_height)
@@ -501,12 +501,12 @@ mod test {
         assert_eq!(*expected, got);
 
         // get_block_count
-        let expected = blocks.len() as u64;
+        let expected = blocks.len() as u32;
         let got = client.get_block_count().await.unwrap();
         assert_eq!(expected, got);
 
         // get_block_hash
-        let target_height = blocks.len() as u64;
+        let target_height = blocks.len() as u32;
         let expected = blocks.last().unwrap();
         let got = client.get_block_hash(target_height).await.unwrap();
         assert_eq!(*expected, got);

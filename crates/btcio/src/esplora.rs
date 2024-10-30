@@ -77,8 +77,7 @@ impl Reader for EsploraClient {
         }
     }
 
-    async fn get_block_at(&self, height: u64) -> ClientResult<Block> {
-        let height = height as u32;
+    async fn get_block_at(&self, height: u32) -> ClientResult<Block> {
         let result = self.client.get_blocks(Some(height)).await?;
         if let Some(summary) = result.first() {
             // get the first one from the vec
@@ -90,12 +89,12 @@ impl Reader for EsploraClient {
         }
     }
 
-    async fn get_block_count(&self) -> ClientResult<u64> {
-        Ok(self.client.get_height().await? as u64)
+    async fn get_block_count(&self) -> ClientResult<u32> {
+        Ok(self.client.get_height().await?)
     }
 
-    async fn get_block_hash(&self, height: u64) -> ClientResult<BlockHash> {
-        Ok(self.client.get_block_hash(height as u32).await?)
+    async fn get_block_hash(&self, height: u32) -> ClientResult<BlockHash> {
+        Ok(self.client.get_block_hash(height).await?)
     }
 
     // NOTE: I don't know if this is possible in esplora.
@@ -103,7 +102,7 @@ impl Reader for EsploraClient {
         unimplemented!()
     }
 
-    async fn get_superblock(&self, start_time: u64, end_time: u64) -> ClientResult<BlockHash> {
+    async fn get_superblock(&self, start_time: u32, end_time: u32) -> ClientResult<BlockHash> {
         if start_time >= end_time {
             return Err(ClientError::Other("Invalid time range".to_string()));
         }
@@ -121,10 +120,10 @@ impl Reader for EsploraClient {
             .ok_or(ClientError::Other("No block found".to_string()))
     }
 
-    async fn get_current_timestamp(&self) -> ClientResult<u64> {
+    async fn get_current_timestamp(&self) -> ClientResult<u32> {
         let best_block_hash = self.client.get_tip_hash().await?;
         let block = self.get_block(&best_block_hash).await?;
-        Ok(block.header.time as u64)
+        Ok(block.header.time)
     }
 
     // NOTE: I don't know if this is possible in esplora.

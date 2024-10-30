@@ -43,30 +43,30 @@ pub trait Reader {
     async fn get_block(&self, hash: &BlockHash) -> ClientResult<Block>;
 
     /// Gets a [`Block`] at given height.
-    async fn get_block_at(&self, height: u64) -> ClientResult<Block>;
+    async fn get_block_at(&self, height: u32) -> ClientResult<Block>;
 
     /// Gets the height of the most-work fully-validated chain.
     ///
     /// # Note
     ///
     /// The genesis block has a height of 0.
-    async fn get_block_count(&self) -> ClientResult<u64>;
+    async fn get_block_count(&self) -> ClientResult<u32>;
 
     /// Gets the [`BlockHash`] at given height.
-    async fn get_block_hash(&self, height: u64) -> ClientResult<BlockHash>;
+    async fn get_block_hash(&self, height: u32) -> ClientResult<BlockHash>;
 
     /// Gets various state info regarding blockchain processing.
     async fn get_blockchain_info(&self) -> ClientResult<GetBlockchainInfo>;
 
     /// Gets the header of the heaviest block (lowest hash) within the time range
     /// [`start_time`, `end_time`] (inclusive).
-    async fn get_superblock(&self, start_time: u64, end_time: u64) -> ClientResult<BlockHash>;
+    async fn get_superblock(&self, start_time: u32, end_time: u32) -> ClientResult<BlockHash>;
     /// Gets the timestamp in the block header of the current best block in bitcoin.
     ///
     /// # Note
     ///
     /// Time is Unix epoch time in seconds.
-    async fn get_current_timestamp(&self) -> ClientResult<u64>;
+    async fn get_current_timestamp(&self) -> ClientResult<u32>;
 
     /// Gets all transaction ids in mempool.
     async fn get_raw_mempool(&self) -> ClientResult<Vec<Txid>>;
