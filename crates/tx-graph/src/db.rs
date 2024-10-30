@@ -3,6 +3,8 @@ use bitvm::{
     treepp::*,
 };
 
+#[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub struct WotsPublicKeys {
     superblock_hash: wots256::PublicKey,
     superblock_period_start_ts: wots256::PublicKey,
