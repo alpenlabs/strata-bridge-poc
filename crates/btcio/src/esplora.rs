@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use bitcoin::{Block, BlockHash, Network, Transaction, Txid};
+use bitcoin::{block::Header, Block, BlockHash, Network, Transaction, Txid};
 use esplora_client::{r#async::AsyncClient, Builder};
 use tracing::*;
 
@@ -9,6 +9,7 @@ use crate::{
     error::{ClientError, ClientResult},
     traits::{Broadcaster, Reader},
     types::{GetBlockchainInfo, TestMempoolAccept},
+    BLOCK_TIME,
 };
 
 pub struct EsploraClient {
@@ -102,20 +103,72 @@ impl Reader for EsploraClient {
         unimplemented!()
     }
 
-    async fn get_superblock(&self, start_time: u32, end_time: u32) -> ClientResult<BlockHash> {
+    async fn get_superblock(
+        &self,
+        start_time: u32,
+        end_time: u32,
+        block_time: Option<u32>,
+    ) -> ClientResult<Header> {
         if start_time >= end_time {
             return Err(ClientError::Other("Invalid time range".to_string()));
         }
 
-        let mut block_hashes = Vec::with_capacity((end_time as usize - start_time as usize) + 1);
-        for height in start_time..=end_time {
-            // inclusive range
-            block_hashes.push(self.get_block_hash(height).await.expect("block hash"))
+        if end_time > self.get_current_timestamp().await? {
+            return Err(ClientError::Other("End time is in the future".to_string()));
         }
 
-        block_hashes
+        let block_time = block_time.unwrap_or(BLOCK_TIME);
+        // inclusive range that's why we add 1.
+        let n_blocks = ((end_time - start_time) / block_time) + 1;
+
+        // iterate over the chaintip and get the blocks, while trying to be clever
+        // in order to minimize the number of requests.
+        let mut blocks_to_include = Vec::with_capacity(n_blocks as usize);
+        let chain_tip = self.get_block_count().await?;
+        let current_time = self.get_current_timestamp().await?;
+
+        // Finding the last block with a timestamp less than the end_time
+        // using 2 * block_time as leeway
+        let delta_with_leeway = current_time
+            .checked_sub(end_time)
+            .and_then(|delta| delta.checked_add(2 * block_time))
+            .ok_or(ClientError::Other(
+                "Overflow occurred in delta_with_leeway calculation".to_string(),
+            ))?;
+
+        // Finding the potential last block
+        let potential_last_block_height = chain_tip - delta_with_leeway / block_time;
+        let mut last_block = {
+            let hash = self.get_block_hash(potential_last_block_height).await?;
+            self.get_block(&hash).await?
+        };
+        while last_block.header.time > end_time {
+            let hash = last_block.header.prev_blockhash;
+            last_block = self.get_block(&hash).await?;
+            if last_block.header.time < start_time {
+                return Err(ClientError::Other("No block found".to_string()));
+            }
+        }
+
+        // Found the last block
+        blocks_to_include.push(last_block.header); // Only include the header
+
+        // Now, continue going backwards until we find the first block
+        let mut first_block = last_block.clone();
+        while first_block.header.time > start_time {
+            let hash = first_block.header.prev_blockhash;
+            first_block = self.get_block(&hash).await?;
+            // Since we are iterating backwards, let's add'em to the blocks_to_include
+            blocks_to_include.push(first_block.header); // Only include the header
+            if first_block.header.time < start_time {
+                return Err(ClientError::Other("No block found".to_string()));
+            }
+        }
+
+        // We have all the block headers, let's return the one with the lowest hash.
+        blocks_to_include
             .iter()
-            .min()
+            .min_by(|a, b| a.block_hash().cmp(&b.block_hash()))
             .copied()
             .ok_or(ClientError::Other("No block found".to_string()))
     }
@@ -156,7 +209,10 @@ mod tests {
     #[allow(unused_imports)] // Don't know why this is flagging unused
     use std::str::FromStr;
 
-    use tokio::test;
+    use tokio::{
+        test,
+        time::{sleep, Duration},
+    };
 
     use super::*;
 
@@ -166,13 +222,14 @@ mod tests {
     const NETWORK: Network = Network::Testnet;
 
     #[allow(dead_code)] // Don't know why this is flagging unused
-    fn create_client() -> EsploraClient {
+    async fn create_client() -> EsploraClient {
+        sleep(Duration::from_millis(500)).await; // To avoid spamming the esplora API
         EsploraClient::new(BASE_URL.to_string(), NETWORK)
     }
 
     #[test]
     async fn estimate_smart_fee() {
-        let client = create_client();
+        let client = create_client().await;
 
         // estimate_smart_fee
         let got = client.estimate_smart_fee(1).await.unwrap();
@@ -181,7 +238,7 @@ mod tests {
 
     #[test]
     async fn get_block() {
-        let client = create_client();
+        let client = create_client().await;
 
         // block 1337 (EASTER EGG SPOTTED)
         let hash =
@@ -199,7 +256,7 @@ mod tests {
 
     #[test]
     async fn get_block_at() {
-        let client = create_client();
+        let client = create_client().await;
 
         // block 1337 (EASTER EGG SPOTTED)
         let got = client.get_block_at(1337).await.unwrap().header.block_hash();
@@ -211,7 +268,7 @@ mod tests {
 
     #[test]
     async fn get_block_count() {
-        let client = create_client();
+        let client = create_client().await;
 
         let got = client.get_block_count().await.unwrap();
         assert!(got >= 52742); // 2024-10-29
@@ -219,7 +276,7 @@ mod tests {
 
     #[test]
     async fn get_block_hash() {
-        let client = create_client();
+        let client = create_client().await;
 
         // block 1337 (EASTER EGG SPOTTED)
         let got = client.get_block_hash(1337).await.unwrap();
@@ -231,12 +288,25 @@ mod tests {
 
     #[test]
     async fn get_superblock() {
-        let client = create_client();
+        let client = create_client().await;
 
-        let got = client.get_superblock(50, 100).await.unwrap();
-        let block_hash_50 = client.get_block_hash(50).await.unwrap();
-        let block_hash_100 = client.get_block_hash(100).await.unwrap();
-        assert!(got <= block_hash_50);
-        assert!(got <= block_hash_100);
+        // This is pointing towards testnet4, hence block time is 10 minutes := 600 seconds.
+        let block_time = 600;
+        let current_time = client.get_current_timestamp().await.unwrap();
+        sleep(Duration::from_millis(500)).await; // To avoid spamming the esplora API
+
+        // To avoid spamming the network, let's get the superblock from 1 hour ago
+        let start_time = current_time - (3600 * 2);
+        let end_time = current_time - 3600;
+
+        let got = client
+            .get_superblock(start_time, end_time, Some(block_time))
+            .await
+            .unwrap();
+
+        sleep(Duration::from_millis(500)).await; // To avoid spamming the esplora API
+        let block_hash_previous = client.get_block(&got.prev_blockhash).await.unwrap();
+
+        assert!(got.block_hash() <= block_hash_previous.header.block_hash());
     }
 }
