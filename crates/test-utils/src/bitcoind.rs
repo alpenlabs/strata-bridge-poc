@@ -65,7 +65,7 @@ impl<'a> BitcoinD<'a> {
             .arg("-rpcpassword=strata")
             .arg(format!("-datadir={}", data_dir.display()))
             .arg("createwallet")
-            .arg("default")
+            .arg(format!("wallet-{timestamp}"))
             .spawn()?
             .wait()?;
         info!("wallet created");
@@ -81,7 +81,7 @@ impl<'a> BitcoinD<'a> {
                 .arg("-rpcpassword=strata")
                 .arg(format!("-datadir={}", data_dir.display()))
                 .arg("loadwallet")
-                .arg("default")
+                .arg(format!("wallet-{timestamp}"))
                 .spawn()?
                 .wait()?;
             trace!(?process, "wallet loaded");

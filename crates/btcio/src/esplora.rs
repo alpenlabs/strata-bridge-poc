@@ -295,9 +295,10 @@ mod tests {
         let current_time = client.get_current_timestamp().await.unwrap();
         sleep(Duration::from_millis(500)).await; // To avoid spamming the esplora API
 
-        // To avoid spamming the network, let's get the superblock from 1 hour ago
+        // To avoid spamming the network, let's get the superblock from 1 hour ago until 30 minutes
+        // ago.
         let start_time = current_time - (3600 * 2);
-        let end_time = current_time - 3600;
+        let end_time = current_time - (3600.0 * 1.5) as u32;
 
         let got = client
             .get_superblock(start_time, end_time, Some(block_time))
