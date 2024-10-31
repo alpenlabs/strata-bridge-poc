@@ -1,6 +1,13 @@
-use std::{error::Error, fs, path::PathBuf, process::Command, thread, time::Duration};
+use std::{
+    error::Error,
+    fs,
+    path::PathBuf,
+    process::Command,
+    thread,
+    time::{Duration, Instant},
+};
 
-use tempfile::{tempdir, TempDir};
+use tempfile::{Builder, TempDir};
 use tracing::{info, trace};
 
 #[derive(Debug)]
@@ -31,11 +38,12 @@ impl Default for BitcoinD<'_> {
 impl<'a> BitcoinD<'a> {
     /// Creates a new [`BitcoinD`] instance.
     pub fn new(url: &'a str, user: &'a str, password: &'a str) -> Result<Self, Box<dyn Error>> {
-        // Creates a temporary data dir
-        let temp_dir = tempdir()?;
-        let data_dir = temp_dir.path().join("strata-bitcoind");
-        fs::create_dir(&data_dir)?;
-        info!(?data_dir, "created data directory");
+        // Creates a temporary data dir with the current timestamp.
+        let timestamp = Instant::now().elapsed().as_secs();
+        let prefix = format!("strata-bitcoind-{timestamp}");
+        let temp_dir = Builder::new().prefix(&prefix).tempdir()?;
+        let data_dir = temp_dir.path().to_path_buf();
+        info!(?data_dir, "data directory");
 
         let process = Command::new("bitcoind")
             .arg("-regtest")
@@ -48,7 +56,7 @@ impl<'a> BitcoinD<'a> {
             .wait_with_output()?;
         trace!(?process, "bitcoind started");
 
-        thread::sleep(Duration::from_millis(100));
+        thread::sleep(Duration::from_millis(200));
 
         // wait until the wallet is created
         let process = Command::new("bitcoin-cli")
@@ -63,7 +71,23 @@ impl<'a> BitcoinD<'a> {
         info!("wallet created");
         trace!(?process, "wallet created");
 
-        thread::sleep(Duration::from_millis(100));
+        // BitcoinD RPC errors are documented here:
+        // https://github.com/bitcoin/bitcoin/blob/f07a533dfcb172321972e5afb3b38a4bd24edb87/src/rpc/protocol.h#L24
+        if process.code() == Some(-4) {
+            info!("could not create wallet, loading wallet");
+            let process = Command::new("bitcoin-cli")
+                .arg("-regtest")
+                .arg("-rpcuser=strata")
+                .arg("-rpcpassword=strata")
+                .arg(format!("-datadir={}", data_dir.display()))
+                .arg("loadwallet")
+                .arg("default")
+                .spawn()?
+                .wait()?;
+            trace!(?process, "wallet loaded");
+        }
+
+        thread::sleep(Duration::from_millis(200));
 
         Ok(BitcoinD {
             url,

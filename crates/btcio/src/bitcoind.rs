@@ -519,6 +519,9 @@ mod test {
         logging::init();
 
         let bitcoind = BitcoinD::default();
+        // Wait for the bitcoind to be ready
+        sleep(Duration::from_millis(500)).await;
+
         let url = bitcoind.url.to_string();
         let user = bitcoind.user.to_string();
         let password = bitcoind.password.to_string();
