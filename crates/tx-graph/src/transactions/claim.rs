@@ -1,16 +1,15 @@
-use bitcoin::{taproot::Signature, Amount, OutPoint, Psbt, Transaction, Txid};
+use bitcoin::{Amount, OutPoint, Psbt, Transaction, Txid};
 
 use crate::{
     connectors::prelude::*,
     constants::{MIN_RELAY_FEE, OPERATOR_STAKE},
+    db::Database,
     scripts::general::{create_tx, create_tx_ins, create_tx_outs},
 };
 
 #[derive(Debug, Clone)]
 pub struct ClaimData {
     pub kickoff_txid: Txid,
-
-    pub n_of_n_sig: Signature,
 }
 
 #[derive(Debug, Clone)]
@@ -65,9 +64,9 @@ impl ClaimTx {
         self.psbt.unsigned_tx.compute_txid()
     }
 
-    pub fn finalize(
+    pub fn finalize<Db: Database>(
         mut self,
-        connector_k: ConnectorK,
+        connector_k: ConnectorK<Db>,
         msk: &str,
         bridge_out_txid: Txid,
         superblock_period_start_ts: u32,

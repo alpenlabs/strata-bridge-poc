@@ -9,7 +9,8 @@ use crate::{db::Database, scripts::prelude::*};
 
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectorA30<Db: Database> {
-    agg_pubkey: XOnlyPublicKey,
+    n_of_n_agg_pubkey: XOnlyPublicKey,
+
     network: Network,
 
     db: Db,
@@ -22,19 +23,20 @@ pub enum ConnectorA30Leaf {
 }
 
 impl<Db: Database + Clone> ConnectorA30<Db> {
-    pub fn new(agg_pubkey: &XOnlyPublicKey, network: &Network, db: Db) -> Self {
+    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Db) -> Self {
         Self {
-            agg_pubkey: *agg_pubkey,
-            network: *network,
-
-            db: db.clone(),
+            n_of_n_agg_pubkey,
+            network,
+            db,
         }
     }
 
     pub fn generate_tapleaf(&self, tapleaf: ConnectorA30Leaf) -> ScriptBuf {
         match tapleaf {
-            ConnectorA30Leaf::Payout => n_of_n_with_timelock(&self.agg_pubkey, PAYOUT_TIMELOCK),
-            ConnectorA30Leaf::Disprove => n_of_n_script(&self.agg_pubkey),
+            ConnectorA30Leaf::Payout => {
+                n_of_n_with_timelock(&self.n_of_n_agg_pubkey, PAYOUT_TIMELOCK)
+            }
+            ConnectorA30Leaf::Disprove => n_of_n_script(&self.n_of_n_agg_pubkey),
         }
     }
 

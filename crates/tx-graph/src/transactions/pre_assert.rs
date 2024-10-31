@@ -20,7 +20,7 @@ use crate::{
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreAssertData {
-    claim_txid: Txid,
+    pub claim_txid: Txid,
 }
 
 #[derive(Debug, Clone)]
@@ -128,12 +128,12 @@ impl PreAssertTx {
         let connector160_remainder_script = connector160_remainder.create_locking_script();
         let connector160_remainder_amt = connector160_remainder_script.minimal_non_dust();
 
+        scripts_and_amounts.push((connector160_remainder_script, connector160_remainder_amt));
+
         let total_assertion_amount = scripts_and_amounts.iter().map(|(_, amt)| *amt).sum();
         let net_stake = OPERATOR_STAKE - total_assertion_amount - MIN_RELAY_FEE;
 
         scripts_and_amounts[0].1 = net_stake;
-
-        scripts_and_amounts.push((connector160_remainder_script, connector160_remainder_amt));
 
         let tx_outs = create_tx_outs(scripts_and_amounts);
 

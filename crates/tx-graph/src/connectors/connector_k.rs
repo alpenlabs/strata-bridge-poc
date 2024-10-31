@@ -11,29 +11,40 @@ use secp256k1::XOnlyPublicKey;
 
 use crate::{
     commitments::{secret_key_for_bridge_out_txid, secret_key_for_superblock_period_start_ts},
+    db::Database,
     scripts::prelude::*,
 };
 
-#[derive(Debug, Clone, Hash)]
-pub struct ConnectorK {
-    pub n_of_n_agg_key: XOnlyPublicKey,
+#[derive(Debug, Clone)]
+pub struct ConnectorK<Db: Database> {
+    pub n_of_n_agg_pubkey: XOnlyPublicKey,
 
     pub network: Network,
 
-    // this needs WOTS data
-    pub bridge_out_txid_public_key: wots256::PublicKey,
-    pub superblock_period_start_ts_public_key: wots32::PublicKey,
+    pub db: Db,
 }
 
-impl ConnectorK {
+impl<Db: Database> ConnectorK<Db> {
+    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Db) -> Self {
+        Self {
+            n_of_n_agg_pubkey,
+            network,
+            db,
+        }
+    }
+
     fn create_locking_script(&self) -> ScriptBuf {
+        let superblock_period_start_ts_public_key =
+            self.db.get_superblock_period_start_ts_public_key();
+        let bridge_out_txid_public_key = self.db.get_bridge_out_txid_public_key();
+
         script! {
             // superblock_period_start_timestamp
-            { wots32::checksig_verify(self.superblock_period_start_ts_public_key) }
+            { wots32::checksig_verify(superblock_period_start_ts_public_key) }
             for _ in 0..4 { OP_2DROP } // drop ts nibbles
 
             // bridge_out_tx_id
-            { wots256::checksig_verify(self.bridge_out_txid_public_key) }
+            { wots256::checksig_verify(bridge_out_txid_public_key) }
             OP_DUP OP_NOT OP_VERIFY // assert the most significant nibble is zero
             for _ in 0..32 { OP_2DROP }
         }

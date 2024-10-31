@@ -7,11 +7,12 @@ use anyhow::{anyhow, bail, Context};
 use bitcoin::{
     key::UntweakedPublicKey,
     psbt::Input,
+    secp256k1::SECP256K1,
     taproot::{TaprootBuilder, TaprootSpendInfo},
     Address, Network, ScriptBuf, Witness,
 };
-use secp256k1::SECP256K1;
 
+// use secp256k1::SECP256K1;
 use crate::constants::UNSPENDABLE_INTERNAL_KEY;
 
 /// Different spending paths for a taproot.

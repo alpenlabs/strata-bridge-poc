@@ -26,7 +26,6 @@ strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch =
 strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 
-
 # transitive deps with patches for `bitvm`
 ark-bn254 = { git = "https://github.com/Antalpha-Labs/algebra/", features = [
   "curve",

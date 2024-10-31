@@ -5,15 +5,15 @@ use crate::scripts::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectorC1 {
-    agg_pubkey: XOnlyPublicKey,
+    n_of_n_agg_pubkey: XOnlyPublicKey,
     network: Network,
 }
 
 impl ConnectorC1 {
-    pub fn new(agg_pubkey: &XOnlyPublicKey, network: &Network) -> Self {
+    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network) -> Self {
         Self {
-            agg_pubkey: *agg_pubkey,
-            network: *network,
+            n_of_n_agg_pubkey,
+            network,
         }
     }
 
@@ -21,7 +21,7 @@ impl ConnectorC1 {
         let (taproot_address, _) = create_taproot_addr(
             &self.network,
             SpendPath::KeySpend {
-                internal_key: self.agg_pubkey,
+                internal_key: self.n_of_n_agg_pubkey,
             },
         )
         .expect("should be able to create taproot address");

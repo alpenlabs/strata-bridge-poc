@@ -1,7 +1,16 @@
-use bitcoin::{Address, Amount, OutPoint, Psbt, Transaction, Txid};
+use bitcoin::{
+    address::NetworkUnchecked, Address, Amount, Network, OutPoint, Psbt, Transaction, Txid,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::{connectors::prelude::*, constants::OPERATOR_STAKE, scripts::prelude::*};
+use crate::{connectors::prelude::*, constants::OPERATOR_STAKE, db::Database, scripts::prelude::*};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct KickoffTxData {
+    funding_inputs: Vec<OutPoint>,
+    change_address: Address<NetworkUnchecked>,
+    change_amt: Amount,
+}
 
 /// KickOff is just a wrapper around a Psbt.
 ///
@@ -11,19 +20,22 @@ use crate::{connectors::prelude::*, constants::OPERATOR_STAKE, scripts::prelude:
 pub struct KickOffTx(Psbt);
 
 impl KickOffTx {
-    pub fn new(
-        funding_inputs: impl IntoIterator<Item = OutPoint>,
-        connector_k: ConnectorK,
-        change_address: Address,
-        change_amt: Amount,
+    pub fn new<Db: Database>(
+        data: KickoffTxData,
+        connector_k: ConnectorK<Db>,
+        network: Network,
     ) -> Self {
-        let tx_ins = create_tx_ins(funding_inputs);
+        let tx_ins = create_tx_ins(data.funding_inputs);
 
         let commitment_script = connector_k.create_taproot_address().script_pubkey();
 
+        let change_address = data
+            .change_address
+            .require_network(network)
+            .expect("address should be valid for network");
         let scripts_and_amounts = [
             (commitment_script, OPERATOR_STAKE),
-            (change_address.script_pubkey(), change_amt),
+            (change_address.script_pubkey(), data.change_amt),
         ];
 
         let tx_outs = create_tx_outs(scripts_and_amounts);

@@ -6,5 +6,6 @@ pub mod commitments;
 pub mod connectors;
 pub mod constants;
 pub mod db;
+pub mod peg_out_graph;
 pub mod scripts;
 pub mod transactions;

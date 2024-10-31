@@ -10,7 +10,7 @@ use crate::scripts::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectorC0 {
-    agg_pubkey: XOnlyPublicKey,
+    n_of_n_agg_pubkey: XOnlyPublicKey,
     network: Network,
 }
 
@@ -22,21 +22,21 @@ pub enum ConnectorC0Leaf {
 }
 
 impl ConnectorC0 {
-    pub fn new(agg_pubkey: &XOnlyPublicKey, network: &Network) -> Self {
+    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network) -> Self {
         Self {
-            agg_pubkey: *agg_pubkey,
-            network: *network,
+            n_of_n_agg_pubkey,
+            network,
         }
     }
 
     pub fn generate_tapleaf(&self, tapleaf: ConnectorC0Leaf) -> ScriptBuf {
         match tapleaf {
             ConnectorC0Leaf::PayoutOptimistic => {
-                n_of_n_with_timelock(&self.agg_pubkey, PAYOUT_OPTIMISTIC_TIMELOCK)
+                n_of_n_with_timelock(&self.n_of_n_agg_pubkey, PAYOUT_OPTIMISTIC_TIMELOCK)
             }
             ConnectorC0Leaf::Assert => unimplemented!("add script for using T_s bitcommitment"),
             ConnectorC0Leaf::InvalidateTs => {
-                n_of_n_with_timelock(&self.agg_pubkey, SUPERBLOCK_MEASUREMENT_PERIOD)
+                n_of_n_with_timelock(&self.n_of_n_agg_pubkey, SUPERBLOCK_MEASUREMENT_PERIOD)
             }
         }
     }
