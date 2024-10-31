@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use bitcoin::{bip32::Xpriv, Address, Block, BlockHash, Network, Transaction, Txid};
+use bitcoin::{bip32::Xpriv, block::Header, Address, Block, BlockHash, Network, Transaction, Txid};
 
 use crate::{
     error::ClientResult,
@@ -60,7 +60,17 @@ pub trait Reader {
 
     /// Gets the header of the heaviest block (lowest hash) within the time range
     /// [`start_time`, `end_time`] (inclusive).
-    async fn get_superblock(&self, start_time: u32, end_time: u32) -> ClientResult<BlockHash>;
+    ///
+    /// # Note
+    ///
+    /// Time is Unix epoch time in seconds.
+    async fn get_superblock(
+        &self,
+        start_time: u32,
+        end_time: u32,
+        block_time: Option<u32>,
+    ) -> ClientResult<Header>;
+
     /// Gets the timestamp in the block header of the current best block in bitcoin.
     ///
     /// # Note

@@ -7,8 +7,8 @@ use std::{
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine};
 use bitcoin::{
-    bip32::Xpriv, consensus::encode::serialize_hex, Address, Block, BlockHash, Network,
-    Transaction, Txid,
+    bip32::Xpriv, block::Header, consensus::encode::serialize_hex, Address, Block, BlockHash,
+    Network, Transaction, Txid,
 };
 use reqwest::{
     header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE},
@@ -30,6 +30,7 @@ use crate::{
         ImportDescriptor, ImportDescriptorResult, ListDescriptors, ListTransactions, ListUnspent,
         SignRawTransactionWithWallet, TestMempoolAccept,
     },
+    BLOCK_TIME,
 };
 
 /// The maximum number of retries for a request.
@@ -235,19 +236,72 @@ impl Reader for BitcoinClient {
             .await
     }
 
-    async fn get_superblock(&self, start_time: u32, end_time: u32) -> ClientResult<BlockHash> {
+    async fn get_superblock(
+        &self,
+        start_time: u32,
+        end_time: u32,
+        block_time: Option<u32>,
+    ) -> ClientResult<Header> {
         if start_time >= end_time {
             return Err(ClientError::Other("Invalid time range".to_string()));
         }
 
-        let mut block_hashes = Vec::with_capacity((end_time as usize - start_time as usize) + 1);
-        for height in start_time..=end_time {
-            // inclusive range
-            block_hashes.push(self.get_block_hash(height).await.expect("block hash"))
+        if end_time > self.get_current_timestamp().await? {
+            return Err(ClientError::Other("End time is in the future".to_string()));
         }
-        block_hashes
+
+        let block_time = block_time.unwrap_or(BLOCK_TIME);
+        // inclusive range that's why we add 1.
+        let n_blocks = ((end_time - start_time) / block_time) + 1;
+
+        // iterate over the chaintip and get the blocks, while trying to be clever
+        // in order to minimize the number of requests.
+        let mut blocks_to_include = Vec::with_capacity(n_blocks as usize);
+        let chain_tip = self.get_block_count().await?;
+        let current_time = self.get_current_timestamp().await?;
+
+        // Finding the last block with a timestamp less than the end_time
+        // using 2 * block_time as leeway
+        let delta_with_leeway = current_time
+            .checked_sub(end_time)
+            .and_then(|delta| delta.checked_add(2 * block_time))
+            .ok_or(ClientError::Other(
+                "Overflow occurred in delta_with_leeway calculation".to_string(),
+            ))?;
+
+        // Finding the potential last block
+        let potential_last_block_height = chain_tip - delta_with_leeway / block_time;
+        let mut last_block = {
+            let hash = self.get_block_hash(potential_last_block_height).await?;
+            self.get_block(&hash).await?
+        };
+        while last_block.header.time > end_time {
+            let hash = last_block.header.prev_blockhash;
+            last_block = self.get_block(&hash).await?;
+            if last_block.header.time < start_time {
+                return Err(ClientError::Other("No block found".to_string()));
+            }
+        }
+
+        // Found the last block
+        blocks_to_include.push(last_block.header); // Only include the header
+
+        // Now, continue going backwards until we find the first block
+        let mut first_block = last_block.clone();
+        while first_block.header.time > start_time {
+            let hash = first_block.header.prev_blockhash;
+            first_block = self.get_block(&hash).await?;
+            // Since we are iterating backwards, let's add'em to the blocks_to_include
+            blocks_to_include.push(first_block.header); // Only include the header
+            if first_block.header.time < start_time {
+                return Err(ClientError::Other("No block found".to_string()));
+            }
+        }
+
+        // We have all the block headers, let's return the one with the lowest hash.
+        blocks_to_include
             .iter()
-            .min()
+            .min_by(|a, b| a.block_hash().cmp(&b.block_hash()))
             .copied()
             .ok_or(ClientError::Other("No block found".to_string()))
     }
@@ -484,6 +538,8 @@ mod test {
         let get_blockchain_info = client.get_blockchain_info().await.unwrap();
         assert_eq!(get_blockchain_info.blocks, 0);
 
+        // get_current_timestamp
+        let start_time = client.get_current_timestamp().await.unwrap();
         let blocks = mine_blocks(&client, 101, None).await.unwrap();
 
         // get_block
@@ -586,10 +642,20 @@ mod test {
         assert_eq!(expected, got);
 
         // superblock
-        let got = client.get_superblock(50, 100).await.unwrap();
-        let block_hash_50 = client.get_block_hash(50).await.unwrap();
-        let block_hash_100 = client.get_block_hash(100).await.unwrap();
-        assert!(got <= block_hash_50);
-        assert!(got <= block_hash_100);
+        let end_time = client.get_current_timestamp().await.unwrap();
+        let got = client
+            .get_superblock(start_time, end_time, Some(1))
+            .await
+            .unwrap()
+            .block_hash();
+        let block_hash_first = client.get_block_hash(1).await.unwrap();
+        let block_hash_mid = client.get_block_hash(50).await.unwrap();
+        let block_hash_last = {
+            let height = client.get_block_count().await.unwrap();
+            client.get_block_hash(height).await.unwrap()
+        };
+        assert!(got <= block_hash_first);
+        assert!(got <= block_hash_mid);
+        assert!(got <= block_hash_last);
     }
 }
