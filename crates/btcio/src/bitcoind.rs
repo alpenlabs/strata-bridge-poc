@@ -491,6 +491,7 @@ mod test {
     use bitcoin::{consensus, hashes::Hash, NetworkKind};
     use strata_common::logging;
     use strata_test_utils::bitcoind::BitcoinD;
+    use tokio::time::Instant;
     use tracing::trace;
 
     use super::*;
@@ -531,6 +532,16 @@ mod test {
         let client = BitcoinClient::new(url, user, password).unwrap();
         // wait for the client to be ready
         sleep(Duration::from_secs(1)).await;
+
+        // Load a wallet if it doesn't exist
+        let wallets = client.list_wallets().await.unwrap();
+        if wallets.is_empty() {
+            let timestamp = Instant::now().elapsed().as_secs();
+            let _ = client
+                .call::<String>("createwallet", &[to_value(format!("{timestamp}")).unwrap()])
+                .await
+                .unwrap();
+        }
 
         // network
         let got = client.network().await.unwrap();
