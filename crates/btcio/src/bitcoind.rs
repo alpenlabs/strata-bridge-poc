@@ -515,7 +515,7 @@ mod test {
         Ok(block_hashes)
     }
 
-    #[tokio::test()]
+    #[tokio::test]
     async fn client_works() {
         logging::init();
 

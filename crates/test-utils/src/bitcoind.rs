@@ -141,13 +141,14 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_bitcoind() {
+    #[tokio::test]
+    async fn test_bitcoind() {
         logging::init();
         // test default bitcoind
-        {
+        async {
             debug!("Starting bitcoind");
             let bitcoind = BitcoinD::default();
+            tokio::time::sleep(Duration::from_secs(1)).await;
 
             let data_dir = bitcoind.data_dir().clone();
             debug!(?data_dir, "Data directory");
@@ -167,11 +168,13 @@ mod tests {
             debug!("Checking if data directory is created");
             assert!(data_dir.exists());
         }
+        .await;
 
         // test drop check
-        {
+        async {
             debug!("Starting bitcoind");
             let bitcoind = BitcoinD::default();
+            tokio::time::sleep(Duration::from_secs(1)).await;
             let data_dir = bitcoind.data_dir().clone();
             drop(bitcoind);
 
@@ -192,11 +195,14 @@ mod tests {
             // Check if the data directory is deleted
             assert!(!data_dir.exists());
         }
+        .await;
 
         // test wallet info
-        {
+        async {
             debug!("Starting bitcoind");
             let bitcoind = BitcoinD::default();
+            tokio::time::sleep(Duration::from_secs(1)).await;
+
             let data_dir = bitcoind.data_dir().clone();
             let process = Command::new("bitcoin-cli")
                 .arg("-regtest")
@@ -209,5 +215,6 @@ mod tests {
             debug!(?process, "Wallet info");
             assert_eq!(process.status.code(), Some(0));
         }
+        .await;
     }
 }
