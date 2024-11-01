@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "strata-btcio"
+name = "strata-bridge-btcio"
 version = "0.1.0"
 
 [dependencies]

@@ -17,7 +17,7 @@ resolver = "2"
 
 [workspace.dependencies]
 # imported from strata
-strata-btcio = { path = "crates/btcio" }
+strata-bridge-btcio = { path = "crates/btcio" }
 
 # new crates
 strata-bridge-tx-graph = { path = "crates/tx-graph" }

@@ -7780,6 +7780,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4af28eeb7c18ac2dbdb255d40bee63f203120e1db6b0024b177746ebec7049c1"
 
 [[package]]
+name = "strata-bridge-btcio"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "bitcoin 0.31.0",
+ "borsh",
+ "bytes",
+ "esplora-client",
+ "hex",
+ "musig2 0.0.11",
+ "rand",
+ "reqwest 0.12.9",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strata-common",
+ "strata-test-utils",
+ "thiserror",
+ "threadpool",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "strata-bridge-guest-builder"
 version = "0.1.0"
 dependencies = [
@@ -7818,32 +7844,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
-]
-
-[[package]]
-name = "strata-btcio"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.22.1",
- "bitcoin 0.31.0",
- "borsh",
- "bytes",
- "esplora-client",
- "hex",
- "musig2 0.0.11",
- "rand",
- "reqwest 0.12.9",
- "serde",
- "serde_json",
- "sha2",
- "strata-common",
- "strata-test-utils",
- "thiserror",
- "threadpool",
- "tokio",
- "tracing",
 ]
 
 [[package]]
