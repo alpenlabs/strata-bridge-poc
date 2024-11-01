@@ -7,6 +7,13 @@ on:
   merge_group:
   push:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      RUST_LOG:
+        description: "Log level"
+        required: false
+        default: "info"
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -56,6 +63,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
+
+      - name: Set RUST_LOG
+        run: echo "RUST_LOG=${{ github.event.inputs.RUST_LOG }}" >> $GITHUB_ENV
 
       - name: Run tests with coverage
         run: |
