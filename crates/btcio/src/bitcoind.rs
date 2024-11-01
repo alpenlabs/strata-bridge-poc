@@ -657,5 +657,7 @@ mod test {
         assert!(got <= block_hash_first);
         assert!(got <= block_hash_mid);
         assert!(got <= block_hash_last);
+
+        drop(bitcoind);
     }
 }
