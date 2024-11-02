@@ -8152,6 +8152,8 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "strata-bridge-btcio",
+ "strata-bridge-tx-graph",
 ]
 
 [[package]]

@@ -5,12 +5,15 @@ use std::collections::BTreeMap;
 
 use anyhow::{anyhow, bail, Context};
 use bitcoin::{
+    hashes::Hash,
     key::UntweakedPublicKey,
     psbt::Input,
     secp256k1::SECP256K1,
-    taproot::{TaprootBuilder, TaprootSpendInfo},
-    Address, Network, ScriptBuf, Witness,
+    sighash::{Prevouts, SighashCache},
+    taproot::{ControlBlock, LeafVersion, TaprootBuilder, TaprootSpendInfo},
+    Address, Network, ScriptBuf, TapLeafHash, TapSighashType, Transaction, TxOut, Witness,
 };
+use secp256k1::Message;
 
 // use secp256k1::SECP256K1;
 use crate::constants::UNSPENDABLE_INTERNAL_KEY;
@@ -173,6 +176,97 @@ where
     input.bip32_derivation = BTreeMap::new();
 
     input
+}
+
+/// The components required in the witness stack to spend a taproot output.
+///
+/// If a script-path path is being used, the witness stack needs the script being spent and the
+/// control block in addition to the signature.
+/// See [BIP 341](https://github.com/bitcoin/bips/blob/master/bip-0341.mediawiki#constructing-and-spending-taproot-outputs).
+#[derive(Debug, Clone, PartialEq)]
+pub enum TaprootWitness {
+    /// Use the keypath spend.
+    ///
+    /// This only requires the signature for the tweaked internal key and nothing else.
+    Key,
+
+    /// Use the script path spend.
+    ///
+    /// This requires the script being spent from as well as the [`ControlBlock`] in addition to
+    /// the elements that fulfill the spending condition in the script.
+    Script {
+        script_buf: ScriptBuf,
+        control_block: ControlBlock,
+    },
+}
+
+/// Get the message hash for signing.
+///
+/// This hash may be for the key path spend or the script path spend depending upon the
+/// `spend_path`.
+pub fn create_message_hash(
+    sighash_cache: &mut SighashCache<&mut Transaction>,
+    prevouts: Prevouts<'_, TxOut>,
+    witness_type: &TaprootWitness,
+    sighash_type: TapSighashType,
+    input_index: usize,
+) -> anyhow::Result<Message> {
+    if let TaprootWitness::Script {
+        script_buf,
+        control_block: _,
+    } = witness_type
+    {
+        return create_script_spend_hash(
+            sighash_cache,
+            script_buf,
+            prevouts,
+            sighash_type,
+            input_index,
+        );
+    }
+
+    create_key_spend_hash(sighash_cache, prevouts, sighash_type, input_index)
+}
+
+/// Generate a sighash message for a taproot `script` spending path at the `input_index` of
+/// all `prevouts`.
+pub fn create_script_spend_hash(
+    sighash_cache: &mut SighashCache<&mut Transaction>,
+    script: &ScriptBuf,
+    prevouts: Prevouts<'_, TxOut>,
+    sighash_type: TapSighashType,
+    input_index: usize,
+) -> anyhow::Result<Message> {
+    let leaf_hash = TapLeafHash::from_script(script, LeafVersion::TapScript);
+
+    let sighash = sighash_cache.taproot_script_spend_signature_hash(
+        input_index,
+        &prevouts,
+        leaf_hash,
+        sighash_type,
+    )?;
+
+    let message =
+        Message::from_digest_slice(sighash.as_byte_array()).expect("TapSigHash is a hash");
+
+    Ok(message)
+}
+
+/// Generate a sighash message for a taproot `key` spending path at the `input_index` of
+/// all `prevouts`.
+pub fn create_key_spend_hash(
+    sighash_cache: &mut SighashCache<&mut Transaction>,
+    prevouts: Prevouts<'_, TxOut>,
+    sighash_type: TapSighashType,
+    input_index: usize,
+) -> anyhow::Result<Message> {
+    let sighash =
+        sighash_cache.taproot_key_spend_signature_hash(input_index, &prevouts, sighash_type)?;
+
+    let message =
+        Message::from_digest_slice(sighash.as_byte_array()).expect("TapSigHash is a hash");
+
+    Ok(message)
 }
 
 #[cfg(test)]

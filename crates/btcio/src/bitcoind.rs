@@ -66,7 +66,7 @@ struct Response<R> {
 
 impl BitcoinClient {
     /// Creates a new [`BitcoinClient`] with the given URL, username, and password.
-    pub fn new(url: String, username: String, password: String) -> ClientResult<Self> {
+    pub fn new(url: &str, username: &str, password: &str) -> ClientResult<Self> {
         if username.is_empty() || password.is_empty() {
             return Err(ClientError::MissingUserPassword);
         }
@@ -93,7 +93,11 @@ impl BitcoinClient {
 
         trace!(url = %url, "Created bitcoin client");
 
-        Ok(Self { url, client, id })
+        Ok(Self {
+            url: url.to_string(),
+            client,
+            id,
+        })
     }
 
     fn next_id(&self) -> usize {
@@ -520,9 +524,9 @@ mod test {
         logging::init();
 
         let bitcoind = BitcoinD::default();
-        let url = bitcoind.url.to_string();
-        let user = bitcoind.user.to_string();
-        let password = bitcoind.password.to_string();
+        let url = bitcoind.url;
+        let user = bitcoind.user;
+        let password = bitcoind.password;
 
         // setting the ENV variable `BITCOIN_XPRIV_RETRIEVABLE` to retrieve the xpriv
         set_var("BITCOIN_XPRIV_RETRIEVABLE", "true");
