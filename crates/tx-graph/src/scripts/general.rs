@@ -31,6 +31,14 @@ pub fn n_of_n_with_timelock(aggregated_pubkey: &XOnlyPublicKey, timelock: u32) -
     .compile()
 }
 
+pub fn op_return_nonce(data: Vec<u8>) -> ScriptBuf {
+    script! {
+        OP_RETURN
+        { data }
+    }
+    .compile()
+}
+
 /// Aggregate the pubkeys using [`musig2`] and return the resulting [`XOnlyPublicKey`].
 ///
 /// Please refer to MuSig2 key aggregation section in
