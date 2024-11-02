@@ -4,7 +4,7 @@ use bitcoin::{secp256k1::schnorr, Txid};
 use bitvm::{groth16::g16, treepp::*};
 use strata_bridge_tx_graph::db::Database;
 
-use super::compile_verifier_scripts;
+use super::generate_verifier_partial_scripts;
 
 pub struct BridgeDb {
     verifier_scripts: [Script; g16::N_TAPLEAVES],
@@ -22,7 +22,7 @@ pub struct BridgeDb {
 impl BridgeDb {
     pub fn new() -> Self {
         Self {
-            verifier_scripts: compile_verifier_scripts(),
+            verifier_scripts: generate_verifier_partial_scripts(),
             wots_public_keys: HashMap::new(),
             wots_signatures: HashMap::new(),
             signatures: HashMap::new(),
@@ -41,6 +41,7 @@ impl Database for BridgeDb {
             .unwrap()
             .get(&deposit_txid)
             .unwrap()
+            .clone()
     }
 
     fn get_wots_signatures(&self, operator_id: u32, deposit_txid: Txid) -> g16::WotsSignatures {
@@ -49,10 +50,11 @@ impl Database for BridgeDb {
             .unwrap()
             .get(&deposit_txid)
             .unwrap()
+            .clone()
     }
 
     fn set_wots_public_keys(
-        &self,
+        &mut self,
         operator_id: u32,
         deposit_txid: Txid,
         public_keys: &g16::WotsPublicKeys,
@@ -60,12 +62,12 @@ impl Database for BridgeDb {
         self.wots_public_keys
             .get_mut(&operator_id)
             .unwrap()
-            .insert(&deposit_txid, public_keys)
+            .insert(deposit_txid, public_keys.clone())
             .unwrap();
     }
 
     fn set_wots_signatures(
-        &self,
+        &mut self,
         operator_id: u32,
         deposit_txid: Txid,
         signatures: &g16::WotsSignatures,
@@ -73,7 +75,11 @@ impl Database for BridgeDb {
         self.wots_signatures
             .get_mut(&operator_id)
             .unwrap()
-            .insert(&deposit_txid, signatures)
+            .insert(deposit_txid, signatures.clone())
             .unwrap();
+    }
+
+    fn get_signature(&self, txid: Txid) -> schnorr::Signature {
+        self.signatures.get(&txid).unwrap().clone()
     }
 }

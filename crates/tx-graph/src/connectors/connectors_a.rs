@@ -23,7 +23,7 @@ pub struct ConnectorA256Factory<
 > {
     pub network: Network,
 
-    pub public_keys: [(u32, wots256::PublicKey); N_PUBLIC_KEYS],
+    pub public_keys: [wots256::PublicKey; N_PUBLIC_KEYS],
 }
 
 impl<const N_PUBLIC_KEYS_PER_CONNECTOR: usize, const N_PUBLIC_KEYS: usize>
@@ -43,10 +43,8 @@ impl<const N_PUBLIC_KEYS_PER_CONNECTOR: usize, const N_PUBLIC_KEYS: usize>
             let connector = ConnectorA256::<N_PUBLIC_KEYS_PER_CONNECTOR> {
                 network: self.network,
                 public_keys:
-                    TryInto::<[(u32, wots256::PublicKey); N_PUBLIC_KEYS_PER_CONNECTOR]>::try_into(
-                        chunk,
-                    )
-                    .unwrap(),
+                    TryInto::<[wots256::PublicKey; N_PUBLIC_KEYS_PER_CONNECTOR]>::try_into(chunk)
+                        .unwrap(),
             };
 
             connectors.push(connector);
@@ -65,13 +63,13 @@ impl<const N_PUBLIC_KEYS_PER_CONNECTOR: usize, const N_PUBLIC_KEYS: usize>
 #[derive(Debug, Clone)]
 pub struct ConnectorA256<const N_PUBLIC_KEYS: usize> {
     pub network: Network,
-    pub public_keys: [(u32, wots256::PublicKey); N_PUBLIC_KEYS],
+    pub public_keys: [wots256::PublicKey; N_PUBLIC_KEYS],
 }
 
 impl<const N_PUBLIC_KEYS: usize> ConnectorA256<N_PUBLIC_KEYS> {
     pub fn create_locking_script(&self) -> ScriptBuf {
         script! {
-            for (_, public_key) in self.public_keys {
+            for public_key in self.public_keys {
                 { wots256::checksig_verify(public_key) }
                 { fq_from_nibbles() }
                 { U254::push_u32_le(&Fq::MODULUS_LIMBS)}
@@ -113,9 +111,10 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA256<N_PUBLIC_KEYS> {
     pub fn create_tx_input(&self, input: &mut Input, msk: &str, values: [&[u8]; N_PUBLIC_KEYS]) {
         let witness = script! {
             for i in (0..self.public_keys.len()).rev() {
-                { wots256::sign(&secret_key_for_proof_element(msk, self.public_keys[i].0), values[i]) }
+                // { wots256::sign(&secret_key_for_proof_element(msk, self.public_keys[i]), values[i]) }
             }
-        }.compile();
+        }
+        .compile();
 
         let (script, control_block) = self.generate_spend_info();
 
@@ -137,7 +136,7 @@ pub struct ConnectorA160Factory<
 > {
     pub network: Network,
 
-    pub public_keys: [(u32, wots160::PublicKey); N_PUBLIC_KEYS],
+    pub public_keys: [wots160::PublicKey; N_PUBLIC_KEYS],
 }
 
 impl<const N_PUBLIC_KEYS_PER_CONNECTOR: usize, const N_PUBLIC_KEYS: usize>
@@ -156,10 +155,8 @@ impl<const N_PUBLIC_KEYS_PER_CONNECTOR: usize, const N_PUBLIC_KEYS: usize>
             let connector = ConnectorA160::<N_PUBLIC_KEYS_PER_CONNECTOR> {
                 network: self.network,
                 public_keys:
-                    TryInto::<[(u32, wots160::PublicKey); N_PUBLIC_KEYS_PER_CONNECTOR]>::try_into(
-                        chunk,
-                    )
-                    .unwrap(),
+                    TryInto::<[wots160::PublicKey; N_PUBLIC_KEYS_PER_CONNECTOR]>::try_into(chunk)
+                        .unwrap(),
             };
 
             connectors.push(connector);
@@ -178,13 +175,13 @@ impl<const N_PUBLIC_KEYS_PER_CONNECTOR: usize, const N_PUBLIC_KEYS: usize>
 #[derive(Debug, Clone)]
 pub struct ConnectorA160<const N_PUBLIC_KEYS: usize> {
     pub network: Network,
-    pub public_keys: [(u32, wots160::PublicKey); N_PUBLIC_KEYS],
+    pub public_keys: [wots160::PublicKey; N_PUBLIC_KEYS],
 }
 
 impl<const N_PUBLIC_KEYS: usize> ConnectorA160<N_PUBLIC_KEYS> {
     pub fn create_locking_script(&self) -> ScriptBuf {
         script! {
-            for (_, public_key) in self.public_keys {
+            for public_key in self.public_keys {
                 { wots160::checksig_verify(public_key) }
                 { fq_from_nibbles() }
                 { U254::push_u32_le(&Fq::MODULUS_LIMBS)}
@@ -226,9 +223,10 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA160<N_PUBLIC_KEYS> {
     pub fn create_tx_input(&self, input: &mut Input, msk: &str, values: [&[u8]; N_PUBLIC_KEYS]) {
         let witness = script! {
             for i in (0..self.public_keys.len()).rev() {
-                { wots160::sign(&secret_key_for_proof_element(msk, self.public_keys[i].0), values[i]) }
+                // { wots160::sign(&secret_key_for_proof_element(msk, self.public_keys[i]), values[i]) }
             }
-        }.compile();
+        }
+        .compile();
 
         let (script, control_block) = self.create_spend_info();
 

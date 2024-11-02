@@ -14,7 +14,7 @@ pub trait Database {
     fn get_wots_public_keys(&self, operator_id: u32, deposit_txid: Txid) -> g16::WotsPublicKeys;
 
     fn set_wots_public_keys(
-        &self,
+        &mut self,
         operator_id: u32,
         deposit_txid: Txid,
         public_keys: &g16::WotsPublicKeys,
@@ -23,9 +23,11 @@ pub trait Database {
     fn get_wots_signatures(&self, operator_id: u32, deposit_txid: Txid) -> g16::WotsSignatures;
 
     fn set_wots_signatures(
-        &self,
+        &mut self,
         operator_id: u32,
         deposit_txid: Txid,
         signatures: &g16::WotsSignatures,
     );
+
+    fn get_signature(&self, txid: Txid) -> Signature;
 }

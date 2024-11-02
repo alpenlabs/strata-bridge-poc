@@ -35,7 +35,7 @@ impl Operator {
         let deposit_msk = self.get_deposit_master_secret_key(deposit_txid);
         (
             (
-                wots32::generate_public_key(&secret_key_for_superblock_period_start_ts(
+                wots256::generate_public_key(&secret_key_for_superblock_period_start_ts(
                     &deposit_msk,
                 )),
                 wots256::generate_public_key(&secret_key_for_bridge_out_txid(&deposit_msk)),

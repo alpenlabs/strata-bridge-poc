@@ -1,4 +1,4 @@
-use bitcoin::{Amount, Network, Txid};
+use bitcoin::{hashes::Hash, Amount, Network, Txid};
 use secp256k1::XOnlyPublicKey;
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +10,7 @@ use crate::{
         prelude::*,
     },
     db::Database,
+    mock_txid,
     transactions::prelude::*,
 };
 
@@ -122,18 +123,26 @@ impl<Db: Database + Clone> PegOutGraphConnectors<Db> {
 
         let post_assert_out_0 = ConnectorA30::new(n_of_n_agg_pubkey, network, db.clone());
 
-        let public_keys = db.get_proof_elements_160();
+        let ((_, _, superblock_hash_public_key), public_keys_256, public_keys_160) =
+            db.get_wots_public_keys(0, mock_txid());
         let assert_data160_factory: ConnectorA160Factory<NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160> =
             ConnectorA160Factory {
                 network,
-                public_keys,
+                public_keys: public_keys_160,
             };
 
-        let public_keys = db.get_proof_elements_256();
+        let public_keys_256 = std::array::from_fn(|i| {
+            if i == 0 {
+                superblock_hash_public_key
+            } else {
+                public_keys_256[i - 1]
+            }
+        });
+
         let assert_data256_factory: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256> =
             ConnectorA256Factory {
                 network,
-                public_keys,
+                public_keys: public_keys_256,
             };
 
         Self {

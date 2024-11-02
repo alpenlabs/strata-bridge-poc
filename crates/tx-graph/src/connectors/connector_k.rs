@@ -12,6 +12,7 @@ use secp256k1::XOnlyPublicKey;
 use crate::{
     commitments::{secret_key_for_bridge_out_txid, secret_key_for_superblock_period_start_ts},
     db::Database,
+    mock_txid,
     scripts::prelude::*,
 };
 
@@ -34,13 +35,12 @@ impl<Db: Database> ConnectorK<Db> {
     }
 
     fn create_locking_script(&self) -> ScriptBuf {
-        let superblock_period_start_ts_public_key =
-            self.db.get_superblock_period_start_ts_public_key();
-        let bridge_out_txid_public_key = self.db.get_bridge_out_txid_public_key();
+        let ((superblock_period_start_ts_public_key, bridge_out_txid_public_key, _), _, _) =
+            self.db.get_wots_public_keys(0, mock_txid());
 
         script! {
             // superblock_period_start_timestamp
-            { wots32::checksig_verify(superblock_period_start_ts_public_key) }
+            { wots256::checksig_verify(superblock_period_start_ts_public_key) }
             for _ in 0..4 { OP_2DROP } // drop ts nibbles
 
             // bridge_out_tx_id
@@ -91,8 +91,8 @@ impl<Db: Database> ConnectorK<Db> {
         // unimplemented!("call the bitvm impl to generate witness data for bitcommitments");
         let witness = script! {
             { wots256::sign(&secret_key_for_bridge_out_txid(msk), bridge_out_txid.as_ref()) }
-
-            { wots32::sign(&secret_key_for_superblock_period_start_ts(msk), &superblock_period_start_ts.to_le_bytes()) }
+            // pad ts bytes
+            { wots256::sign(&secret_key_for_superblock_period_start_ts(msk), &superblock_period_start_ts.to_le_bytes()) }
         }.compile();
 
         let (script, control_block) = self.generate_spend_info();
