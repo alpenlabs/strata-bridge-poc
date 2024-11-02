@@ -3,8 +3,10 @@ members = [
   "crates/proof-impl/bitvm-bridge",
   "crates/tx-graph",
   "bridge-proofs",
+  "bin/bridge-demo",
 
   # binaries listed separately
+  "bin/bridge-demo",
 ]
 
 default-members = []
