@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/btcio",
+  "crates/agent",
   "crates/proof-impl/bitvm-bridge",
   "crates/tx-graph",
   "bridge-proofs",
@@ -17,10 +18,9 @@ default-members = ["bin/strata-bridge"]
 resolver = "2"
 
 [workspace.dependencies]
-# imported from strata
+# deps in this workspace
+strata-bridge-agent = { path = "crates/agent" }
 strata-bridge-btcio = { path = "crates/btcio" }
-
-# new crates
 strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
 strata-test-utils = { path = "crates/test-utils" }
@@ -134,9 +134,7 @@ ark-ff = { git = "https://github.com/chainwayxyz/algebra/", branch = "new-ate-lo
 ark-ec = { git = "https://github.com/chainwayxyz/algebra/", branch = "new-ate-loop" }
 ark-poly = { git = "https://github.com/chainwayxyz/algebra/", branch = "new-ate-loop" }
 ark-serialize = { git = "https://github.com/chainwayxyz/algebra/", branch = "new-ate-loop" }
-ark-bn254 = { git = "https://github.com/chainwayxyz/algebra/", branch = "new-ate-loop", features = [
-  "curve",
-], default-features = false }
+ark-bn254 = { git = "https://github.com/chainwayxyz/algebra/", branch = "new-ate-loop" }
 
 ark-r1cs-std = { git = "https://github.com/arkworks-rs/r1cs-std/" }
 ark-crypto-primitives = { git = "https://github.com/arkworks-rs/crypto-primitives/" }
