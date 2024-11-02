@@ -54,23 +54,12 @@ pub mod mock {
         use ark_std::{test_rng, UniformRand};
         use rand::{RngCore, SeedableRng};
 
-        #[derive(Copy)]
+        #[derive(Clone, Copy)]
         struct DummyCircuit<F: PrimeField> {
             pub a: Option<F>,
             pub b: Option<F>,
             pub num_variables: usize,
             pub num_constraints: usize,
-        }
-
-        impl<F: PrimeField> Clone for DummyCircuit<F> {
-            fn clone(&self) -> Self {
-                DummyCircuit {
-                    a: self.a,
-                    b: self.b,
-                    num_variables: self.num_variables,
-                    num_constraints: self.num_constraints,
-                }
-            }
         }
 
         impl<F: PrimeField> ConstraintSynthesizer<F> for DummyCircuit<F> {
@@ -88,13 +77,13 @@ pub mod mock {
 
                     Ok(a * b)
                 })?;
-                let d = cs.new_input_variable(|| {
+                let _d = cs.new_input_variable(|| {
                     let a = self.a.ok_or(SynthesisError::AssignmentMissing)?;
                     let b = self.b.ok_or(SynthesisError::AssignmentMissing)?;
 
                     Ok(a + b)
                 })?;
-                let e = cs.new_input_variable(|| {
+                let _e = cs.new_input_variable(|| {
                     let a = self.a.ok_or(SynthesisError::AssignmentMissing)?;
                     let b = self.b.ok_or(SynthesisError::AssignmentMissing)?;
 
