@@ -1,3 +1,4 @@
+pub mod common;
 pub mod operator;
 pub mod signer;
 pub mod verifier;
