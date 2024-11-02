@@ -1,0 +1,10 @@
+[package]
+name = "strata-test-utils"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+strata-common.workspace = true
+tempfile = "3.13.0"
+tokio.workspace = true
+tracing.workspace = true
