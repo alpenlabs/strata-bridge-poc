@@ -8153,7 +8153,10 @@ dependencies = [
  "serde_json",
  "sha2",
  "strata-bridge-btcio",
+ "strata-bridge-db",
  "strata-bridge-tx-graph",
+ "strata-state",
+ "tokio",
 ]
 
 [[package]]
@@ -8180,6 +8183,29 @@ dependencies = [
  "threadpool",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "strata-bridge-db"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "bitcoin 0.31.0",
+ "bitcoin-script 0.3.0",
+ "bitcoin-scriptexec",
+ "bitvm",
+ "esplora-client",
+ "hex",
+ "lazy_static",
+ "musig2 0.0.11",
+ "rand",
+ "secp256k1 0.28.2",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strata-bridge-btcio",
+ "strata-bridge-tx-graph",
+ "tokio",
 ]
 
 [[package]]

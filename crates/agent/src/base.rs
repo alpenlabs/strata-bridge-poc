@@ -1,22 +1,25 @@
+use std::sync::Arc;
+
 use bitcoin::{
     sighash::{Prevouts, SighashCache},
     TapSighashType, Transaction, TxOut,
 };
-use secp256k1::{schnorr::Signature, Keypair, SECP256K1};
+use secp256k1::{schnorr::Signature, Keypair, PublicKey, SECP256K1};
 use strata_bridge_btcio::BitcoinClient;
 use strata_bridge_tx_graph::scripts::taproot::{create_message_hash, TaprootWitness};
 
-#[derive(Debug)]
-pub struct Base {
+#[derive(Debug, Clone)]
+pub struct Agent {
     keypair: Keypair,
 
-    pub client: BitcoinClient,
+    pub client: Arc<BitcoinClient>,
 }
 
-impl Base {
+impl Agent {
     pub fn new(keypair: Keypair, btc_url: &str, btc_user: &str, btc_pass: &str) -> Self {
         let client = BitcoinClient::new(btc_url, btc_user, btc_pass)
             .expect("should be able to create bitcoin client");
+        let client = Arc::new(client);
 
         Self { keypair, client }
     }
@@ -33,5 +36,9 @@ impl Base {
         .expect("should be ablet o create message hash");
 
         SECP256K1.sign_schnorr(&msg, &self.keypair)
+    }
+
+    pub fn public_key(&self) -> PublicKey {
+        self.keypair.public_key()
     }
 }
