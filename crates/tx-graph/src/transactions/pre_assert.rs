@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use super::constants::{
     NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
-    NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A256_PK7,
+    NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11,
 };
 use crate::{
     connectors::{
@@ -42,9 +42,9 @@ impl PreAssertTx {
             ConnectorA160<NUM_PKS_A160_RESIDUAL>,
         ) = connector_a160.create_connectors();
 
-        let (connector256_batch, _connector256_remainder): (
+        let (connector256_batch, connector256_remainder): (
             Vec<ConnectorA256<NUM_PKS_A256_PER_CONNECTOR>>,
-            ConnectorA256<0>,
+            ConnectorA256<6>,
         ) = connector_a256.create_connectors();
 
         let outpoints = [OutPoint {
@@ -110,25 +110,17 @@ impl PreAssertTx {
                         (script, amount)
                     }),
             );
-
-            scripts_and_amounts.extend(
-                connector256_batch
-                    .iter()
-                    .by_ref()
-                    .take(NUM_ASSERT_DATA_TX2_A256_PK7)
-                    .map(|conn| {
-                        let script = conn.create_locking_script();
-                        let amount = script.minimal_non_dust();
-
-                        (script, amount)
-                    }),
-            );
         }
 
         let connector160_remainder_script = connector160_remainder.create_locking_script();
         let connector160_remainder_amt = connector160_remainder_script.minimal_non_dust();
 
         scripts_and_amounts.push((connector160_remainder_script, connector160_remainder_amt));
+
+        let connector256_remainder_script = connector256_remainder.create_locking_script();
+        let connector256_remainder_amt = connector256_remainder_script.minimal_non_dust();
+
+        scripts_and_amounts.push((connector256_remainder_script, connector256_remainder_amt));
 
         let total_assertion_amount = scripts_and_amounts.iter().map(|(_, amt)| *amt).sum();
         let net_stake = OPERATOR_STAKE - total_assertion_amount - MIN_RELAY_FEE;
