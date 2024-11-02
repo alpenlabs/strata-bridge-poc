@@ -2,19 +2,20 @@ pub mod db;
 
 use bitvm::{
     groth16::g16::{
-        self, Groth16ProofAssertions, Proof, WotsPublicKeys, WotsSignatures, N_TAPLEAVES,
+        self, Proof, ProofAssertions as Groth16ProofAssertions, VerificationKey, WotsPublicKeys,
+        WotsSignatures, N_TAPLEAVES,
     },
     treepp::*,
 };
 
-pub fn BRIDGE_POC_VERIFICATION_KEY() -> g16::VerificationKey {
+pub fn bridge_poc_verification_key() -> g16::VerificationKey {
     // TODO: replace this with actual verification key
     let (_, ark_vk) = mock::groth16_circuit();
     g16::VerificationKey { ark_vk }
 }
 
 pub fn generate_verifier_partial_scripts() -> [Script; N_TAPLEAVES] {
-    g16::Verifier::compile(BRIDGE_POC_VERIFICATION_KEY())
+    g16::Verifier::compile(bridge_poc_verification_key())
 }
 
 pub fn generate_verifier_tapscripts_from_partial_scripts(
@@ -24,8 +25,8 @@ pub fn generate_verifier_tapscripts_from_partial_scripts(
     g16::Verifier::generate_tapscripts(public_keys, verifier_scripts)
 }
 
-pub fn generate_assertions_for_proof(proof: Proof) -> Groth16ProofAssertions {
-    g16::Verifier::generate_assertions(proof)
+pub fn generate_assertions_for_proof(vk: VerificationKey, proof: Proof) -> Groth16ProofAssertions {
+    g16::Verifier::generate_assertions(vk, proof)
 }
 
 pub fn validate_assertion_signatures(

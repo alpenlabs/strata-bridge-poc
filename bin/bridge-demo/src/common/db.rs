@@ -19,8 +19,8 @@ pub struct BridgeDb {
     signatures: HashMap<Txid, schnorr::Signature>,
 }
 
-impl BridgeDb {
-    pub fn new() -> Self {
+impl Default for BridgeDb {
+    fn default() -> Self {
         Self {
             verifier_scripts: generate_verifier_partial_scripts(),
             wots_public_keys: HashMap::new(),
@@ -36,21 +36,21 @@ impl Database for BridgeDb {
     }
 
     fn get_wots_public_keys(&self, operator_id: u32, deposit_txid: Txid) -> g16::WotsPublicKeys {
-        self.wots_public_keys
+        *self
+            .wots_public_keys
             .get(&operator_id)
             .unwrap()
             .get(&deposit_txid)
             .unwrap()
-            .clone()
     }
 
     fn get_wots_signatures(&self, operator_id: u32, deposit_txid: Txid) -> g16::WotsSignatures {
-        self.wots_signatures
+        *self
+            .wots_signatures
             .get(&operator_id)
             .unwrap()
             .get(&deposit_txid)
             .unwrap()
-            .clone()
     }
 
     fn set_wots_public_keys(
@@ -62,7 +62,7 @@ impl Database for BridgeDb {
         self.wots_public_keys
             .get_mut(&operator_id)
             .unwrap()
-            .insert(deposit_txid, public_keys.clone())
+            .insert(deposit_txid, *public_keys)
             .unwrap();
     }
 
@@ -75,11 +75,11 @@ impl Database for BridgeDb {
         self.wots_signatures
             .get_mut(&operator_id)
             .unwrap()
-            .insert(deposit_txid, signatures.clone())
+            .insert(deposit_txid, *signatures)
             .unwrap();
     }
 
     fn get_signature(&self, txid: Txid) -> schnorr::Signature {
-        self.signatures.get(&txid).unwrap().clone()
+        *self.signatures.get(&txid).unwrap()
     }
 }
