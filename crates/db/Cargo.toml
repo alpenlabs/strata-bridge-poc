@@ -12,9 +12,10 @@ rust.unused_must_use = "deny"
 
 [dependencies]
 strata-bridge-btcio.workspace = true
-strata-bridge-tx-graph.workspace = true
+strata-bridge-primitives.workspace = true
 
 anyhow.workspace = true
+async-trait.workspace = true
 bitcoin = { workspace = true, features = ["rand-std"] }
 bitcoin-script = { workspace = true }
 bitcoin-scriptexec = { workspace = true }

@@ -1,8 +1,7 @@
 use bitcoin::{Amount, Network, OutPoint, Psbt, Transaction, Txid};
 use secp256k1::{schnorr::Signature, XOnlyPublicKey};
 use serde::{Deserialize, Serialize};
-
-use crate::{constants::MIN_RELAY_FEE, scripts::prelude::*};
+use strata_bridge_primitives::{params::prelude::MIN_RELAY_FEE, scripts::prelude::*};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PayoutData {

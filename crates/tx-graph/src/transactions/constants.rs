@@ -1,4 +1,4 @@
-use crate::connectors::constants::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256};
+use strata_bridge_primitives::params::connectors::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256};
 
 pub const NUM_ASSERT_DATA_TX1: usize = 5;
 pub const NUM_ASSERT_DATA_TX1_A160_PK11: usize = 10;

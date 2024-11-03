@@ -1,7 +1,6 @@
 use bitcoin::{Network, ScriptBuf};
 use secp256k1::XOnlyPublicKey;
-
-use crate::scripts::prelude::*;
+use strata_bridge_primitives::scripts::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectorC1 {

@@ -1,16 +1,30 @@
-use std::{array, collections::HashMap};
+use std::{
+    array,
+    collections::{BTreeMap, HashMap},
+};
 
+use async_trait::async_trait;
 use bitcoin::Txid;
 use bitcoin_script::Script;
-use bitvm::groth16::g16;
-use secp256k1::schnorr;
+use bitvm::{
+    groth16::g16,
+    signatures::wots::{wots160, wots256, wots32},
+};
+use secp256k1::{schnorr, PublicKey};
+use strata_bridge_primitives::{
+    params::connectors::{NUM_PKS_A160, NUM_PKS_A256},
+    wots::{WotsPublicKeyData, WotsSignatureData},
+};
 use tokio::sync::RwLock;
 
 use super::operator::OperatorIdx;
+use crate::connector_db::ConnectorDb;
 
 // Assume that no node will update other nodes' data in this public db.
 #[derive(Debug)]
 pub struct PublicDb {
+    musig_pubkey_table: RwLock<BTreeMap<OperatorIdx, PublicKey>>,
+
     verifier_scripts: RwLock<[Script; g16::N_TAPLEAVES]>,
 
     // operator_id -> deposit_txid -> WotsPublicKeys
@@ -27,6 +41,7 @@ impl Default for PublicDb {
     fn default() -> Self {
         Self {
             verifier_scripts: RwLock::new(array::from_fn(|_| Script::new("init"))),
+            musig_pubkey_table: Default::default(),
             wots_public_keys: Default::default(),
             wots_signatures: Default::default(),
             signatures: Default::default(),
@@ -100,11 +115,60 @@ impl PublicDb {
             .cloned()
     }
 
-    pub async fn put_signature(self, txid: Txid, signature: schnorr::Signature) {
+    pub async fn put_signature(&self, txid: Txid, signature: schnorr::Signature) {
         self.signatures.write().await.insert(txid, signature);
     }
 
-    pub async fn get_signature(self, txid: Txid) -> Option<schnorr::Signature> {
-        self.signatures.read().await.get(&txid).copied()
+    pub async fn set_musig_pubkey_table(&self, pubkey_table: &BTreeMap<OperatorIdx, PublicKey>) {
+        self.musig_pubkey_table
+            .write()
+            .await
+            .clone_from(pubkey_table);
+    }
+
+    pub async fn get_musig_pubkey_table(&self) -> BTreeMap<OperatorIdx, PublicKey> {
+        self.musig_pubkey_table.read().await.clone()
+    }
+}
+
+#[async_trait]
+impl ConnectorDb for PublicDb {
+    async fn get_bridge_out_txid_public_key(&self) -> wots256::PublicKey {
+        todo!()
+    }
+
+    async fn get_superblock_period_start_ts_public_key(&self) -> wots32::PublicKey {
+        todo!()
+    }
+
+    async fn get_proof_elements_160(&self) -> [(u32, wots160::PublicKey); NUM_PKS_A160] {
+        todo!()
+    }
+
+    async fn get_proof_elements_256(&self) -> [(u32, wots256::PublicKey); NUM_PKS_A256] {
+        todo!()
+    }
+
+    async fn get_verifier_script_and_public_keys(
+        &self,
+        _tapleaf_index: usize,
+    ) -> (Script, Vec<WotsPublicKeyData>) {
+        todo!()
+    }
+
+    async fn get_verifier_disprove_signatures(
+        &self,
+        _tapleaf_index: usize,
+    ) -> Vec<WotsSignatureData> {
+        todo!()
+    }
+
+    async fn get_signature(&self, txid: Txid) -> schnorr::Signature {
+        self.signatures
+            .read()
+            .await
+            .get(&txid)
+            .copied()
+            .expect("txid must exist in the db")
     }
 }

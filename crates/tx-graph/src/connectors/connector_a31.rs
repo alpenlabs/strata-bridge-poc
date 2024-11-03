@@ -10,15 +10,17 @@ use bitvm::{
     signatures::wots::{wots160, wots256, wots32},
     treepp::*,
 };
-
-use crate::{
-    db::{Database, WotsPublicKeyData},
+use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_primitives::{
+    params::prelude::{NUM_PKS_A160, NUM_PKS_A256},
     scripts::prelude::*,
-    transactions::constants::SUPERBLOCK_PERIOD,
+    wots::WotsPublicKeyData,
 };
 
+use crate::transactions::constants::SUPERBLOCK_PERIOD;
+
 #[derive(Debug, Clone, Copy)]
-pub struct ConnectorA31<DB: Database> {
+pub struct ConnectorA31<DB: ConnectorDb> {
     network: Network,
 
     pub superblock_hash_public_key: wots256::PublicKey,
@@ -34,7 +36,7 @@ pub enum ConnectorA31Leaf {
     InvalidateProof(usize),
 }
 
-impl<DB: Database> ConnectorA31<DB> {
+impl<DB: ConnectorDb> ConnectorA31<DB> {
     fn extract_superblock_ts_from_header(&self) -> Script {
         script! {
             for i in 0..4 {
@@ -46,7 +48,7 @@ impl<DB: Database> ConnectorA31<DB> {
         }
     }
 
-    pub fn generate_tapleaf(&self, tapleaf: ConnectorA31Leaf) -> ScriptBuf {
+    pub async fn generate_tapleaf(&self, tapleaf: ConnectorA31Leaf) -> ScriptBuf {
         match tapleaf {
             ConnectorA31Leaf::DisproveChain => {
                 script! {
@@ -82,8 +84,10 @@ impl<DB: Database> ConnectorA31<DB> {
                 }
             }
             ConnectorA31Leaf::InvalidateProof(tapleaf_index) => {
-                let (invalidate_proof_script, public_keys) =
-                    self.db.get_verifier_script_and_public_keys(tapleaf_index);
+                let (invalidate_proof_script, public_keys) = self
+                    .db
+                    .get_verifier_script_and_public_keys(tapleaf_index)
+                    .await;
 
                 let wots_script_pub_keys = public_keys.iter().map(|&public_key| match public_key {
                     WotsPublicKeyData::SuperblockHash(public_key) => {
@@ -114,16 +118,19 @@ impl<DB: Database> ConnectorA31<DB> {
         .compile()
     }
 
-    pub fn generate_locking_script(&self) -> ScriptBuf {
-        let (address, _) = self.generate_taproot_address();
+    pub async fn generate_locking_script(&self) -> ScriptBuf {
+        let (address, _) = self.generate_taproot_address().await;
 
         address.script_pubkey()
     }
 
-    pub fn generate_spend_info(&self, tapleaf: ConnectorA31Leaf) -> (ScriptBuf, ControlBlock) {
-        let (_, taproot_spend_info) = self.generate_taproot_address();
+    pub async fn generate_spend_info(
+        &self,
+        tapleaf: ConnectorA31Leaf,
+    ) -> (ScriptBuf, ControlBlock) {
+        let (_, taproot_spend_info) = self.generate_taproot_address().await;
 
-        let script = self.generate_tapleaf(tapleaf);
+        let script = self.generate_tapleaf(tapleaf).await;
         let control_block = taproot_spend_info
             .control_block(&(script.clone(), LeafVersion::TapScript))
             .expect("script is always present in the address");
@@ -131,18 +138,26 @@ impl<DB: Database> ConnectorA31<DB> {
         (script, control_block)
     }
 
-    fn generate_taproot_address(&self) -> (Address, TaprootSpendInfo) {
-        let mut scripts = vec![self.generate_tapleaf(ConnectorA31Leaf::DisproveChain)];
-        scripts.extend(
-            (0..49 + 598).map(|i| self.generate_tapleaf(ConnectorA31Leaf::InvalidateProof(i))),
-        );
+    async fn generate_taproot_address(&self) -> (Address, TaprootSpendInfo) {
+        let mut scripts = vec![self.generate_tapleaf(ConnectorA31Leaf::DisproveChain).await];
+
+        const TOTAL_SCRIPTS: usize = NUM_PKS_A160 + NUM_PKS_A256;
+        let mut invalidate_proof_tapleaves = Vec::with_capacity(TOTAL_SCRIPTS);
+        for i in 0..TOTAL_SCRIPTS {
+            invalidate_proof_tapleaves.push(
+                self.generate_tapleaf(ConnectorA31Leaf::InvalidateProof(i))
+                    .await,
+            );
+        }
+
+        scripts.extend(invalidate_proof_tapleaves.into_iter());
 
         create_taproot_addr(&self.network, SpendPath::ScriptSpend { scripts: &scripts })
             .expect("should be able to create taproot address")
     }
 
-    pub fn finalize_input(&self, input: &mut Input, tapleaf: ConnectorA31Leaf) {
-        let (script, control_block) = self.generate_spend_info(tapleaf);
+    pub async fn finalize_input(&self, input: &mut Input, tapleaf: ConnectorA31Leaf) {
+        let (script, control_block) = self.generate_spend_info(tapleaf).await;
 
         let witness_script = match tapleaf {
             ConnectorA31Leaf::DisproveChain => {

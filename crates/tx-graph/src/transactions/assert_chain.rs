@@ -1,3 +1,8 @@
+use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_primitives::params::connectors::{
+    NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
+};
+
 use super::{
     constants::{
         NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
@@ -5,15 +10,7 @@ use super::{
     },
     prelude::*,
 };
-use crate::{
-    connectors::{
-        constants::{
-            NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
-        },
-        prelude::*,
-    },
-    db::Database,
-};
+use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct AssertChain {
@@ -26,7 +23,7 @@ pub struct AssertChain {
 }
 
 impl AssertChain {
-    pub fn new<Db: Database + Clone>(
+    pub fn new<Db: ConnectorDb>(
         data: PreAssertData,
         connector_s: ConnectorS,
         connector_a30: ConnectorA30<Db>,

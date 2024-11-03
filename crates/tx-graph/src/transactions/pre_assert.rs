@@ -1,22 +1,13 @@
 use bitcoin::{Amount, OutPoint, Psbt, Transaction, Txid};
 use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
+use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
 
 use super::constants::{
     NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
     NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A256_PK7,
 };
-use crate::{
-    connectors::{
-        constants::{
-            NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL, NUM_PKS_A256,
-            NUM_PKS_A256_PER_CONNECTOR,
-        },
-        prelude::*,
-    },
-    constants::{MIN_RELAY_FEE, OPERATOR_STAKE},
-    scripts::prelude::*,
-};
+use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreAssertData {

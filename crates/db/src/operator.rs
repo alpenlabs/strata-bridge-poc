@@ -1,6 +1,6 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
-use bitcoin::Txid;
+use bitcoin::{OutPoint, Txid};
 use musig2::{PartialSignature, PubNonce, SecNonce};
 use tokio::sync::RwLock;
 
@@ -16,6 +16,9 @@ pub struct OperatorDb {
 
     /// Txid -> OperatorIdx -> PartialSignature
     collected_signatures: RwLock<HashMap<Txid, BTreeMap<OperatorIdx, PartialSignature>>>,
+
+    /// OutPoints that have already been used to create KickoffTx.
+    selected_outpoints: RwLock<HashSet<OutPoint>>,
 }
 
 impl OperatorDb {
@@ -68,5 +71,13 @@ impl OperatorDb {
         txid: Txid,
     ) -> Option<BTreeMap<OperatorIdx, PartialSignature>> {
         self.collected_signatures.read().await.get(&txid).cloned()
+    }
+
+    pub async fn add_outpoint(&self, outpoint: OutPoint) -> bool {
+        self.selected_outpoints.write().await.insert(outpoint)
+    }
+
+    pub async fn selected_outpoints(&self) -> HashSet<OutPoint> {
+        self.selected_outpoints.read().await.clone()
     }
 }

@@ -11,6 +11,9 @@ rust.rust_2018_idioms = { level = "deny", priority = -1 }
 rust.unused_must_use = "deny"
 
 [dependencies]
+strata-bridge-db.workspace = true
+strata-bridge-primitives.workspace = true
+
 anyhow.workspace = true
 bitcoin = { workspace = true, features = ["rand-std"] }
 bitcoin-script = { workspace = true }

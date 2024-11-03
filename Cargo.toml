@@ -3,6 +3,7 @@ members = [
   "crates/agent",
   "crates/btcio",
   "crates/db",
+  "crates/primitives",
   "crates/proof-impl/bitvm-bridge",
   "crates/tx-graph",
   "bridge-proofs",
@@ -23,6 +24,7 @@ resolver = "2"
 strata-bridge-agent = { path = "crates/agent" }
 strata-bridge-btcio = { path = "crates/btcio" }
 strata-bridge-db = { path = "crates/db" }
+strata-bridge-primitives = { path = "crates/primitives" }
 strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
 strata-test-utils = { path = "crates/test-utils" }

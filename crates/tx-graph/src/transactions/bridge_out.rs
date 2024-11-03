@@ -1,8 +1,9 @@
 use bitcoin::{Address, Amount, Network, OutPoint, Transaction};
 use rand::Rng;
 use secp256k1::{XOnlyPublicKey, SECP256K1};
-
-use crate::scripts::general::{create_tx, create_tx_ins, create_tx_outs, op_return_nonce};
+use strata_bridge_primitives::scripts::general::{
+    create_tx, create_tx_ins, create_tx_outs, op_return_nonce,
+};
 
 #[derive(Debug, Clone)]
 pub struct BridgeOut(Transaction);

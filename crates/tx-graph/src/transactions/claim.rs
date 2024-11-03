@@ -1,11 +1,11 @@
 use bitcoin::{Amount, OutPoint, Psbt, Transaction, Txid};
-
-use crate::{
-    connectors::prelude::*,
-    constants::{MIN_RELAY_FEE, OPERATOR_STAKE},
-    db::Database,
-    scripts::general::{create_tx, create_tx_ins, create_tx_outs},
+use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_primitives::{
+    params::prelude::{MIN_RELAY_FEE, OPERATOR_STAKE},
+    scripts::prelude::*,
 };
+
+use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct ClaimData {
@@ -64,19 +64,21 @@ impl ClaimTx {
         self.psbt.unsigned_tx.compute_txid()
     }
 
-    pub fn finalize<Db: Database>(
+    pub async fn finalize<Db: ConnectorDb>(
         mut self,
         connector_k: ConnectorK<Db>,
         msk: &str,
         bridge_out_txid: Txid,
         superblock_period_start_ts: u32,
     ) -> Transaction {
-        connector_k.create_tx_input(
-            &mut self.psbt.inputs[0],
-            msk,
-            bridge_out_txid,
-            superblock_period_start_ts,
-        );
+        connector_k
+            .create_tx_input(
+                &mut self.psbt.inputs[0],
+                msk,
+                bridge_out_txid,
+                superblock_period_start_ts,
+            )
+            .await;
 
         self.psbt
             .extract_tx()

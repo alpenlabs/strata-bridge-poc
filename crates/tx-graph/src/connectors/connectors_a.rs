@@ -10,11 +10,9 @@ use bitvm::{
     signatures::wots::{wots160, wots256},
     treepp::*,
 };
+use strata_bridge_primitives::scripts::prelude::*;
 
-use crate::{
-    commitments::secret_key_for_proof_element,
-    scripts::{prelude::*, transform::fq_from_nibbles},
-};
+use crate::commitments::secret_key_for_proof_element;
 
 #[derive(Debug, Clone)]
 pub struct ConnectorA256Factory<

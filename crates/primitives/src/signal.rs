@@ -1,8 +1,7 @@
 use bitcoin::Txid;
 use musig2::{PartialSignature, PubNonce};
-use strata_bridge_tx_graph::db::WotsSignatureData;
 
-use crate::operator::OperatorIdx;
+use crate::{types::OperatorIdx, wots::WotsSignatureData};
 
 #[derive(Debug, Clone)]
 pub enum Signal {

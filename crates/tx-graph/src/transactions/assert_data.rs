@@ -1,19 +1,17 @@
 use bitcoin::{OutPoint, Psbt, Transaction, Txid};
 use serde::{Deserialize, Serialize};
+use strata_bridge_primitives::{
+    params::connectors::{
+        NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL, NUM_PKS_A256_PER_CONNECTOR,
+    },
+    scripts::prelude::*,
+};
 
 use super::constants::{
     NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
     NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A256_PK7, TOTAL_VALUES,
 };
-use crate::{
-    connectors::{
-        constants::{
-            NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL, NUM_PKS_A256_PER_CONNECTOR,
-        },
-        prelude::*,
-    },
-    scripts::general::*,
-};
+use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssertDataTxInput {

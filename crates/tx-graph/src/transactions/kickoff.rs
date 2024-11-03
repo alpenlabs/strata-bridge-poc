@@ -2,14 +2,16 @@ use bitcoin::{
     address::NetworkUnchecked, Address, Amount, Network, OutPoint, Psbt, Transaction, Txid,
 };
 use serde::{Deserialize, Serialize};
+use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
 
-use crate::{connectors::prelude::*, constants::OPERATOR_STAKE, db::Database, scripts::prelude::*};
+use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KickoffTxData {
-    funding_inputs: Vec<OutPoint>,
-    change_address: Address<NetworkUnchecked>,
-    change_amt: Amount,
+    pub funding_inputs: Vec<OutPoint>,
+    pub change_address: Address<NetworkUnchecked>,
+    pub change_amt: Amount,
 }
 
 /// KickOff is just a wrapper around a Psbt.
@@ -20,14 +22,14 @@ pub struct KickoffTxData {
 pub struct KickOffTx(Psbt);
 
 impl KickOffTx {
-    pub fn new<Db: Database>(
+    pub async fn new<Db: ConnectorDb>(
         data: KickoffTxData,
         connector_k: ConnectorK<Db>,
         network: Network,
     ) -> Self {
         let tx_ins = create_tx_ins(data.funding_inputs);
 
-        let commitment_script = connector_k.create_taproot_address().script_pubkey();
+        let commitment_script = connector_k.create_taproot_address().await.script_pubkey();
 
         let change_address = data
             .change_address
