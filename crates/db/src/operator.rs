@@ -4,7 +4,7 @@ use bitcoin::Txid;
 use musig2::{PartialSignature, PubNonce, SecNonce};
 use tokio::sync::RwLock;
 
-type OperatorIdx = u32;
+pub(super) type OperatorIdx = u32;
 
 #[derive(Debug, Default)]
 pub struct OperatorDb {
