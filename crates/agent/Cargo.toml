@@ -15,6 +15,7 @@ strata-bridge-btcio.workspace = true
 strata-bridge-db.workspace = true
 strata-bridge-tx-graph.workspace = true
 
+strata-bridge-tx-builder.workspace = true
 strata-state.workspace = true
 
 anyhow.workspace = true
@@ -32,3 +33,4 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 tokio.workspace = true
+tracing.workspace = true

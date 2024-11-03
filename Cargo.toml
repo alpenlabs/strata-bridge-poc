@@ -28,19 +28,19 @@ strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
 strata-test-utils = { path = "crates/test-utils" }
 
 # deps from original strata repo
-shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0", features = [
+shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields", features = [
   "serde",
 ] }
-strata-bridge-tx-builder = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
-strata-common = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
-strata-primitives = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
-strata-rpc-api = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0", features = [
+strata-bridge-tx-builder = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
+strata-common = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
+strata-primitives = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
+strata-rpc-api = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields", features = [
   "client",
 ] }
-strata-rpc-types = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
-strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
-strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
-strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-rpc-types = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
+strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
+strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
+strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
 
 # external deps
 anyhow = "1.0.86"
