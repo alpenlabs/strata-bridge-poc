@@ -43,6 +43,7 @@ ark-serialize = { version = "0.4", features = ["derive"] }
 ark-std = { version = "0.4.0", default-features = false, features = [
   "print-trace",
 ] }
+ark-r1cs-std = { version = "0.4.0" }
 
 # external deps
 anyhow = "1.0.86"

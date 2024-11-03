@@ -1,3 +1,5 @@
+#![recursion_limit = "2048"]
+
 pub mod common;
 pub mod operator;
 pub mod signer;
