@@ -14,7 +14,6 @@ use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::{
     params::prelude::{NUM_PKS_A160, NUM_PKS_A256},
     scripts::prelude::*,
-    wots::WotsPublicKeyData,
 };
 
 use crate::transactions::constants::SUPERBLOCK_PERIOD;
@@ -27,6 +26,7 @@ pub struct ConnectorA31<DB: ConnectorDb> {
     pub superblock_period_start_ts_public_key: wots32::PublicKey,
     pub proof_elements_public_key: ([wots256::PublicKey; 49], [wots160::PublicKey; 598]),
 
+    #[allow(dead_code)]
     db: DB,
 }
 
@@ -83,35 +83,35 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                 OP_TRUE
                 }
             }
-            ConnectorA31Leaf::InvalidateProof(tapleaf_index) => {
-                let (invalidate_proof_script, public_keys) = self
-                    .db
-                    .get_verifier_script_and_public_keys(tapleaf_index)
-                    .await;
+            ConnectorA31Leaf::InvalidateProof(_tapleaf_index) => {
+                // let (invalidate_proof_script, public_keys) = self
+                //     .db
+                //     .get_verifier_script_and_public_keys(tapleaf_index)
+                //     .await;
 
-                let wots_script_pub_keys = public_keys.iter().map(|&public_key| match public_key {
-                    WotsPublicKeyData::SuperblockHash(public_key) => {
-                        wots256::compact::checksig_verify(public_key)
-                    }
-                    WotsPublicKeyData::SuperblockPeriodStartTs(public_key) => {
-                        wots32::compact::checksig_verify(public_key)
-                    }
-                    WotsPublicKeyData::BridgeOutTxid(public_key) => {
-                        wots256::compact::checksig_verify(public_key)
-                    }
-                    WotsPublicKeyData::ProofElement160(public_key) => {
-                        wots160::compact::checksig_verify(public_key)
-                    }
-                    WotsPublicKeyData::ProofElement256(public_key) => {
-                        wots256::compact::checksig_verify(public_key)
-                    }
-                });
+                // let wots_script_pub_keys = public_keys.iter().map(|&public_key| match public_key
+                // {     WotsPublicKeyData::SuperblockHash(public_key) => {
+                //         wots256::compact::checksig_verify(public_key)
+                //     }
+                //     WotsPublicKeyData::SuperblockPeriodStartTs(public_key) => {
+                //         wots32::compact::checksig_verify(public_key)
+                //     }
+                //     WotsPublicKeyData::BridgeOutTxid(public_key) => {
+                //         wots256::compact::checksig_verify(public_key)
+                //     }
+                //     WotsPublicKeyData::ProofElement160(public_key) => {
+                //         wots160::compact::checksig_verify(public_key)
+                //     }
+                //     WotsPublicKeyData::ProofElement256(public_key) => {
+                //         wots256::compact::checksig_verify(public_key)
+                //     }
+                // });
 
                 script! {
-                    for script in wots_script_pub_keys {
-                        { script }
-                    }
-                    { invalidate_proof_script }
+                    // for script in wots_script_pub_keys {
+                    //     { script }
+                    // }
+                    // { invalidate_proof_script }
                 }
             }
         }
@@ -163,8 +163,8 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             ConnectorA31Leaf::DisproveChain => {
                 script! {}
             }
-            ConnectorA31Leaf::InvalidateProof(tapleaf_index) => {
-                let _signatures = self.db.get_verifier_disprove_signatures(tapleaf_index);
+            ConnectorA31Leaf::InvalidateProof(_tapleaf_index) => {
+                // let _signatures = self.db.get_verifier_disprove_signatures(tapleaf_index);
 
                 script! {
                     // add signatures script

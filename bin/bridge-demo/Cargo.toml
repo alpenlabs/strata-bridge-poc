@@ -1,0 +1,23 @@
+[package]
+name = "bridge-demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand = { workspace = true }
+strata-bridge-tx-graph = { workspace = true }
+bitvm = { workspace = true }
+bitcoin = { workspace = true }
+ark-std = { workspace = true }
+ark-bn254 = { workspace = true }
+ark-groth16 = { workspace = true }
+ark-relations = { workspace = true }
+ark-ff = { workspace = true }
+ark-ec = { workspace = true }
+ark-crypto-primitives = { workspace = true }
+ark-r1cs-std = { workspace = true }
+bitcoin-script = { workspace = true }
+bitcoin-scriptexec = { workspace = true }
+
+serde = { workspace = true }
+serde_json = { workspace = true }

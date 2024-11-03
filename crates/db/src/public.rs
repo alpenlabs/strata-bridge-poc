@@ -1,20 +1,11 @@
-use std::{
-    array,
-    collections::{BTreeMap, HashMap},
-};
+use std::collections::{BTreeMap, HashMap};
 
 use async_trait::async_trait;
 use bitcoin::Txid;
 use bitcoin_script::Script;
-use bitvm::{
-    groth16::g16,
-    signatures::wots::{wots160, wots256, wots32},
-};
-use secp256k1::{schnorr, PublicKey};
-use strata_bridge_primitives::{
-    params::connectors::{NUM_PKS_A160, NUM_PKS_A256},
-    wots::{WotsPublicKeyData, WotsSignatureData},
-};
+use bitvm::groth16::g16::{self};
+use secp256k1::{schnorr::Signature, PublicKey};
+use strata_bridge_primitives::scripts::wots::generate_verifier_partial_scripts;
 use tokio::sync::RwLock;
 
 use super::operator::OperatorIdx;
@@ -34,13 +25,13 @@ pub struct PublicDb {
     wots_signatures: RwLock<HashMap<OperatorIdx, HashMap<Txid, g16::WotsSignatures>>>,
 
     // signature cache
-    signatures: RwLock<HashMap<Txid, schnorr::Signature>>,
+    signatures: RwLock<HashMap<Txid, Signature>>,
 }
 
 impl Default for PublicDb {
     fn default() -> Self {
         Self {
-            verifier_scripts: RwLock::new(array::from_fn(|_| Script::new("init"))),
+            verifier_scripts: RwLock::new(generate_verifier_partial_scripts()),
             musig_pubkey_table: Default::default(),
             wots_public_keys: Default::default(),
             wots_signatures: Default::default(),
@@ -115,7 +106,7 @@ impl PublicDb {
             .cloned()
     }
 
-    pub async fn put_signature(&self, txid: Txid, signature: schnorr::Signature) {
+    pub async fn put_signature(&self, txid: Txid, signature: Signature) {
         self.signatures.write().await.insert(txid, signature);
     }
 
@@ -133,42 +124,78 @@ impl PublicDb {
 
 #[async_trait]
 impl ConnectorDb for PublicDb {
-    async fn get_bridge_out_txid_public_key(&self) -> wots256::PublicKey {
-        todo!()
+    async fn get_verifier_scripts(&self) -> [Script; g16::N_TAPLEAVES] {
+        self.verifier_scripts.read().await.clone()
     }
 
-    async fn get_superblock_period_start_ts_public_key(&self) -> wots32::PublicKey {
-        todo!()
-    }
-
-    async fn get_proof_elements_160(&self) -> [(u32, wots160::PublicKey); NUM_PKS_A160] {
-        todo!()
-    }
-
-    async fn get_proof_elements_256(&self) -> [(u32, wots256::PublicKey); NUM_PKS_A256] {
-        todo!()
-    }
-
-    async fn get_verifier_script_and_public_keys(
+    async fn get_wots_public_keys(
         &self,
-        _tapleaf_index: usize,
-    ) -> (Script, Vec<WotsPublicKeyData>) {
-        todo!()
+        operator_id: u32,
+        deposit_txid: Txid,
+    ) -> g16::WotsPublicKeys {
+        *self
+            .wots_public_keys
+            .read()
+            .await
+            .get(&operator_id)
+            .unwrap()
+            .get(&deposit_txid)
+            .unwrap()
     }
 
-    async fn get_verifier_disprove_signatures(
+    async fn get_wots_signatures(
         &self,
-        _tapleaf_index: usize,
-    ) -> Vec<WotsSignatureData> {
-        todo!()
+        operator_id: u32,
+        deposit_txid: Txid,
+    ) -> g16::WotsSignatures {
+        *self
+            .wots_signatures
+            .read()
+            .await
+            .get(&operator_id)
+            .unwrap()
+            .get(&deposit_txid)
+            .unwrap()
     }
 
-    async fn get_signature(&self, txid: Txid) -> schnorr::Signature {
+    async fn set_wots_public_keys(
+        &mut self,
+        operator_id: u32,
+        deposit_txid: Txid,
+        public_keys: &g16::WotsPublicKeys,
+    ) {
+        self.wots_public_keys
+            .write()
+            .await
+            .get_mut(&operator_id)
+            .unwrap()
+            .insert(deposit_txid, *public_keys)
+            .unwrap();
+    }
+
+    async fn set_wots_signatures(
+        &mut self,
+        operator_id: u32,
+        deposit_txid: Txid,
+        signatures: &g16::WotsSignatures,
+    ) {
+        self.wots_signatures
+            .write()
+            .await
+            .get_mut(&operator_id)
+            .unwrap()
+            .insert(deposit_txid, *signatures)
+            .unwrap();
+    }
+
+    async fn get_signature(&self, txid: Txid) -> Signature {
         self.signatures
             .read()
             .await
             .get(&txid)
             .copied()
-            .expect("txid must exist in the db")
+            .unwrap_or_else(|| {
+                panic!("txid: {txid} must have a signature in the database");
+            })
     }
 }

@@ -12,6 +12,7 @@ pub struct KickoffTxData {
     pub funding_inputs: Vec<OutPoint>,
     pub change_address: Address<NetworkUnchecked>,
     pub change_amt: Amount,
+    pub deposit_txid: Txid,
 }
 
 /// KickOff is just a wrapper around a Psbt.
@@ -29,7 +30,10 @@ impl KickOffTx {
     ) -> Self {
         let tx_ins = create_tx_ins(data.funding_inputs);
 
-        let commitment_script = connector_k.create_taproot_address().await.script_pubkey();
+        let commitment_script = connector_k
+            .create_taproot_address(data.deposit_txid)
+            .await
+            .script_pubkey();
 
         let change_address = data
             .change_address

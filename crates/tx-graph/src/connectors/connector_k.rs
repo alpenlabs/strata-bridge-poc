@@ -5,10 +5,7 @@ use bitcoin::{
     taproot::{ControlBlock, LeafVersion},
     Address, Network, ScriptBuf, Txid,
 };
-use bitvm::{
-    signatures::wots::{wots256, wots32},
-    treepp::*,
-};
+use bitvm::{signatures::wots::wots256, treepp::*};
 use secp256k1::XOnlyPublicKey;
 use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::scripts::prelude::*;
@@ -35,14 +32,13 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
         }
     }
 
-    async fn create_locking_script(&self) -> ScriptBuf {
-        let superblock_period_start_ts_public_key =
-            self.db.get_superblock_period_start_ts_public_key().await;
-        let bridge_out_txid_public_key = self.db.get_bridge_out_txid_public_key().await;
+    async fn create_locking_script(&self, deposit_txid: Txid) -> ScriptBuf {
+        let ((superblock_period_start_ts_public_key, bridge_out_txid_public_key, _), _, _) =
+            self.db.get_wots_public_keys(0, deposit_txid).await;
 
         script! {
             // superblock_period_start_timestamp
-            { wots32::checksig_verify(superblock_period_start_ts_public_key) }
+            { wots256::checksig_verify(superblock_period_start_ts_public_key) }
             for _ in 0..4 { OP_2DROP } // drop ts nibbles
 
             // bridge_out_tx_id
@@ -53,8 +49,8 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
         .compile()
     }
 
-    pub async fn create_taproot_address(&self) -> Address {
-        let scripts = &[self.create_locking_script().await];
+    pub async fn create_taproot_address(&self, deposit_txid: Txid) -> Address {
+        let scripts = &[self.create_locking_script(deposit_txid).await];
 
         let (taproot_address, _) =
             create_taproot_addr(&self.network, SpendPath::ScriptSpend { scripts })
@@ -63,8 +59,8 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
         taproot_address
     }
 
-    pub async fn generate_spend_info(&self) -> (ScriptBuf, ControlBlock) {
-        let script = self.create_locking_script().await;
+    pub async fn generate_spend_info(&self, deposit_txid: Txid) -> (ScriptBuf, ControlBlock) {
+        let script = self.create_locking_script(deposit_txid).await;
 
         let (_, spend_info) = create_taproot_addr(
             &self.network,
@@ -84,6 +80,7 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
     pub async fn create_tx_input(
         &self,
         input: &mut Input,
+        deposit_txid: Txid,
         msk: &str,
         bridge_out_txid: Txid, // starts with 0x0..
         superblock_period_start_ts: u32,
@@ -93,11 +90,11 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
         // unimplemented!("call the bitvm impl to generate witness data for bitcommitments");
         let witness = script! {
             { wots256::sign(&secret_key_for_bridge_out_txid(msk), bridge_out_txid.as_ref()) }
-
-            { wots32::sign(&secret_key_for_superblock_period_start_ts(msk), &superblock_period_start_ts.to_le_bytes()) }
+            // pad ts bytes
+            { wots256::sign(&secret_key_for_superblock_period_start_ts(msk), &superblock_period_start_ts.to_le_bytes()) }
         }.compile();
 
-        let (script, control_block) = self.generate_spend_info().await;
+        let (script, control_block) = self.generate_spend_info(deposit_txid).await;
 
         finalize_input(
             input,

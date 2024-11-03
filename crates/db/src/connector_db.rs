@@ -3,32 +3,40 @@ use std::fmt::Debug;
 use async_trait::async_trait;
 use bitcoin::Txid;
 use bitvm::{
-    signatures::wots::{wots160, wots256, wots32},
+    groth16::g16::{self, N_TAPLEAVES},
     treepp::*,
 };
 use secp256k1::schnorr::Signature;
-use strata_bridge_primitives::wots::{WotsPublicKeyData, WotsSignatureData};
-use strata_bridge_primitives::params::prelude::{NUM_PKS_A160, NUM_PKS_A256};
 
 #[async_trait]
 pub trait ConnectorDb: Debug + Send + Sync {
-    async fn get_bridge_out_txid_public_key(&self) -> wots256::PublicKey;
+    async fn get_verifier_scripts(&self) -> [Script; N_TAPLEAVES];
 
-    async fn get_superblock_period_start_ts_public_key(&self) -> wots32::PublicKey;
-
-    async fn get_proof_elements_160(&self) -> [(u32, wots160::PublicKey); NUM_PKS_A160];
-
-    async fn get_proof_elements_256(&self) -> [(u32, wots256::PublicKey); NUM_PKS_A256];
-
-    async fn get_verifier_script_and_public_keys(
+    async fn get_wots_public_keys(
         &self,
-        tapleaf_index: usize,
-    ) -> (Script, Vec<WotsPublicKeyData>);
+        operator_id: u32,
+        deposit_txid: Txid,
+    ) -> g16::WotsPublicKeys;
 
-    async fn get_verifier_disprove_signatures(
+    async fn set_wots_public_keys(
+        &mut self,
+        operator_id: u32,
+        deposit_txid: Txid,
+        public_keys: &g16::WotsPublicKeys,
+    );
+
+    async fn get_wots_signatures(
         &self,
-        tapleaf_index: usize,
-    ) -> Vec<WotsSignatureData>;
+        operator_id: u32,
+        deposit_txid: Txid,
+    ) -> g16::WotsSignatures;
+
+    async fn set_wots_signatures(
+        &mut self,
+        operator_id: u32,
+        deposit_txid: Txid,
+        signatures: &g16::WotsSignatures,
+    );
 
     async fn get_signature(&self, txid: Txid) -> Signature;
 }

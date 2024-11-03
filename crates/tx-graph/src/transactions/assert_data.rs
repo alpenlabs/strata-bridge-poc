@@ -1,15 +1,19 @@
 use bitcoin::{OutPoint, Psbt, Transaction, Txid};
 use serde::{Deserialize, Serialize};
 use strata_bridge_primitives::{
-    params::connectors::{
-        NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL, NUM_PKS_A256_PER_CONNECTOR,
+    params::{
+        connectors::{
+            NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL, NUM_PKS_A256_PER_CONNECTOR,
+        },
+        prelude::NUM_PKS_A256_RESIDUAL,
     },
     scripts::prelude::*,
 };
 
 use super::constants::{
     NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
-    NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A256_PK7, TOTAL_VALUES,
+    NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A160_PK2,
+    NUM_ASSERT_DATA_TX2_A256_PK6, TOTAL_VALUES,
 };
 use crate::connectors::prelude::*;
 
@@ -88,7 +92,7 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
             ConnectorA160<4>,
         ) = connector_a160_factory.create_connectors();
 
-        let (connector256_batch, _connector256_remainder): (
+        let (connector256_batch, connector256_remainder): (
             Vec<ConnectorA256<7>>,
             ConnectorA256<0>,
         ) = connector_a256_factory.create_connectors();
@@ -149,33 +153,31 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
                     value_offset += NUM_PKS_A160_PER_CONNECTOR;
                 });
 
-            let input_offset = NUM_ASSERT_DATA_TX2_A160_PK11;
-            connector256_batch
-                .iter()
-                .by_ref()
-                .take(NUM_ASSERT_DATA_TX2_A256_PK7)
-                .enumerate()
-                .for_each(|(input_index, conn)| {
-                    conn.create_tx_input(
-                        &mut self.0[psbt_index].inputs[input_index + input_offset],
-                        msk,
-                        values[value_offset..value_offset + NUM_PKS_A256_PER_CONNECTOR]
-                            .try_into()
-                            .unwrap(),
-                    );
-
-                    value_offset += NUM_PKS_A256_PER_CONNECTOR;
-                });
-
-            let final_input = &mut self.0[psbt_index].inputs
-                [NUM_ASSERT_DATA_TX2_A160_PK11 + NUM_ASSERT_DATA_TX2_A256_PK7];
-
+            let residual_a160_input = &mut self.0[psbt_index].inputs[NUM_ASSERT_DATA_TX2_A160_PK11];
             connector160_remainder.create_tx_input(
-                final_input,
+                residual_a160_input,
                 msk,
                 values[value_offset..value_offset + NUM_PKS_A160_RESIDUAL]
                     .try_into()
                     .unwrap(),
+            );
+
+            let residual_a256_input = &mut self.0[psbt_index].inputs
+                [NUM_ASSERT_DATA_TX2_A160_PK11 + NUM_ASSERT_DATA_TX2_A160_PK2];
+            connector256_remainder.create_tx_input(
+                residual_a256_input,
+                msk,
+                values[value_offset..value_offset + NUM_PKS_A256_RESIDUAL]
+                    .try_into()
+                    .unwrap(),
+            );
+
+            assert_eq!(
+                NUM_ASSERT_DATA_TX2_A160_PK11
+                    + NUM_ASSERT_DATA_TX2_A160_PK2
+                    + NUM_ASSERT_DATA_TX2_A256_PK6,
+                self.0[psbt_index].inputs.len(),
+                "number of inputs in the second psbt must match"
             );
         }
 

@@ -66,6 +66,7 @@ impl ClaimTx {
 
     pub async fn finalize<Db: ConnectorDb>(
         mut self,
+        deposit_txid: Txid,
         connector_k: ConnectorK<Db>,
         msk: &str,
         bridge_out_txid: Txid,
@@ -74,6 +75,7 @@ impl ClaimTx {
         connector_k
             .create_tx_input(
                 &mut self.psbt.inputs[0],
+                deposit_txid,
                 msk,
                 bridge_out_txid,
                 superblock_period_start_ts,

@@ -34,8 +34,10 @@ pub struct Operator {
 
     is_faulty: bool,
 
+    #[allow(dead_code)]
     signal_sender: broadcast::Sender<Signal>,
 
+    #[allow(dead_code)]
     signal_receiver: broadcast::Receiver<Signal>,
 }
 
@@ -97,6 +99,11 @@ impl Operator {
 
         self.db.add_outpoint(funding_input).await;
 
+        let deposit_tx = deposit_info
+            .construct_signing_data(&self.build_context)
+            .expect("should be able to create build context");
+        let deposit_txid = deposit_tx.psbt.unsigned_tx.compute_txid();
+
         let peg_out_graph_input = PegOutGraphInput {
             network: self.build_context.network(),
             deposit_amount: BRIDGE_DENOMINATION,
@@ -105,16 +112,13 @@ impl Operator {
                 funding_inputs: vec![funding_input],
                 change_address: change_address.as_unchecked().clone(),
                 change_amt: total_amount - OPERATOR_STAKE - MIN_RELAY_FEE,
+                deposit_txid,
             },
         };
 
         let connectors =
-            PegOutGraphConnectors::new(self.public_db.clone(), &self.build_context).await;
-
-        let deposit_tx = deposit_info
-            .construct_signing_data(&self.build_context)
-            .expect("should be able to create build context");
-        let deposit_txid = deposit_tx.psbt.unsigned_tx.compute_txid();
+            PegOutGraphConnectors::new(self.public_db.clone(), &self.build_context, deposit_txid)
+                .await;
 
         let _peg_out_graph =
             PegOutGraph::generate(peg_out_graph_input, deposit_txid, connectors).await;

@@ -1,7 +1,7 @@
 use bitcoin::Txid;
 use musig2::{PartialSignature, PubNonce};
 
-use crate::{types::OperatorIdx, wots::WotsSignatureData};
+use crate::types::OperatorIdx;
 
 #[derive(Debug, Clone)]
 pub enum Signal {
@@ -23,5 +23,10 @@ pub enum Signal {
     PegOutGraphPublished(OperatorIdx),
 
     /// Sent by bitcoin watcher to disprover
-    AssertChainAvailable(Vec<WotsSignatureData>),
+    AssertChainAvailable {
+        claim_txid: Txid,
+        pre_assrt_txid: Txid,
+        assert_data_txid: Txid,
+        post_assert_txid: Txid,
+    },
 }

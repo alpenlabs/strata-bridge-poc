@@ -112,7 +112,7 @@ pub struct PegOutGraphConnectors<Db: ConnectorDb> {
 }
 
 impl<Db: ConnectorDb> PegOutGraphConnectors<Db> {
-    pub async fn new(db: Arc<Db>, build_context: &impl BuildContext) -> Self {
+    pub async fn new(db: Arc<Db>, build_context: &impl BuildContext, deposit_txid: Txid) -> Self {
         let n_of_n_agg_pubkey = build_context.aggregated_pubkey();
         let network = build_context.network();
 
@@ -126,18 +126,26 @@ impl<Db: ConnectorDb> PegOutGraphConnectors<Db> {
 
         let post_assert_out_0 = ConnectorA30::new(n_of_n_agg_pubkey, network, db.clone());
 
-        let public_keys = db.get_proof_elements_160().await;
+        let ((_, _, superblock_hash_public_key), public_keys_256, public_keys_160) =
+            db.get_wots_public_keys(0, deposit_txid).await;
         let assert_data160_factory: ConnectorA160Factory<NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160> =
             ConnectorA160Factory {
                 network,
-                public_keys,
+                public_keys: public_keys_160,
             };
 
-        let public_keys = db.get_proof_elements_256().await;
+        let public_keys_256 = std::array::from_fn(|i| {
+            if i == 0 {
+                superblock_hash_public_key
+            } else {
+                public_keys_256[i - 1]
+            }
+        });
+
         let assert_data256_factory: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256> =
             ConnectorA256Factory {
                 network,
-                public_keys,
+                public_keys: public_keys_256,
             };
 
         Self {
