@@ -1,5 +1,6 @@
 pub mod assert_chain;
 pub mod assert_data;
+pub mod bridge_out;
 pub mod claim;
 pub mod constants;
 pub mod disprove;

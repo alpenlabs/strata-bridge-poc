@@ -1,12 +1,14 @@
-use std::str::FromStr;
-
 use bitcoin::hashes::hash160;
 use bitvm::signatures::wots::{wots160, wots256, wots32};
+use sha2::Digest;
 
 fn secret_key_from_msk(msk: &str, var: &str) -> String {
-    hash160::Hash::from_str(&format!("{msk}:{var}"))
-        .unwrap()
-        .to_string()
+    let mut hasher = sha2::Sha256::new();
+    hasher.update(format!("{msk}:{var}"));
+    format!("{:x}", hasher.finalize())
+    // hash160::Hash::hash(&format!("{msk}:{var}"))
+    //     .unwrap()
+    //     .to_string()
 }
 
 pub fn secret_key_for_superblock_hash(msk: &str) -> String {
@@ -52,4 +54,17 @@ pub fn public_key_for_proof_element_160(msk: &str, id: u32) -> wots160::PublicKe
 pub fn public_key_for_proof_element_256(msk: &str, id: u32) -> wots256::PublicKey {
     let secret_key = secret_key_for_proof_element(msk, id);
     wots256::generate_public_key(&secret_key)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::commitments::secret_key_from_msk;
+
+    #[test]
+    fn test_secret_key_from_msk() {
+        let msk = "hello";
+        let var = "world";
+
+        println!("{}", secret_key_from_msk(msk, var));
+    }
 }
