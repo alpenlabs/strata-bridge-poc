@@ -2,7 +2,9 @@ use bitcoin::{
     sighash::Prevouts, Amount, Network, OutPoint, Psbt, ScriptBuf, Transaction, TxOut, Txid,
 };
 use strata_bridge_db::connector_db::ConnectorDb;
-use strata_bridge_primitives::{params::prelude::UNSPENDABLE_INTERNAL_KEY, scripts::prelude::*};
+use strata_bridge_primitives::{
+    params::prelude::UNSPENDABLE_INTERNAL_KEY, scripts::prelude::*, types::OperatorIdx,
+};
 
 use super::covenant_tx::CovenantTx;
 use crate::connectors::prelude::*;
@@ -63,7 +65,7 @@ impl DisproveTx {
 
         let tx = create_tx(tx_ins, tx_outs);
 
-        let psbt = Psbt::from_unsigned_tx(tx).expect("should be able to create psbt");
+        let mut psbt = Psbt::from_unsigned_tx(tx).expect("should be able to create psbt");
 
         let connector_a31_script = connector_a31
             .generate_locking_script(data.deposit_txid)
@@ -83,6 +85,10 @@ impl DisproveTx {
 
         let witnesses = vec![TaprootWitness::Key; 2];
 
+        for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts.clone()) {
+            input.witness_utxo = Some(utxo)
+        }
+
         Self {
             psbt,
 
@@ -91,16 +97,13 @@ impl DisproveTx {
         }
     }
 
-    pub fn compute_txid(&self) -> Txid {
-        self.psbt.unsigned_tx.compute_txid()
-    }
-
     pub async fn finalize<Db>(
         mut self,
         connector_a30: ConnectorA30<Db>,
         connector_a31: ConnectorA31<Db>,
         reward: TxOut,
         deposit_txid: Txid,
+        operator_idx: OperatorIdx,
     ) -> Transaction
     where
         Db: ConnectorDb + Clone,
@@ -113,6 +116,8 @@ impl DisproveTx {
         connector_a30
             .finalize_input(
                 &mut self.psbt.inputs[0],
+                0,
+                operator_idx,
                 original_txid,
                 ConnectorA30Leaf::Disprove,
             )
@@ -148,5 +153,9 @@ impl CovenantTx for DisproveTx {
 
     fn witnesses(&self) -> &[TaprootWitness] {
         &self.witnesses
+    }
+
+    fn compute_txid(&self) -> Txid {
+        self.psbt.unsigned_tx.compute_txid()
     }
 }

@@ -1,4 +1,4 @@
-use bitcoin::{OutPoint, Psbt, Transaction, Txid};
+use bitcoin::{OutPoint, Psbt, Transaction, TxOut, Txid};
 use serde::{Deserialize, Serialize};
 use strata_bridge_primitives::{
     params::{
@@ -20,6 +20,8 @@ use crate::connectors::prelude::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssertDataTxInput {
     pub pre_assert_txid: Txid,
+
+    pub pre_assert_txouts: Vec<TxOut>,
 }
 
 #[derive(Debug, Clone)]
@@ -35,11 +37,14 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
 
             // in the last iteration, there will be less than `N_INPUTS_PER_TX` utxos.
             let mut utxos: Vec<OutPoint> = Vec::with_capacity(N_INPUTS_PER_TX);
+            let mut prevouts: Vec<TxOut> = Vec::with_capacity(N_INPUTS_PER_TX);
             for vout in starting_index..(starting_index + N_INPUTS_PER_TX) {
                 utxos.push(OutPoint {
                     txid: input.pre_assert_txid,
                     vout: vout as u32,
                 });
+
+                prevouts.push(input.pre_assert_txouts[vout].clone());
             }
 
             let tx_ins = create_tx_ins(utxos);
@@ -51,7 +56,11 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
 
             let tx = create_tx(tx_ins, tx_outs);
 
-            let psbt = Psbt::from_unsigned_tx(tx).expect("must have an empty witness");
+            let mut psbt = Psbt::from_unsigned_tx(tx).expect("must have an empty witness");
+
+            for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts) {
+                input.witness_utxo = Some(utxo)
+            }
 
             psbts.push(psbt);
         }

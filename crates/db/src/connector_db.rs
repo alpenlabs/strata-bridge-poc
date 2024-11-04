@@ -7,6 +7,7 @@ use bitvm::{
     treepp::*,
 };
 use secp256k1::schnorr::Signature;
+use strata_bridge_primitives::types::OperatorIdx;
 
 #[async_trait]
 pub trait ConnectorDb: Clone + Debug + Send + Sync {
@@ -38,5 +39,10 @@ pub trait ConnectorDb: Clone + Debug + Send + Sync {
         signatures: &g16::WotsSignatures,
     );
 
-    async fn get_signature(&self, txid: Txid) -> Signature;
+    async fn get_signature(
+        &self,
+        operator_idx: OperatorIdx,
+        txid: Txid,
+        input_index: u32,
+    ) -> Signature;
 }

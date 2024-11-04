@@ -4,7 +4,7 @@ use bitcoin::{
     Address, Network, ScriptBuf, Txid, XOnlyPublicKey,
 };
 use strata_bridge_db::connector_db::ConnectorDb;
-use strata_bridge_primitives::scripts::prelude::*;
+use strata_bridge_primitives::{scripts::prelude::*, types::OperatorIdx};
 
 use super::params::PAYOUT_TIMELOCK;
 
@@ -68,9 +68,16 @@ impl<Db: ConnectorDb> ConnectorA30<Db> {
             .expect("should be able to create taproot address")
     }
 
-    pub async fn finalize_input(&self, input: &mut Input, txid: Txid, tapleaf: ConnectorA30Leaf) {
+    pub async fn finalize_input(
+        &self,
+        input: &mut Input,
+        input_index: u32,
+        operator_idx: OperatorIdx,
+        txid: Txid,
+        tapleaf: ConnectorA30Leaf,
+    ) {
         let (script, control_block) = self.generate_spend_info(tapleaf);
-        let n_of_n_sig = self.db.get_signature(txid).await;
+        let n_of_n_sig = self.db.get_signature(operator_idx, txid, input_index).await;
 
         finalize_input(
             input,

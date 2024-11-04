@@ -42,13 +42,26 @@ impl PegOutGraph {
         deposit_txid: Txid,
         connectors: PegOutGraphConnectors<Db>,
     ) -> Self {
-        let kickoff_tx =
-            KickOffTx::new(input.kickoff_data, connectors.kickoff, input.network).await;
+        let kickoff_tx = KickOffTx::new(
+            input.kickoff_data,
+            connectors.kickoff.clone(),
+            input.network,
+        )
+        .await;
         let kickoff_txid = kickoff_tx.compute_txid();
 
-        let claim_data = ClaimData { kickoff_txid };
+        let claim_data = ClaimData {
+            kickoff_txid,
+            deposit_txid,
+        };
 
-        let claim_tx = ClaimTx::new(claim_data, connectors.claim_out_0, connectors.claim_out_1);
+        let claim_tx = ClaimTx::new(
+            claim_data,
+            connectors.kickoff,
+            connectors.claim_out_0,
+            connectors.claim_out_1,
+        )
+        .await;
         let claim_txid = claim_tx.compute_txid();
 
         let assert_chain_data = AssertChainData {
