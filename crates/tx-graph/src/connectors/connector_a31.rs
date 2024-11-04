@@ -15,7 +15,7 @@ use strata_bridge_primitives::{
 
 use crate::transactions::constants::SUPERBLOCK_PERIOD;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ConnectorA31<DB: ConnectorDb> {
     network: Network,
 
@@ -29,6 +29,10 @@ pub enum ConnectorA31Leaf {
 }
 
 impl<DB: ConnectorDb> ConnectorA31<DB> {
+    pub fn new(network: Network, db: DB) -> Self {
+        Self { network, db }
+    }
+
     fn extract_superblock_ts_from_header(&self) -> Script {
         script! {
             for i in 0..4 {
@@ -45,7 +49,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         tapleaf: ConnectorA31Leaf,
         deposit_txid: Txid,
     ) -> ScriptBuf {
-        let ((superblock_period_start_ts_public_key, _, superblock_hash_public_key), _, _) =
+        let ([superblock_period_start_ts_public_key, _, superblock_hash_public_key], _, _) =
             self.db.get_wots_public_keys(0, deposit_txid).await;
 
         match tapleaf {

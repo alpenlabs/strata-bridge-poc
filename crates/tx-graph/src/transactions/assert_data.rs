@@ -5,7 +5,7 @@ use strata_bridge_primitives::{
         connectors::{
             NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL, NUM_PKS_A256_PER_CONNECTOR,
         },
-        prelude::NUM_PKS_A256_RESIDUAL,
+        prelude::{NUM_PKS_A160, NUM_PKS_A256, NUM_PKS_A256_RESIDUAL},
     },
     scripts::prelude::*,
 };
@@ -23,7 +23,7 @@ pub struct AssertDataTxInput {
 }
 
 #[derive(Debug, Clone)]
-pub struct AssertDataTxBatch<const N: usize, const N_INPUTS_PER_TX1: usize>([Psbt; N]);
+pub struct AssertDataTxBatch<const N: usize, const N_INPUTS_PER_TX: usize>([Psbt; N]);
 
 impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS_PER_TX> {
     pub fn new(input: AssertDataTxInput, connector_a2: ConnectorS) -> Self {
@@ -71,6 +71,10 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
         self.0.get_mut(index)
     }
 
+    pub const fn num_txs_in_batch(&self) -> usize {
+        N
+    }
+
     pub fn compute_txids(&self) -> [Txid; N] {
         self.0
             .iter()
@@ -82,19 +86,27 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
 
     pub fn finalize(
         mut self,
-        connector_a160_factory: ConnectorA160Factory<11, 598>,
-        connector_a256_factory: ConnectorA256Factory<7, 49>,
+        // FIXME: replace hard-coded values when const-generics become stable
+        connector_a160_factory: ConnectorA160Factory<11, 574>,
+        connector_a256_factory: ConnectorA256Factory<7, 41>,
         msk: &str,
         values: [&[u8]; TOTAL_VALUES],
     ) -> [Transaction; N] {
+        // compile time checks to bind with consts manually
+        // remove when const-generics become stable
+        const _: [(); NUM_PKS_A160] = [(); 574];
+        const _: [(); NUM_PKS_A256] = [(); 41];
+        const _: [(); NUM_PKS_A160_PER_CONNECTOR] = [(); 11];
+        const _: [(); NUM_PKS_A256_PER_CONNECTOR] = [(); 7];
+
         let (connector160_batch, connector160_remainder): (
             Vec<ConnectorA160<11>>,
-            ConnectorA160<4>,
+            ConnectorA160<2>,
         ) = connector_a160_factory.create_connectors();
 
         let (connector256_batch, connector256_remainder): (
             Vec<ConnectorA256<7>>,
-            ConnectorA256<0>,
+            ConnectorA256<6>,
         ) = connector_a256_factory.create_connectors();
 
         let mut value_offset = 0;

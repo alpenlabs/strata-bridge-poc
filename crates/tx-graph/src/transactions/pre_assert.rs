@@ -1,17 +1,21 @@
-use bitcoin::{Amount, OutPoint, Psbt, Transaction, Txid};
+use bitcoin::{sighash::Prevouts, Amount, OutPoint, Psbt, Transaction, TxOut, Txid};
 use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
 use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
 
-use super::constants::{
-    NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
-    NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11,
+use super::{
+    constants::{
+        NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
+        NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11,
+    },
+    covenant_tx::CovenantTx,
 };
 use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreAssertData {
     pub claim_txid: Txid,
+    pub input_stake: Amount,
 }
 
 #[derive(Debug, Clone)]
@@ -19,11 +23,16 @@ pub struct PreAssertTx {
     psbt: Psbt,
 
     remaining_stake: Amount,
+
+    prevouts: Vec<TxOut>,
+
+    witnesses: Vec<TaprootWitness>,
 }
 
 impl PreAssertTx {
     pub fn new(
         data: PreAssertData,
+        connector_c0: ConnectorC0,
         connector_s: ConnectorS,
         connector_a256: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256>,
         connector_a160: ConnectorA160Factory<NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160>,
@@ -124,18 +133,24 @@ impl PreAssertTx {
 
         let psbt = Psbt::from_unsigned_tx(tx).expect("input should have an empty witness field");
 
+        let prevouts = vec![TxOut {
+            value: data.input_stake,
+            script_pubkey: connector_c0.generate_locking_script(),
+        }];
+
+        let (script_buf, control_block) = connector_c0.generate_spend_info(ConnectorC0Leaf::Assert);
+        let witness = vec![TaprootWitness::Script {
+            script_buf,
+            control_block,
+        }];
+
         Self {
             psbt,
             remaining_stake: net_stake,
+
+            prevouts,
+            witnesses: witness,
         }
-    }
-
-    pub fn psbt(&self) -> &Psbt {
-        &self.psbt
-    }
-
-    pub fn psbt_mut(&mut self) -> &mut Psbt {
-        &mut self.psbt
     }
 
     pub fn remaining_stake(&self) -> Amount {
@@ -156,5 +171,23 @@ impl PreAssertTx {
         self.psbt
             .extract_tx()
             .expect("should be able to extract tx")
+    }
+}
+
+impl CovenantTx for PreAssertTx {
+    fn psbt(&self) -> &Psbt {
+        &self.psbt
+    }
+
+    fn psbt_mut(&mut self) -> &mut Psbt {
+        &mut self.psbt
+    }
+
+    fn prevouts(&self) -> Prevouts<'_, TxOut> {
+        Prevouts::All(&self.prevouts)
+    }
+
+    fn witnesses(&self) -> &[TaprootWitness] {
+        &self.witnesses
     }
 }

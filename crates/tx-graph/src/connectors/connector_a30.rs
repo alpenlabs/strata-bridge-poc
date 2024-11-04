@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bitcoin::{
     psbt::Input,
     taproot::{ControlBlock, LeafVersion, TaprootSpendInfo},
@@ -10,13 +8,13 @@ use strata_bridge_primitives::scripts::prelude::*;
 
 use super::params::PAYOUT_TIMELOCK;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ConnectorA30<Db: ConnectorDb> {
     n_of_n_agg_pubkey: XOnlyPublicKey,
 
     network: Network,
 
-    db: Arc<Db>,
+    db: Db,
 }
 
 #[derive(Debug, Clone)]
@@ -26,7 +24,7 @@ pub enum ConnectorA30Leaf {
 }
 
 impl<Db: ConnectorDb> ConnectorA30<Db> {
-    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Arc<Db>) -> Self {
+    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Db) -> Self {
         Self {
             n_of_n_agg_pubkey,
             network,

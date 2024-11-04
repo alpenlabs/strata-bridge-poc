@@ -57,7 +57,7 @@ pub fn public_key_for_proof_element_256(msk: &str, id: u32) -> wots256::PublicKe
 
 #[cfg(test)]
 mod tests {
-    use crate::commitments::secret_key_from_msk;
+    use super::*;
 
     #[test]
     fn test_secret_key_from_msk() {

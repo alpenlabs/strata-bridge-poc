@@ -1,10 +1,13 @@
 use std::{collections::HashSet, sync::Arc};
 
 use bitcoin::{
+    hashes::Hash,
     sighash::{Prevouts, SighashCache},
-    Address, Amount, OutPoint, TapSighashType, Transaction, TxOut,
+    Address, Amount, OutPoint, TapSighashType, Transaction, TxOut, Txid,
 };
-use secp256k1::{schnorr::Signature, Keypair, PublicKey, SECP256K1};
+use musig2::{KeyAggContext, SecNonce};
+use rand::{rngs::OsRng, RngCore};
+use secp256k1::{schnorr::Signature, Keypair, PublicKey, SecretKey, SECP256K1};
 use strata_bridge_btcio::{traits::Wallet, BitcoinClient};
 use strata_bridge_primitives::{params::prelude::MIN_RELAY_FEE, scripts::prelude::*};
 use tracing::trace;
@@ -41,6 +44,10 @@ impl Agent {
 
     pub fn public_key(&self) -> PublicKey {
         self.keypair.public_key()
+    }
+
+    pub fn secret_key(&self) -> SecretKey {
+        SecretKey::from_keypair(&self.keypair)
     }
 
     pub async fn select_utxo(
@@ -85,5 +92,29 @@ impl Agent {
         }
 
         None
+    }
+
+    /// Generate a random secret nonce.
+    ///
+    /// Please refer to MuSig2 nonce generation section in
+    /// [BIP 327](https://github.com/bitcoin/bips/blob/master/bip-0327.mediawiki).
+    ///
+    /// # Notes
+    ///
+    /// The entropy is pooled using the underlying operating system's
+    /// cryptographic-safe pseudo-random number generator with [`OsRng`].
+    pub fn generate_sec_nonce(&self, txid: &Txid, key_agg_ctx: &KeyAggContext) -> SecNonce {
+        let aggregated_pubkey: PublicKey = key_agg_ctx.aggregated_pubkey();
+
+        let mut nonce_seed = [0u8; 32];
+        OsRng.fill_bytes(&mut nonce_seed);
+
+        let seckey = SecretKey::from_keypair(&self.keypair);
+
+        SecNonce::build(nonce_seed)
+            .with_seckey(seckey)
+            .with_message(txid.as_byte_array())
+            .with_aggregated_pubkey(aggregated_pubkey)
+            .build()
     }
 }
