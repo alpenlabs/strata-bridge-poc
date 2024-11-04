@@ -34,13 +34,13 @@ impl Operator {
     fn generate_wots_public_keys(&self, deposit_txid: Txid) -> g16::WotsPublicKeys {
         let deposit_msk = self.get_deposit_master_secret_key(deposit_txid);
         (
-            (
+            [
                 wots256::generate_public_key(&secret_key_for_superblock_period_start_ts(
                     &deposit_msk,
                 )),
                 wots256::generate_public_key(&secret_key_for_bridge_out_txid(&deposit_msk)),
                 wots256::generate_public_key(&secret_key_for_superblock_hash(&deposit_msk)),
-            ),
+            ],
             std::array::from_fn(|i| {
                 wots256::generate_public_key(&secret_key_for_proof_element(&deposit_msk, i as u32))
             }),

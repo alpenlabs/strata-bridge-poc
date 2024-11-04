@@ -123,7 +123,7 @@ impl<Db: Database + Clone> PegOutGraphConnectors<Db> {
 
         let post_assert_out_0 = ConnectorA30::new(n_of_n_agg_pubkey, network, db.clone());
 
-        let ((_, _, superblock_hash_public_key), public_keys_256, public_keys_160) =
+        let ([_, _, superblock_hash_public_key], public_keys_256, public_keys_160) =
             db.get_wots_public_keys(0, mock_txid());
         let assert_data160_factory: ConnectorA160Factory<NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160> =
             ConnectorA160Factory {

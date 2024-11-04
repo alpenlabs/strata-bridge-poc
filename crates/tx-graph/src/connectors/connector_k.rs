@@ -4,7 +4,8 @@ use bitcoin::{
     Address, Network, ScriptBuf, Txid,
 };
 use bitvm::{
-    signatures::wots::{wots256, wots32},
+    groth16::g16,
+    signatures::wots::{wots160, wots256, wots32},
     treepp::*,
 };
 use secp256k1::XOnlyPublicKey;
@@ -35,8 +36,11 @@ impl<Db: Database> ConnectorK<Db> {
     }
 
     fn create_locking_script(&self) -> ScriptBuf {
-        let ((superblock_period_start_ts_public_key, bridge_out_txid_public_key, _), _, _) =
+        let ([superblock_period_start_ts_public_key, bridge_out_txid_public_key, _], _, _) =
             self.db.get_wots_public_keys(0, mock_txid());
+        // let (proof_inputs_public_keys, _, _) = self.db.get_wots_public_keys(0, mock_txid());
+        // let superblock_period_start_ts_public_key = proof_inputs_public_keys[0];
+        // let bridge_out_txid_public_key = proof_inputs_public_keys[1];
 
         script! {
             // superblock_period_start_timestamp
