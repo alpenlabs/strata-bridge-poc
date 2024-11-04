@@ -1,7 +1,5 @@
 #![allow(unused)]
 use bitcoin::{block::Header, hashes::Hash, BlockHash, Txid};
-use snark_bn254_verifier::Groth16Verifier;
-use sp1_core_machine::io::SP1PublicValues;
 use strata_primitives::{buf::Buf32, params::RollupParams};
 use strata_state::{
     batch::BatchCheckpoint,
@@ -9,10 +7,8 @@ use strata_state::{
     chain_state::ChainState,
     l1::{BtcParams, HeaderVerificationState},
 };
-use strata_zkvm::Proof;
-use substrate_bn::Fr;
 
-use crate::{primitives::mock_txid, BridgeProofPublicParams};
+use crate::BridgeProofPublicParams;
 
 pub fn process_bridge_proof() -> BridgeProofPublicParams {
     // TODO:
@@ -43,6 +39,17 @@ pub fn process_bridge_proof() -> BridgeProofPublicParams {
     let super_block_hash =
         BlockHash::from_slice(&[0u8; 32]).expect("Failed to create Block hash from bytes");
     let withdrawal_txnid = Txid::from_slice(&[0u8; 32]).expect("Failed to create Txid from bytes");
+
+    // Assert that the first byte of each hash is `0`
+    assert_eq!(
+        super_block_hash[0], 0,
+        "super_block_hash does not start with 0"
+    );
+    assert_eq!(
+        withdrawal_txnid[0], 0,
+        "withdrawal_txnid does not start with 0"
+    );
+
     let timestamp: u32 = 0;
 
     (super_block_hash, withdrawal_txnid, timestamp)
@@ -87,46 +94,4 @@ pub fn process_ckp(
     );
 
     (l2_idx, l2_id)
-}
-
-fn verify_l1_chain(
-    initial_header_state: &HeaderVerificationState,
-    headers: &[Header],
-    params: &BtcParams,
-) -> HeaderVerificationState {
-    let mut state = initial_header_state.clone();
-
-    for header in headers {
-        state = state.check_and_update_continuity_new(header, params);
-    }
-
-    state
-}
-
-// Copied from ~/.sp1/circuits/v2.0.0/groth16_vk.bin
-// This is same for all the SP1 programs that uses v2.0.0
-pub const GROTH16_VK_BYTES: &[u8] = include_bytes!("groth16_vk.bin");
-
-/// Verifies the Groth16 proof posted on chain
-///
-/// Note: SP1Verifier::verify_groth16 is not directly used because it depends on `sp1-sdk` which
-/// cannot be compiled inside guest code.
-fn verify_groth16(proof: &Proof, vkey_hash: &[u8], committed_values_raw: &[u8]) -> bool {
-    // Convert vkey_hash to Fr, mapping the error to anyhow::Error
-    let vkey_hash_fr = Fr::from_slice(vkey_hash).unwrap();
-
-    let committed_values_digest = SP1PublicValues::from(committed_values_raw)
-        .hash_bn254()
-        .to_bytes_be();
-
-    // Convert committed_values_digest to Fr, mapping the error to anyhow::Error
-    let committed_values_digest_fr = Fr::from_slice(&committed_values_digest).unwrap();
-
-    // Perform the Groth16 verification, mapping any error to anyhow::Error
-    Groth16Verifier::verify(
-        proof.as_bytes(),
-        GROTH16_VK_BYTES,
-        &[vkey_hash_fr, committed_values_digest_fr],
-    )
-    .unwrap()
 }

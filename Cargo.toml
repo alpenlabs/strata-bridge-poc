@@ -5,6 +5,7 @@ members = [
   "crates/db",
   "crates/primitives",
   "crates/proof-impl/bitvm-bridge",
+  "crates/proof-impl/prover-manager",
   "crates/tx-graph",
   "bridge-proofs",
 
@@ -29,6 +30,7 @@ strata-bridge-primitives = { path = "crates/primitives" }
 strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
 strata-test-utils = { path = "crates/test-utils" }
+strata-bridge-guest-builder = { path = "bridge-proofs" }
 
 # deps from original strata repo
 shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields", features = [
