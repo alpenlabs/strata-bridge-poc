@@ -154,7 +154,7 @@ mod tests {
         mock_txid,
     };
 
-    use super::{generate_verifier_partial_scripts, mock, validate_assertion_signatures};
+    use super::*;
 
     #[test]
     fn test_groth16_compile() {
@@ -277,7 +277,7 @@ mod tests {
         //     },
         // );
         let mut assertions = get_mock_assertions();
-        assertions.2[15] = [0u8; 20]; // make incorrect assertions
+        assertions.1[0] = [0u8; 32]; // make incorrect assertions
 
         let deposit_txid = mock_txid();
 
@@ -290,6 +290,10 @@ mod tests {
         let verifier_scripts = &read_verifier_scripts();
         // let verifier_scripts = generate_verifier_partial_scripts();
         // save_verifier_scripts(&verifier_scripts);
+
+        println!("Generating verifier tapscripts from verifier scripts");
+        let verifier_scripts =
+            &generate_verifier_tapscripts_from_partial_scripts(verifier_scripts, wots_public_keys);
 
         println!("Validating assertion signatures");
         let res = validate_assertion_signatures(
@@ -321,9 +325,6 @@ mod tests {
                     res.success,
                     "Invalid assertion: Disprove script should not fail"
                 );
-                // for i in 0..res.final_stack.len() {
-                //     println!("{i:3}: {:?}", res.final_stack.get(i));
-                // }
             }
             None => println!("Assertion is valid"),
         }
@@ -2808,11 +2809,18 @@ mod tests {
         )
     }
 
-    fn from_wots_signature<F: PrimeField>(
-        signature: wots256::Signature,
-        public_key: wots256::PublicKey,
-    ) -> F {
+    fn from_wots256_signature<F: PrimeField>(signature: wots256::Signature) -> F {
         let nibbles = &signature.map(|(sig, digit)| digit)[0..wots256::M_DIGITS as usize];
+        let bytes = nibbles
+            .chunks(2)
+            .rev()
+            .map(|bn| (bn[0] << 4) + bn[1])
+            .collect::<Vec<u8>>();
+        F::from_le_bytes_mod_order(&bytes)
+    }
+
+    fn from_wots160_signature<F: PrimeField>(signature: wots160::Signature) -> F {
+        let nibbles = &signature.map(|(sig, digit)| digit)[0..wots160::M_DIGITS as usize];
         let bytes = nibbles
             .chunks(2)
             .rev()
@@ -2828,15 +2836,13 @@ mod tests {
         let mut rng = ark_std::rand::rngs::StdRng::seed_from_u64(test_rng().next_u64());
 
         let fq = Fq::rand(&mut rng);
-        let public_key = wots256::generate_public_key(secret);
         let signature = wots256::get_signature(secret, &fq.into_bigint().to_bytes_le());
-        let fq_s = from_wots_signature::<Fq>(signature, public_key);
+        let fq_s = from_wots256_signature::<Fq>(signature);
         assert_eq!(fq, fq_s);
 
         let fr = Fr::rand(&mut rng);
-        let public_key = wots256::generate_public_key(secret);
         let signature = wots256::get_signature(secret, &fr.into_bigint().to_bytes_le());
-        let fr_s = from_wots_signature::<Fr>(signature, public_key);
+        let fr_s = from_wots256_signature::<Fr>(signature);
         assert_eq!(fr, fr_s);
     }
 }
