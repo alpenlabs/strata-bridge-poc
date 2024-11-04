@@ -26,11 +26,11 @@ resolver = "2"
 strata-bridge-agent = { path = "crates/agent" }
 strata-bridge-btcio = { path = "crates/btcio" }
 strata-bridge-db = { path = "crates/db" }
+strata-bridge-guest-builder = { path = "bridge-proofs" }
 strata-bridge-primitives = { path = "crates/primitives" }
 strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
 strata-test-utils = { path = "crates/test-utils" }
-strata-bridge-guest-builder = { path = "bridge-proofs" }
 
 # deps from original strata repo
 shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields", features = [
