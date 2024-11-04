@@ -1,13 +1,10 @@
 use bitcoin::{
     psbt::Input,
     taproot::{ControlBlock, LeafVersion, TaprootSpendInfo},
-    Address, Network, ScriptBuf,
+    Address, Network, ScriptBuf, Txid,
 };
 use bitvm::{
-    bn254::chunk_superblock::H256,
-    hash::sha256::sha256,
-    pseudo::NMUL,
-    signatures::wots::{wots160, wots256, wots32},
+    bn254::chunk_superblock::H256, hash::sha256::sha256, pseudo::NMUL, signatures::wots::wots256,
     treepp::*,
 };
 use strata_bridge_db::connector_db::ConnectorDb;
@@ -22,11 +19,6 @@ use crate::transactions::constants::SUPERBLOCK_PERIOD;
 pub struct ConnectorA31<DB: ConnectorDb> {
     network: Network,
 
-    pub superblock_hash_public_key: wots256::PublicKey,
-    pub superblock_period_start_ts_public_key: wots32::PublicKey,
-    pub proof_elements_public_key: ([wots256::PublicKey; 49], [wots160::PublicKey; 598]),
-
-    #[allow(dead_code)]
     db: DB,
 }
 
@@ -48,16 +40,23 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         }
     }
 
-    pub async fn generate_tapleaf(&self, tapleaf: ConnectorA31Leaf) -> ScriptBuf {
+    pub async fn generate_tapleaf(
+        &self,
+        tapleaf: ConnectorA31Leaf,
+        deposit_txid: Txid,
+    ) -> ScriptBuf {
+        let ((superblock_period_start_ts_public_key, _, superblock_hash_public_key), _, _) =
+            self.db.get_wots_public_keys(0, deposit_txid).await;
+
         match tapleaf {
             ConnectorA31Leaf::DisproveChain => {
                 script! {
                 // committed superblock hash
-                { wots256::compact::checksig_verify(self.superblock_hash_public_key) }
+                { wots256::compact::checksig_verify(superblock_hash_public_key) }
                 { sb_hash_from_nibbles() } { H256::toaltstack() }
 
                 // committed superblock period start timestamp
-                { wots32::compact::checksig_verify(self.superblock_period_start_ts_public_key) }
+                { wots256::compact::checksig_verify(superblock_period_start_ts_public_key) }
                 { ts_from_nibbles() } OP_TOALTSTACK
 
                 // extract superblock timestamp from header
@@ -118,8 +117,8 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         .compile()
     }
 
-    pub async fn generate_locking_script(&self) -> ScriptBuf {
-        let (address, _) = self.generate_taproot_address().await;
+    pub async fn generate_locking_script(&self, deposit_txid: Txid) -> ScriptBuf {
+        let (address, _) = self.generate_taproot_address(deposit_txid).await;
 
         address.script_pubkey()
     }
@@ -127,10 +126,11 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
     pub async fn generate_spend_info(
         &self,
         tapleaf: ConnectorA31Leaf,
+        deposit_txid: Txid,
     ) -> (ScriptBuf, ControlBlock) {
-        let (_, taproot_spend_info) = self.generate_taproot_address().await;
+        let (_, taproot_spend_info) = self.generate_taproot_address(deposit_txid).await;
 
-        let script = self.generate_tapleaf(tapleaf).await;
+        let script = self.generate_tapleaf(tapleaf, deposit_txid).await;
         let control_block = taproot_spend_info
             .control_block(&(script.clone(), LeafVersion::TapScript))
             .expect("script is always present in the address");
@@ -138,14 +138,17 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         (script, control_block)
     }
 
-    async fn generate_taproot_address(&self) -> (Address, TaprootSpendInfo) {
-        let mut scripts = vec![self.generate_tapleaf(ConnectorA31Leaf::DisproveChain).await];
+    async fn generate_taproot_address(&self, deposit_txid: Txid) -> (Address, TaprootSpendInfo) {
+        let mut scripts = vec![
+            self.generate_tapleaf(ConnectorA31Leaf::DisproveChain, deposit_txid)
+                .await,
+        ];
 
         const TOTAL_SCRIPTS: usize = NUM_PKS_A160 + NUM_PKS_A256;
         let mut invalidate_proof_tapleaves = Vec::with_capacity(TOTAL_SCRIPTS);
         for i in 0..TOTAL_SCRIPTS {
             invalidate_proof_tapleaves.push(
-                self.generate_tapleaf(ConnectorA31Leaf::InvalidateProof(i))
+                self.generate_tapleaf(ConnectorA31Leaf::InvalidateProof(i), deposit_txid)
                     .await,
             );
         }
@@ -156,8 +159,13 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             .expect("should be able to create taproot address")
     }
 
-    pub async fn finalize_input(&self, input: &mut Input, tapleaf: ConnectorA31Leaf) {
-        let (script, control_block) = self.generate_spend_info(tapleaf).await;
+    pub async fn finalize_input(
+        &self,
+        input: &mut Input,
+        tapleaf: ConnectorA31Leaf,
+        deposit_txid: Txid,
+    ) {
+        let (script, control_block) = self.generate_spend_info(tapleaf, deposit_txid).await;
 
         let witness_script = match tapleaf {
             ConnectorA31Leaf::DisproveChain => {

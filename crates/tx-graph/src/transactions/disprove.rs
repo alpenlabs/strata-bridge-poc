@@ -70,6 +70,7 @@ impl DisproveTx {
         connector_a30: ConnectorA30<Db>,
         connector_a31: ConnectorA31<Db>,
         reward: TxOut,
+        deposit_txid: Txid,
     ) -> Transaction
     where
         Db: ConnectorDb + Clone,
@@ -89,7 +90,11 @@ impl DisproveTx {
 
         // TODO: Compute which `ConnectorA31Leaf` is spendable
         connector_a31
-            .finalize_input(&mut self.0.inputs[1], ConnectorA31Leaf::InvalidateProof(0))
+            .finalize_input(
+                &mut self.0.inputs[1],
+                ConnectorA31Leaf::InvalidateProof(0),
+                deposit_txid,
+            )
             .await;
 
         self.0.extract_tx().expect("should be able to extract tx")
