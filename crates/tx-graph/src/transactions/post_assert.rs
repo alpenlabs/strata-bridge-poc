@@ -64,7 +64,7 @@ impl PostAssertTx {
 
         let tx = create_tx(tx_ins, tx_outs);
 
-        let psbt = Psbt::from_unsigned_tx(tx).expect("witness should be empty");
+        let mut psbt = Psbt::from_unsigned_tx(tx).expect("witness should be empty");
 
         const NUM_ASSERT_DATA: usize = NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2;
         let assert_data_output_script = connector_a2.create_taproot_address().script_pubkey();
@@ -73,7 +73,11 @@ impl PostAssertTx {
                 script_pubkey: assert_data_output_script.clone(),
                 value: assert_data_output_script.minimal_non_dust(),
             })
-            .collect();
+            .collect::<Vec<TxOut>>();
+
+        for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts.clone()) {
+            input.witness_utxo = Some(utxo);
+        }
 
         let witnesses = vec![TaprootWitness::Key; NUM_ASSERT_DATA];
 

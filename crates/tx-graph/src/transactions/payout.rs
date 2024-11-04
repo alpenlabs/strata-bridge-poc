@@ -67,9 +67,9 @@ impl PayoutTx {
 
         let tx = create_tx(tx_ins, tx_outs);
 
-        let psbt = Psbt::from_unsigned_tx(tx).expect("the witness must be empty");
+        let mut psbt = Psbt::from_unsigned_tx(tx).expect("the witness must be empty");
 
-        let prevouts = [
+        let prevouts = vec![
             TxOut {
                 value: BRIDGE_DENOMINATION,
                 script_pubkey: connector_b.create_taproot_address().script_pubkey(),
@@ -78,8 +78,11 @@ impl PayoutTx {
                 value: data.input_stake,
                 script_pubkey: connector_a30.generate_locking_script(),
             },
-        ]
-        .to_vec();
+        ];
+
+        for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts.clone()) {
+            input.witness_utxo = Some(utxo);
+        }
 
         let witnesses = vec![TaprootWitness::Key; 2];
 

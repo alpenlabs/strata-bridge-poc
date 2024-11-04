@@ -26,6 +26,11 @@ pub struct PreAssertTx {
 
     prevouts: Vec<TxOut>,
 
+    /// The ordering of these is pretty complicated.
+    ///
+    /// This field is so that we don't have to recompute this order in other places.
+    tx_outs: Vec<TxOut>,
+
     witnesses: Vec<TaprootWitness>,
 }
 
@@ -129,14 +134,19 @@ impl PreAssertTx {
 
         let tx_outs = create_tx_outs(scripts_and_amounts);
 
-        let tx = create_tx(tx_ins, tx_outs);
+        let tx = create_tx(tx_ins, tx_outs.clone());
 
-        let psbt = Psbt::from_unsigned_tx(tx).expect("input should have an empty witness field");
+        let mut psbt =
+            Psbt::from_unsigned_tx(tx).expect("input should have an empty witness field");
 
         let prevouts = vec![TxOut {
             value: data.input_stake,
             script_pubkey: connector_c0.generate_locking_script(),
         }];
+
+        for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts.clone()) {
+            input.witness_utxo = Some(utxo);
+        }
 
         let (script_buf, control_block) = connector_c0.generate_spend_info(ConnectorC0Leaf::Assert);
         let witness = vec![TaprootWitness::Script {
@@ -149,6 +159,7 @@ impl PreAssertTx {
             remaining_stake: net_stake,
 
             prevouts,
+            tx_outs,
             witnesses: witness,
         }
     }
@@ -159,6 +170,10 @@ impl PreAssertTx {
 
     pub fn compute_txid(&self) -> Txid {
         self.psbt.unsigned_tx.compute_txid()
+    }
+
+    pub fn tx_outs(&self) -> &[TxOut] {
+        &self.tx_outs
     }
 
     pub fn finalize(mut self, n_of_n_sig: Signature, connector_c0: ConnectorC0) -> Transaction {

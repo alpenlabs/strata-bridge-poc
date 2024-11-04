@@ -8,7 +8,10 @@ use bitcoin::{
 use musig2::{KeyAggContext, SecNonce};
 use rand::{rngs::OsRng, RngCore};
 use secp256k1::{schnorr::Signature, Keypair, PublicKey, SecretKey, SECP256K1};
-use strata_bridge_btcio::{traits::Wallet, BitcoinClient};
+use strata_bridge_btcio::{
+    traits::{Reader, Wallet},
+    BitcoinClient,
+};
 use strata_bridge_primitives::{params::prelude::MIN_RELAY_FEE, scripts::prelude::*};
 use tracing::trace;
 
@@ -54,7 +57,7 @@ impl Agent {
         &self,
         target_amount: Amount,
         reserved_utxos: HashSet<OutPoint>,
-    ) -> Option<(Address, OutPoint, Amount)> {
+    ) -> Option<(Address, OutPoint, Amount, TxOut)> {
         let unspent_utxos = self
             .client
             .get_utxos()
@@ -78,6 +81,12 @@ impl Agent {
                 continue;
             }
 
+            let network = self
+                .client
+                .network()
+                .await
+                .expect("should get network from node");
+
             trace!(%entry.amount, %entry.txid, %entry.vout, %entry.confirmations, "checking unspent utxos");
             if entry.amount > target_amount + MIN_RELAY_FEE {
                 return Some((
@@ -87,6 +96,14 @@ impl Agent {
                         vout: entry.vout,
                     },
                     entry.amount,
+                    TxOut {
+                        value: entry.amount,
+                        script_pubkey: entry
+                            .address
+                            .require_network(network)
+                            .expect("address should be valid")
+                            .script_pubkey(),
+                    },
                 ));
             }
         }

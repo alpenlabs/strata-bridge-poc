@@ -1,4 +1,4 @@
-use bitcoin::Txid;
+use bitcoin::{TxOut, Txid};
 use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::params::connectors::{
     NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
@@ -50,6 +50,12 @@ impl AssertChain {
 
         let assert_data_input = AssertDataTxInput {
             pre_assert_txid: pre_assert.compute_txid(),
+            pre_assert_txouts: pre_assert
+                .tx_outs()
+                .iter()
+                .skip(1) // skip stake output
+                .cloned()
+                .collect::<Vec<TxOut>>(),
         };
 
         let assert_data: AssertDataTxBatch<
