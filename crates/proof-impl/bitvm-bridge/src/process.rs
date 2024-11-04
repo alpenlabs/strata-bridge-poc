@@ -1,7 +1,12 @@
 #![allow(unused)]
-use bitcoin::{hashes::Hash, BlockHash, Txid};
+use bitcoin::{block::Header, hashes::Hash, BlockHash, Txid};
 use strata_primitives::{buf::Buf32, params::RollupParams};
-use strata_state::{batch::BatchCheckpoint, bridge_state::DepositState, chain_state::ChainState};
+use strata_state::{
+    batch::BatchCheckpoint,
+    bridge_state::DepositState,
+    chain_state::ChainState,
+    l1::{BtcParams, HeaderVerificationState},
+};
 use strata_zkvm::Proof;
 
 use crate::{primitives::mock_txid, BridgeProofPublicParams};
@@ -87,4 +92,18 @@ fn verify_sp1_groth16(public_params: &Vec<u8>, proof: &Proof, rollup_params: &Ro
     let _ = proof;
     let _ = public_params;
     todo!()
+}
+
+fn verify_l1_chain(
+    initial_header_state: &HeaderVerificationState,
+    headers: &[Header],
+    params: &BtcParams,
+) -> HeaderVerificationState {
+    let mut state = initial_header_state.clone();
+
+    for header in headers {
+        state = state.check_and_update_continuity_new(header, params);
+    }
+
+    state
 }
