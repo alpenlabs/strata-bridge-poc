@@ -17,5 +17,5 @@ async fn main() {
 
     bootstrap(cli_args)
         .await
-        .expect("should be able to boostrap node");
+        .expect("should be able to bootstrap node");
 }

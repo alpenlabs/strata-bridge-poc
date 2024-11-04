@@ -1,5 +1,3 @@
-use bitvm::signatures::wots::{wots160, wots256};
-
 use crate::common::db::BridgeDb;
 
 pub struct Verifier {
