@@ -2118,6 +2118,20 @@ name = "bytemuck"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8334215b81e418a0a7bdb8ef0849474f40bb10c8b71f1c4ed315cff49f32494d"
+dependencies = [
+ "bytemuck_derive",
+]
+
+[[package]]
+name = "bytemuck_derive"
+version = "1.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcfcc3cd946cb52f0bbfdbbcfa2f4e24f75ebb6c0e1002f7c25904fada18b9ec"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
+]
 
 [[package]]
 name = "byteorder"
@@ -7546,6 +7560,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "snark-bn254-verifier"
+version = "1.0.2"
+source = "git+https://github.com/succinctlabs/snark-bn254-verifier.git?rev=96bce2079584b68597f3241551e4b97300fd92c6#96bce2079584b68597f3241551e4b97300fd92c6"
+dependencies = [
+ "lazy_static",
+ "num-bigint 0.4.6",
+ "num-traits",
+ "rand",
+ "sha2",
+ "substrate-bn",
+ "thiserror",
+]
+
+[[package]]
 name = "snowbridge-amcl"
 version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7737,6 +7765,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f08124c62d09764810783355cff518477e3f36c8e83343623859afeca6f3eeb"
 dependencies = [
  "sp1-build",
+]
+
+[[package]]
+name = "sp1-lib"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bea7811abd2d3a991007fcb284f41152840b8388c171288d0c52c6793956609c"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "cfg-if",
+ "hex",
+ "serde",
+ "snowbridge-amcl",
 ]
 
 [[package]]
@@ -8429,9 +8471,12 @@ dependencies = [
  "bitcoin 0.32.3",
  "borsh",
  "serde",
+ "snark-bn254-verifier",
+ "sp1-core-machine",
  "strata-primitives",
  "strata-state",
  "strata-zkvm",
+ "substrate-bn",
 ]
 
 [[package]]
@@ -8555,6 +8600,22 @@ dependencies = [
  "quote",
  "rustversion",
  "syn 2.0.87",
+]
+
+[[package]]
+name = "substrate-bn"
+version = "0.7.0"
+source = "git+https://github.com/sp1-patches/bn?branch=patch-v0.7.0#3c53d2561492f26b9428c1d37d134031d0156152"
+dependencies = [
+ "bytemuck",
+ "byteorder",
+ "cfg-if",
+ "crunchy",
+ "lazy_static",
+ "num-bigint 0.4.6",
+ "rand",
+ "rustc-hex",
+ "sp1-lib",
 ]
 
 [[package]]

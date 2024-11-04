@@ -1,5 +1,7 @@
 #![allow(unused)]
 use bitcoin::{block::Header, hashes::Hash, BlockHash, Txid};
+use snark_bn254_verifier::Groth16Verifier;
+use sp1_core_machine::io::SP1PublicValues;
 use strata_primitives::{buf::Buf32, params::RollupParams};
 use strata_state::{
     batch::BatchCheckpoint,
@@ -8,6 +10,7 @@ use strata_state::{
     l1::{BtcParams, HeaderVerificationState},
 };
 use strata_zkvm::Proof;
+use substrate_bn::Fr;
 
 use crate::{primitives::mock_txid, BridgeProofPublicParams};
 
@@ -77,7 +80,6 @@ pub fn process_ckp(
     let public_params = batch_checkpoint.proof_output();
     let public_params_raw = borsh::to_vec(&public_params).unwrap();
     let proof = batch_checkpoint.proof();
-    verify_sp1_groth16(&public_params_raw, proof, rollup_params);
 
     let (l2_idx, l2_id) = (
         public_params.batch_info.l2_range.1,
@@ -85,13 +87,6 @@ pub fn process_ckp(
     );
 
     (l2_idx, l2_id)
-}
-
-fn verify_sp1_groth16(public_params: &Vec<u8>, proof: &Proof, rollup_params: &RollupParams) {
-    let _ = rollup_params;
-    let _ = proof;
-    let _ = public_params;
-    todo!()
 }
 
 fn verify_l1_chain(
@@ -106,4 +101,32 @@ fn verify_l1_chain(
     }
 
     state
+}
+
+// Copied from ~/.sp1/circuits/v2.0.0/groth16_vk.bin
+// This is same for all the SP1 programs that uses v2.0.0
+pub const GROTH16_VK_BYTES: &[u8] = include_bytes!("groth16_vk.bin");
+
+/// Verifies the Groth16 proof posted on chain
+///
+/// Note: SP1Verifier::verify_groth16 is not directly used because it depends on `sp1-sdk` which
+/// cannot be compiled inside guest code.
+fn verify_groth16(proof: &Proof, vkey_hash: &[u8], committed_values_raw: &[u8]) -> bool {
+    // Convert vkey_hash to Fr, mapping the error to anyhow::Error
+    let vkey_hash_fr = Fr::from_slice(vkey_hash).unwrap();
+
+    let committed_values_digest = SP1PublicValues::from(committed_values_raw)
+        .hash_bn254()
+        .to_bytes_be();
+
+    // Convert committed_values_digest to Fr, mapping the error to anyhow::Error
+    let committed_values_digest_fr = Fr::from_slice(&committed_values_digest).unwrap();
+
+    // Perform the Groth16 verification, mapping any error to anyhow::Error
+    Groth16Verifier::verify(
+        proof.as_bytes(),
+        GROTH16_VK_BYTES,
+        &[vkey_hash_fr, committed_values_digest_fr],
+    )
+    .unwrap()
 }
