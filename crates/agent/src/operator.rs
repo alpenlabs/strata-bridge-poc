@@ -1,79 +1,133 @@
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
-use musig2::{KeyAggContext, PartialSignature};
-use secp256k1::{PublicKey, XOnlyPublicKey};
-use strata_bridge_db::operator::OperatorDb;
-use strata_state::bridge_duties::BridgeDuty;
+use musig2::PartialSignature;
+use strata_bridge_db::{operator::OperatorDb, public::PublicDb};
+use strata_bridge_primitives::{
+    build_context::{BuildContext, TxBuildContext, TxKind},
+    deposit::DepositInfo,
+    duties::BridgeDuty,
+    params::prelude::{BRIDGE_DENOMINATION, MIN_RELAY_FEE, OPERATOR_STAKE},
+    signal::Signal,
+    withdrawal::WithdrawalInfo,
+};
+use strata_bridge_tx_graph::{
+    peg_out_graph::{PegOutGraph, PegOutGraphConnectors, PegOutGraphInput},
+    transactions::prelude::KickoffTxData,
+};
+use tokio::sync::broadcast;
+use tracing::info;
 
 use crate::base::Agent;
 
 pub type OperatorIdx = u32;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Operator {
     pub agent: Agent,
 
-    own_index: OperatorIdx,
-
-    n_of_n_agg_pubkey: XOnlyPublicKey,
+    build_context: TxBuildContext,
 
     #[allow(dead_code)] // will use this during impl
     db: Arc<OperatorDb>,
 
+    public_db: Arc<PublicDb>,
+
     is_faulty: bool,
-    // add broadcast channels
+
+    #[allow(dead_code)]
+    signal_sender: broadcast::Sender<Signal>,
+
+    #[allow(dead_code)]
+    signal_receiver: broadcast::Receiver<Signal>,
 }
 
 impl Operator {
-    pub fn new(
+    pub async fn new(
         agent: Agent,
-        pubkey_table: BTreeMap<OperatorIdx, PublicKey>,
+        build_context: TxBuildContext,
         is_faulty: bool,
         db: Arc<OperatorDb>,
+        public_db: Arc<PublicDb>,
+        signal_sender: broadcast::Sender<Signal>,
+        signal_receiver: broadcast::Receiver<Signal>,
     ) -> Self {
-        let own_index = *pubkey_table
-            .iter()
-            .find(|(_, pk)| **pk == agent.public_key())
-            .expect("should be part of the pubkey table")
-            .0;
-
-        let n_of_n_agg_pubkey: PublicKey = KeyAggContext::new(pubkey_table.values().copied())
-            .expect("should be able to get agg key context")
-            .aggregated_pubkey();
-        let (n_of_n_agg_pubkey, _) = n_of_n_agg_pubkey.x_only_public_key();
-
         Self {
             agent,
-            own_index,
-            n_of_n_agg_pubkey,
+            build_context,
             db,
+            public_db,
             is_faulty,
+            signal_sender,
+            signal_receiver,
         }
-    }
-
-    pub fn own_index(&self) -> &OperatorIdx {
-        &self.own_index
-    }
-
-    pub fn n_of_n_agg_pubkey(&self) -> &XOnlyPublicKey {
-        &self.n_of_n_agg_pubkey
     }
 
     pub fn am_i_faulty(&self) -> bool {
         self.is_faulty
     }
 
-    pub async fn process_duty(&self, _duty: BridgeDuty) {
-        todo!()
+    pub async fn process_duty(&self, duty: BridgeDuty) {
+        match duty {
+            BridgeDuty::SignDeposit(deposit_info) => {
+                let txid = deposit_info.deposit_request_outpoint().txid;
+                info!(event = "received deposit", operator_idx = %self.build_context.own_index(), drt_txid = %txid);
+
+                self.handle_deposit(deposit_info).await;
+            }
+            BridgeDuty::FulfillWithdrawal(cooperative_withdrawal_info) => {
+                let txid = cooperative_withdrawal_info.deposit_outpoint().txid;
+                let assignee_id = cooperative_withdrawal_info.assigned_operator_idx();
+                info!(event = "received withdrawal", operator_idx = %self.build_context.own_index(), dt_txid = %txid, assignee = %assignee_id);
+
+                if assignee_id != self.build_context.own_index() {
+                    return;
+                }
+
+                self.handle_withdrawal(cooperative_withdrawal_info).await;
+            }
+        }
     }
 
-    pub async fn handle_deposit(&self) {
+    pub async fn handle_deposit(&self, deposit_info: DepositInfo) {
         // 1. aggregate_tx_graph
+        let reserved_outpoints = self.db.selected_outpoints().await;
+        let (change_address, funding_input, total_amount) = self
+            .agent
+            .select_utxo(OPERATOR_STAKE, reserved_outpoints)
+            .await
+            .expect("should be able to get outpoints");
+
+        self.db.add_outpoint(funding_input).await;
+
+        let deposit_tx = deposit_info
+            .construct_signing_data(&self.build_context)
+            .expect("should be able to create build context");
+        let deposit_txid = deposit_tx.psbt.unsigned_tx.compute_txid();
+
+        let peg_out_graph_input = PegOutGraphInput {
+            network: self.build_context.network(),
+            deposit_amount: BRIDGE_DENOMINATION,
+            operator_pubkey: self.agent.public_key().x_only_public_key().0,
+            kickoff_data: KickoffTxData {
+                funding_inputs: vec![funding_input],
+                change_address: change_address.as_unchecked().clone(),
+                change_amt: total_amount - OPERATOR_STAKE - MIN_RELAY_FEE,
+                deposit_txid,
+            },
+        };
+
+        let connectors =
+            PegOutGraphConnectors::new(self.public_db.clone(), &self.build_context, deposit_txid)
+                .await;
+
+        let _peg_out_graph =
+            PegOutGraph::generate(peg_out_graph_input, deposit_txid, connectors).await;
+
         // 2. aggregate nonces and signatures for deposit
         todo!();
     }
 
-    pub async fn handle_withdrawal(&self) {
+    pub async fn handle_withdrawal(&self, _withdrawal_info: WithdrawalInfo) {
         // for withdrawal duty (assigned),
         // 1. pay the user with PoW transaction
         // 2. create tx graph from public data

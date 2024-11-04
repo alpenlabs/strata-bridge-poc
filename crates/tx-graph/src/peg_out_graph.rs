@@ -1,21 +1,20 @@
-use bitcoin::{hashes::Hash, Amount, Network, Txid};
+use std::sync::Arc;
+
+use bitcoin::{Amount, Network, Txid};
 use secp256k1::XOnlyPublicKey;
 use serde::{Deserialize, Serialize};
-
-use crate::{
-    connectors::{
-        constants::{
-            NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
-        },
-        prelude::*,
+use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_primitives::{
+    build_context::BuildContext,
+    params::connectors::{
+        NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
     },
-    db::Database,
-    mock_txid,
-    transactions::prelude::*,
 };
 
+use crate::{connectors::prelude::*, transactions::prelude::*};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PegInGraphInput {
+pub struct PegOutGraphInput {
     pub network: Network,
 
     pub deposit_amount: Amount,
@@ -26,7 +25,7 @@ pub struct PegInGraphInput {
 }
 
 #[derive(Debug, Clone)]
-pub struct PegInGraph {
+pub struct PegOutGraph {
     pub kickoff_tx: KickOffTx,
 
     pub claim_tx: ClaimTx,
@@ -38,13 +37,14 @@ pub struct PegInGraph {
     pub disprove_tx: DisproveTx,
 }
 
-impl PegInGraph {
-    pub fn generate<Db: Database + Clone>(
-        input: PegInGraphInput,
+impl PegOutGraph {
+    pub async fn generate<Db: ConnectorDb>(
+        input: PegOutGraphInput,
         deposit_txid: Txid,
         connectors: PegOutGraphConnectors<Db>,
     ) -> Self {
-        let kickoff_tx = KickOffTx::new(input.kickoff_data, connectors.kickoff, input.network);
+        let kickoff_tx =
+            KickOffTx::new(input.kickoff_data, connectors.kickoff, input.network).await;
         let kickoff_txid = kickoff_tx.compute_txid();
 
         let claim_data = ClaimData { kickoff_txid };
@@ -94,8 +94,8 @@ impl PegInGraph {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct PegOutGraphConnectors<Db: Database + Clone> {
+#[derive(Debug)]
+pub struct PegOutGraphConnectors<Db: ConnectorDb> {
     pub kickoff: ConnectorK<Db>,
 
     pub claim_out_0: ConnectorC0,
@@ -111,8 +111,11 @@ pub struct PegOutGraphConnectors<Db: Database + Clone> {
     pub assert_data256_factory: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256>,
 }
 
-impl<Db: Database + Clone> PegOutGraphConnectors<Db> {
-    pub fn new(db: Db, network: Network, n_of_n_agg_pubkey: XOnlyPublicKey) -> Self {
+impl<Db: ConnectorDb> PegOutGraphConnectors<Db> {
+    pub async fn new(db: Arc<Db>, build_context: &impl BuildContext, deposit_txid: Txid) -> Self {
+        let n_of_n_agg_pubkey = build_context.aggregated_pubkey();
+        let network = build_context.network();
+
         let kickoff = ConnectorK::new(n_of_n_agg_pubkey, network, db.clone());
 
         let claim_out_0 = ConnectorC0::new(n_of_n_agg_pubkey, network);
@@ -124,7 +127,7 @@ impl<Db: Database + Clone> PegOutGraphConnectors<Db> {
         let post_assert_out_0 = ConnectorA30::new(n_of_n_agg_pubkey, network, db.clone());
 
         let ([_, _, superblock_hash_public_key], public_keys_256, public_keys_160) =
-            db.get_wots_public_keys(0, mock_txid());
+            db.get_wots_public_keys(0, deposit_txid).await;
         let assert_data160_factory: ConnectorA160Factory<NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160> =
             ConnectorA160Factory {
                 network,

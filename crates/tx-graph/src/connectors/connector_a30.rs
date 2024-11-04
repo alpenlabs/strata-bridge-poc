@@ -1,19 +1,22 @@
+use std::sync::Arc;
+
 use bitcoin::{
     psbt::Input,
     taproot::{ControlBlock, LeafVersion, TaprootSpendInfo},
     Address, Network, ScriptBuf, Txid, XOnlyPublicKey,
 };
+use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_primitives::scripts::prelude::*;
 
 use super::params::PAYOUT_TIMELOCK;
-use crate::{db::Database, scripts::prelude::*};
 
-#[derive(Debug, Clone, Copy)]
-pub struct ConnectorA30<Db: Database> {
+#[derive(Debug)]
+pub struct ConnectorA30<Db: ConnectorDb> {
     n_of_n_agg_pubkey: XOnlyPublicKey,
 
     network: Network,
 
-    db: Db,
+    db: Arc<Db>,
 }
 
 #[derive(Debug, Clone)]
@@ -22,8 +25,8 @@ pub enum ConnectorA30Leaf {
     Disprove,
 }
 
-impl<Db: Database + Clone> ConnectorA30<Db> {
-    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Db) -> Self {
+impl<Db: ConnectorDb> ConnectorA30<Db> {
+    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Arc<Db>) -> Self {
         Self {
             n_of_n_agg_pubkey,
             network,
@@ -67,9 +70,9 @@ impl<Db: Database + Clone> ConnectorA30<Db> {
             .expect("should be able to create taproot address")
     }
 
-    pub fn finalize_input(&self, input: &mut Input, txid: Txid, tapleaf: ConnectorA30Leaf) {
+    pub async fn finalize_input(&self, input: &mut Input, txid: Txid, tapleaf: ConnectorA30Leaf) {
         let (script, control_block) = self.generate_spend_info(tapleaf);
-        let n_of_n_sig = self.db.get_signature(txid);
+        let n_of_n_sig = self.db.get_signature(txid).await;
 
         finalize_input(
             input,

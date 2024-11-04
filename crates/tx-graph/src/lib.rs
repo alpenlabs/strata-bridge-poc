@@ -2,17 +2,12 @@
 #![allow(incomplete_features)] // the feature below is used in size computations
 #![feature(generic_const_exprs)]
 
-use bitcoin::{
-    hashes::{sha256d, Hash},
-    Txid,
-};
+use bitcoin::{hashes::Hash, Txid};
 
 pub mod commitments;
 pub mod connectors;
-pub mod constants;
 pub mod db;
 pub mod peg_out_graph;
-pub mod scripts;
 pub mod transactions;
 
 pub fn mock_txid() -> Txid {

@@ -1,4 +1,4 @@
-//! Constants related to bridge transactions.
+//! Params related to the bridge transactions.
 
 use std::str::FromStr;
 
@@ -16,6 +16,11 @@ pub const BRIDGE_DENOMINATION: Amount = Amount::from_int_btc(10);
 pub const MIN_RELAY_FEE: Amount = Amount::from_sat(1000);
 
 pub const OPERATOR_STAKE: Amount = Amount::from_int_btc(2);
+
+/// The fee charged by the operator to process a withdrawal.
+///
+/// This has the type [`Amount`] for convenience.
+pub const OPERATOR_FEE: Amount = Amount::from_int_btc(2);
 
 /// Magic bytes to add to the metadata output in transactions to help identify them.
 pub const MAGIC_BYTES: &[u8; 6] = b"strata";

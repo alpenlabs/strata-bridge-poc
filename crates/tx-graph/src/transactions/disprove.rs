@@ -1,8 +1,8 @@
 use bitcoin::{Amount, Network, OutPoint, Psbt, ScriptBuf, Transaction, TxOut, Txid};
+use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_primitives::{params::prelude::UNSPENDABLE_INTERNAL_KEY, scripts::prelude::*};
 
-use crate::{
-    connectors::prelude::*, constants::UNSPENDABLE_INTERNAL_KEY, db::Database, scripts::prelude::*,
-};
+use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct DisproveData {
@@ -65,28 +65,32 @@ impl DisproveTx {
         self.0.unsigned_tx.compute_txid()
     }
 
-    pub fn finalize<Db>(
+    pub async fn finalize<Db>(
         mut self,
         connector_a30: ConnectorA30<Db>,
         connector_a31: ConnectorA31<Db>,
         reward: TxOut,
     ) -> Transaction
     where
-        Db: Database + Clone,
+        Db: ConnectorDb + Clone,
     {
         let original_txid = self.compute_txid();
         let psbt = self.psbt_mut();
 
         psbt.unsigned_tx.output[1] = reward;
 
-        connector_a30.finalize_input(
-            &mut self.0.inputs[0],
-            original_txid,
-            ConnectorA30Leaf::Disprove,
-        );
+        connector_a30
+            .finalize_input(
+                &mut self.0.inputs[0],
+                original_txid,
+                ConnectorA30Leaf::Disprove,
+            )
+            .await;
 
         // TODO: Compute which `ConnectorA31Leaf` is spendable
-        connector_a31.finalize_input(&mut self.0.inputs[1], ConnectorA31Leaf::InvalidateProof(0));
+        connector_a31
+            .finalize_input(&mut self.0.inputs[1], ConnectorA31Leaf::InvalidateProof(0))
+            .await;
 
         self.0.extract_tx().expect("should be able to extract tx")
     }

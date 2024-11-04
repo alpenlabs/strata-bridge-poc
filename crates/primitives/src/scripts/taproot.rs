@@ -16,7 +16,7 @@ use bitcoin::{
 use secp256k1::Message;
 
 // use secp256k1::SECP256K1;
-use crate::constants::UNSPENDABLE_INTERNAL_KEY;
+use crate::params::prelude::UNSPENDABLE_INTERNAL_KEY;
 
 /// Different spending paths for a taproot.
 ///

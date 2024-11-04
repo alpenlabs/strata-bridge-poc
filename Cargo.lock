@@ -1019,7 +1019,6 @@ name = "ark-std"
 version = "0.4.0"
 source = "git+https://github.com/arkworks-rs/std/#db4367e68ff60da31ac759831e38f60171f4e03d"
 dependencies = [
- "colored",
  "num-traits",
  "rand",
  "rayon",
@@ -2366,16 +2365,6 @@ name = "colorchoice"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b63caa9aa9397e2d9480a9b13673856c78d8ac123288526c37d7839f2a86990"
-
-[[package]]
-name = "colored"
-version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cbf2150cce219b664a8a70df7a1f933836724b503f8a413af9365b4dcc4d90b8"
-dependencies = [
- "lazy_static",
- "windows-sys 0.48.0",
-]
 
 [[package]]
 name = "combine"
@@ -8203,9 +8192,12 @@ dependencies = [
  "sha2",
  "strata-bridge-btcio",
  "strata-bridge-db",
+ "strata-bridge-primitives",
+ "strata-bridge-tx-builder",
  "strata-bridge-tx-graph",
  "strata-state",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -8239,6 +8231,7 @@ name = "strata-bridge-db"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "bitcoin 0.31.0",
  "bitcoin-script 0.3.0",
  "bitcoin-scriptexec",
@@ -8253,7 +8246,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "strata-bridge-btcio",
- "strata-bridge-tx-graph",
+ "strata-bridge-primitives",
  "tokio",
 ]
 
@@ -8266,9 +8259,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-bridge-primitives"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ark-bn254",
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-groth16",
+ "ark-r1cs-std",
+ "ark-relations",
+ "ark-std 0.4.0",
+ "bitcoin 0.31.0",
+ "bitcoin-script 0.3.0",
+ "bitcoin-scriptexec",
+ "bitvm",
+ "esplora-client",
+ "hex",
+ "lazy_static",
+ "musig2 0.0.11",
+ "rand",
+ "secp256k1 0.28.2",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strata-bridge-tx-graph",
+]
+
+[[package]]
 name = "strata-bridge-sig-manager"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "bitcoin 0.32.3",
  "musig2 0.1.0",
@@ -8282,7 +8304,7 @@ dependencies = [
 [[package]]
 name = "strata-bridge-tx-builder"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "bitcoin 0.32.3",
  "lazy_static",
@@ -8310,12 +8332,14 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "strata-bridge-db",
+ "strata-bridge-primitives",
 ]
 
 [[package]]
 name = "strata-common"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -8324,7 +8348,7 @@ dependencies = [
 [[package]]
 name = "strata-crypto"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "borsh",
  "secp256k1 0.29.1",
@@ -8335,7 +8359,7 @@ dependencies = [
 [[package]]
 name = "strata-db"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -8356,7 +8380,7 @@ dependencies = [
 [[package]]
 name = "strata-mmr"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "arbitrary",
  "borsh",
@@ -8369,7 +8393,7 @@ dependencies = [
 [[package]]
 name = "strata-primitives"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -8404,7 +8428,7 @@ dependencies = [
 [[package]]
 name = "strata-rpc-api"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "bitcoin 0.32.3",
  "hex",
@@ -8423,7 +8447,7 @@ dependencies = [
 [[package]]
 name = "strata-rpc-types"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "bitcoin 0.32.3",
  "hex",
@@ -8439,7 +8463,7 @@ dependencies = [
 [[package]]
 name = "strata-state"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "arbitrary",
  "bitcoin 0.32.3",
@@ -8460,7 +8484,7 @@ dependencies = [
 [[package]]
 name = "strata-storage"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8488,7 +8512,7 @@ dependencies = [
 [[package]]
 name = "strata-zkvm"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
 dependencies = [
  "anyhow",
  "arbitrary",

@@ -1,4 +1,3 @@
-use bitcoin::hashes::hash160;
 use bitvm::signatures::wots::{wots160, wots256, wots32};
 use sha2::Digest;
 

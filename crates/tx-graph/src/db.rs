@@ -1,12 +1,9 @@
 use bitcoin::Txid;
 use bitvm::{
     groth16::g16::{self, N_TAPLEAVES},
-    signatures::wots::{wots160, wots256, wots32},
     treepp::*,
 };
 use secp256k1::schnorr::Signature;
-
-use crate::connectors::constants::{NUM_PKS_A160, NUM_PKS_A256};
 
 pub trait Database {
     fn get_verifier_scripts(&self) -> Option<[Script; N_TAPLEAVES]>;

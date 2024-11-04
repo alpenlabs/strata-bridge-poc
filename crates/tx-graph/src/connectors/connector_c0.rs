@@ -4,9 +4,9 @@ use bitcoin::{
     Address, Network, ScriptBuf, XOnlyPublicKey,
 };
 use secp256k1::schnorr::Signature;
+use strata_bridge_primitives::scripts::prelude::*;
 
 use super::params::{PAYOUT_OPTIMISTIC_TIMELOCK, SUPERBLOCK_MEASUREMENT_PERIOD};
-use crate::scripts::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectorC0 {

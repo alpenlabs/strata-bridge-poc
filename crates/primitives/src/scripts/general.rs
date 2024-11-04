@@ -8,7 +8,7 @@ use bitcoin_script::script;
 use musig2::KeyAggContext;
 use secp256k1::{PublicKey, XOnlyPublicKey};
 
-use crate::constants::MAGIC_BYTES;
+use crate::params::prelude::MAGIC_BYTES;
 
 /// Create a script with the spending condition that a MuSig2 aggregated signature corresponding to
 /// the pubkey set must be provided.
