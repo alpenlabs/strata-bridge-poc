@@ -9,7 +9,6 @@ members = [
   "bridge-proofs",
 
   # binaries listed separately
-  "bin/bridge-demo",
   "bin/strata-bridge",
 
   # test utilities

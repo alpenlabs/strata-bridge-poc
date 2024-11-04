@@ -31,28 +31,27 @@ pub fn validate_assertion_signatures(
     proof: g16::Proof,
     signatures: WotsSignatures,
     public_keys: WotsPublicKeys,
-    verifier_scripts: &[Script; N_TAPLEAVES],
-) -> Option<(u32, Script, Script)> {
+) -> Option<(usize, Script)> {
     g16::Verifier::validate_assertion_signatures(
         proof,
         bridge_poc_verification_key(),
         signatures,
         public_keys,
-        verifier_scripts,
     )
 }
 
 pub mod mock {
     use ark_bn254::{Bn254, Fr as F};
-    use ark_crypto_primitives::snark::CircuitSpecificSetupSNARK;
+    use ark_crypto_primitives::snark::{CircuitSpecificSetupSNARK, SNARK};
     use ark_ff::AdditiveGroup;
     use ark_groth16::{Groth16, ProvingKey, VerifyingKey};
     use ark_r1cs_std::{alloc::AllocVar, eq::EqGadget, fields::fp::FpVar};
     use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
     use ark_std::test_rng;
+    use bitvm::groth16::g16;
     use rand::{RngCore, SeedableRng};
 
-    #[derive(Debug, Clone)]
+    #[derive(Clone, Debug)]
     pub struct DummyCircuit {
         pub a: Option<F>, // Private input a
         pub b: Option<F>, // Private input b
@@ -102,19 +101,44 @@ pub mod mock {
         let (pk, vk) = Groth16::<E>::setup(circuit, &mut rng).unwrap();
         (pk, vk)
     }
+
+    pub fn generate_proof() -> g16::Proof {
+        let (a, b) = (5, 3);
+        let (c, d, e) = (a * b, a + b, a - b);
+
+        let circuit = DummyCircuit {
+            a: Some(F::from(a)),
+            b: Some(F::from(b)),
+            c: F::from(c),
+            d: F::from(d),
+            e: F::from(e),
+        };
+
+        let mut rng = ark_std::rand::rngs::StdRng::seed_from_u64(test_rng().next_u64());
+
+        let (pk, _) = compile_circuit();
+
+        let proof = Groth16::<Bn254>::prove(&pk, circuit.clone(), &mut rng).unwrap();
+        let public_inputs = vec![circuit.c, circuit.d, circuit.e];
+
+        g16::Proof {
+            proof,
+            public_inputs,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::fs;
 
-    use ark_bn254::{Bn254, Fr};
-    use ark_crypto_primitives::snark::SNARK;
-    use ark_groth16::Groth16;
+    use ark_bn254::{Fq, Fr};
+    use ark_ff::{BigInteger, Field, PrimeField, UniformRand};
     use ark_std::test_rng;
     use bitcoin::{ScriptBuf, Txid};
     use bitvm::{
         groth16::g16,
+        hash::sha256::sha256,
         signatures::wots::{wots160, wots256},
         treepp::*,
     };
@@ -127,7 +151,7 @@ mod tests {
         mock_txid,
     };
 
-    use super::{generate_verifier_partial_scripts, mock, validate_assertion_signatures};
+    use super::*;
 
     #[test]
     fn test_groth16_compile() {
@@ -177,7 +201,7 @@ mod tests {
 
     pub fn get_deposit_master_secret_key(deposit_txid: Txid) -> String {
         let master_secret_key = "helloworld";
-        format!("{}:{}", master_secret_key, deposit_txid)
+        format!("{}:{}", master_secret_key, deposit_txid.to_string())
     }
 
     fn generate_wots_public_keys(deposit_txid: Txid) -> g16::WotsPublicKeys {
@@ -191,10 +215,13 @@ mod tests {
                 wots256::generate_public_key(&secret_key_for_superblock_hash(&deposit_msk)),
             ],
             std::array::from_fn(|i| {
-                wots256::generate_public_key(&secret_key_for_proof_element(&deposit_msk, i as u32))
+                wots256::generate_public_key(&secret_key_for_proof_element(&deposit_msk, i))
             }),
             std::array::from_fn(|i| {
-                wots160::generate_public_key(&secret_key_for_proof_element(&deposit_msk, i as u32))
+                wots160::generate_public_key(&secret_key_for_proof_element(
+                    &deposit_msk,
+                    i + g16::N_VERIFIER_FQs,
+                ))
             }),
         )
     }
@@ -221,13 +248,13 @@ mod tests {
             ],
             std::array::from_fn(|i| {
                 wots256::get_signature(
-                    &secret_key_for_proof_element(&deposit_msk, i as u32),
+                    &secret_key_for_proof_element(&deposit_msk, i),
                     &assertions.1[i],
                 )
             }),
             std::array::from_fn(|i| {
                 wots160::get_signature(
-                    &secret_key_for_proof_element(&deposit_msk, (i + 40) as u32),
+                    &secret_key_for_proof_element(&deposit_msk, i + g16::N_VERIFIER_FQs),
                     &assertions.2[i],
                 )
             }),
@@ -236,32 +263,25 @@ mod tests {
 
     #[test]
     fn test_full_verification() {
-        let (pk, _) = mock::compile_circuit();
-
-        let (a, b) = (5, 3);
-        let (c, d, e) = (a * b, a + b, a - b);
-
-        let circuit = mock::DummyCircuit {
-            a: Some(Fr::from(a)),
-            b: Some(Fr::from(b)),
-            c: Fr::from(c),
-            d: Fr::from(d),
-            e: Fr::from(e),
-        };
-
-        let mut rng = ark_std::rand::rngs::StdRng::seed_from_u64(test_rng().next_u64());
-
-        let proof = Groth16::<Bn254>::prove(&pk, circuit.clone(), &mut rng).unwrap();
+        let proof = mock::generate_proof();
 
         println!("Generating assertions");
-        // let assertions = generate_assertions_for_proof(
-        //     bridge_poc_verification_key(),
-        //     g16::Proof {
-        //         proof: proof.clone(),
-        //         public_inputs: vec![circuit.c, circuit.d, circuit.e],
-        //     },
-        // );
-        let assertions = get_mock_assertions();
+        // let assertions = {
+        //     let assertions = generate_assertions_for_proof(
+        //         bridge_poc_verification_key(),
+        //         g16::Proof {
+        //             proof: proof.proof.clone(),
+        //             public_inputs: proof.public_inputs.clone(),
+        //         },
+        //     );
+        //     println!("assertions: {:?}", assertions);
+        //     assertions
+        // };
+        let assertions = {
+            let mut assertions = get_mock_assertions();
+            assertions.0[0] = [0u8; 32]; // make incorrect assertions
+            assertions
+        };
 
         let deposit_txid = mock_txid();
 
@@ -271,24 +291,31 @@ mod tests {
         println!("Generating wots signatures");
         let wots_signatures = generate_wots_signatures(deposit_txid, assertions);
 
-        let verifier_scripts = &read_verifier_scripts();
-        // let verifier_scripts = generate_verifier_partial_scripts();
-        // save_verifier_scripts(&verifier_scripts);
-
         println!("Validating assertion signatures");
         let res = validate_assertion_signatures(
             g16::Proof {
-                proof: proof.clone(),
-                public_inputs: vec![circuit.c, circuit.d, circuit.e],
+                proof: proof.proof.clone(),
+                public_inputs: proof.public_inputs.clone(),
             },
             wots_signatures,
             wots_public_keys,
-            verifier_scripts,
         );
 
         match res {
-            Some((_tapleaf_index, tapleaf_script, witness_script)) => {
+            Some((tapleaf_index, witness_script)) => {
                 println!("Assertion is invalid");
+
+                let tapleaf_script = generate_verifier_tapscripts_from_partial_scripts(
+                    &read_verifier_scripts(),
+                    wots_public_keys,
+                )[tapleaf_index]
+                    .clone();
+
+                println!(
+                    "{tapleaf_index}: {}, {}",
+                    witness_script.len(),
+                    tapleaf_script.len()
+                );
 
                 let script = script! {
                     { witness_script }
@@ -500,14 +527,6 @@ mod tests {
                     58, 232, 133,
                 ],
                 [
-                    172, 37, 4, 159, 20, 201, 231, 62, 149, 68, 127, 58, 40, 172, 78, 33, 171, 218,
-                    66, 231,
-                ],
-                [
-                    216, 158, 95, 10, 131, 220, 194, 137, 82, 240, 224, 225, 241, 95, 178, 176,
-                    243, 181, 218, 188,
-                ],
-                [
                     81, 173, 157, 193, 190, 169, 69, 64, 134, 135, 98, 116, 82, 74, 213, 240, 128,
                     135, 30, 162,
                 ],
@@ -516,9 +535,14 @@ mod tests {
                     130, 110, 248,
                 ],
                 [
-                    56, 157, 143, 165, 104, 74, 111, 45, 242, 251, 234, 150, 239, 219, 182, 202,
-                    75, 54, 30, 245,
+                    172, 37, 4, 159, 20, 201, 231, 62, 149, 68, 127, 58, 40, 172, 78, 33, 171, 218,
+                    66, 231,
                 ],
+                [
+                    216, 158, 95, 10, 131, 220, 194, 137, 82, 240, 224, 225, 241, 95, 178, 176,
+                    243, 181, 218, 188,
+                ],
+                [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
                 [
                     72, 173, 95, 131, 57, 129, 231, 158, 49, 13, 245, 247, 62, 30, 44, 75, 167, 43,
                     126, 73,
@@ -2783,77 +2807,62 @@ mod tests {
         )
     }
 
-    // use ark_crypto_primitives::snark::CircuitSpecificSetupSNARK;
-    // use ark_ff::Field;
-    // use ark_groth16::prepare_verifying_key;
-    // use ark_relations::{
-    //     lc,
-    //     r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError},
-    // };
-    // use ark_std::UniformRand;
+    fn from_wots256_signature<F: PrimeField>(signature: wots256::Signature) -> F {
+        let nibbles = &signature.map(|(sig, digit)| digit)[0..wots256::M_DIGITS as usize];
+        let bytes = nibbles
+            .chunks(2)
+            .rev()
+            .map(|bn| (bn[0] << 4) + bn[1])
+            .collect::<Vec<u8>>();
+        F::from_le_bytes_mod_order(&bytes)
+    }
 
-    // struct MySillyCircuit<F: Field> {
-    //     a: Option<F>,
-    //     b: Option<F>,
-    // }
+    fn from_wots160_signature<F: PrimeField>(signature: wots160::Signature) -> F {
+        let nibbles = &signature.map(|(sig, digit)| digit)[0..wots160::M_DIGITS as usize];
+        let bytes = nibbles
+            .chunks(2)
+            .rev()
+            .map(|bn| (bn[0] << 4) + bn[1])
+            .collect::<Vec<u8>>();
+        F::from_le_bytes_mod_order(&bytes)
+    }
 
-    // impl<ConstraintF: Field> ConstraintSynthesizer<ConstraintF> for MySillyCircuit<ConstraintF> {
-    //     fn generate_constraints(
-    //         self,
-    //         cs: ConstraintSystemRef<ConstraintF>,
-    //     ) -> Result<(), SynthesisError> {
-    //         let a = cs.new_witness_variable(|| self.a.ok_or(SynthesisError::AssignmentMissing))?;
-    //         let b = cs.new_witness_variable(|| self.b.ok_or(SynthesisError::AssignmentMissing))?;
-    //         let c = cs.new_input_variable(|| {
-    //             let mut a = self.a.ok_or(SynthesisError::AssignmentMissing)?;
-    //             let b = self.b.ok_or(SynthesisError::AssignmentMissing)?;
+    #[test]
+    fn test_fq_from_wots_signature() {
+        let secret = "0011";
 
-    //             a *= &b;
-    //             Ok(a)
-    //         })?;
+        let mut rng = ark_std::rand::rngs::StdRng::seed_from_u64(test_rng().next_u64());
 
-    //         cs.enforce_constraint(lc!() + a, lc!() + b, lc!() + c)?;
-    //         cs.enforce_constraint(lc!() + a, lc!() + b, lc!() + c)?;
-    //         cs.enforce_constraint(lc!() + a, lc!() + b, lc!() + c)?;
-    //         cs.enforce_constraint(lc!() + a, lc!() + b, lc!() + c)?;
-    //         cs.enforce_constraint(lc!() + a, lc!() + b, lc!() + c)?;
-    //         cs.enforce_constraint(lc!() + a, lc!() + b, lc!() + c)?;
+        let fq = Fq::rand(&mut rng);
+        let signature = wots256::get_signature(secret, &fq.into_bigint().to_bytes_le());
+        let fq_s = from_wots256_signature::<Fq>(signature);
+        assert_eq!(fq, fq_s);
 
-    //         Ok(())
-    //     }
-    // }
+        let fr = Fr::rand(&mut rng);
+        let signature = wots256::get_signature(secret, &fr.into_bigint().to_bytes_le());
+        let fr_s = from_wots256_signature::<Fr>(signature);
+        assert_eq!(fr, fr_s);
+    }
 
-    // fn setup_prove_verify<E: Pairing>() {
-    //     let mut rng = ark_std::rand::rngs::StdRng::seed_from_u64(test_rng().next_u64());
+    #[test]
+    fn test_hash_public_inputs() {
+        let script = script! {
+            // commitment to public input hash
 
-    //     let (pk, vk) = Groth16::<E>::setup(MySillyCircuit { a: None, b: None }, &mut
-    // rng).unwrap();     let pvk = prepare_verifying_key::<E>(&vk);
+            // commitments to public inputs
+            for _ in 0..32 { {0x33} }
+            for _ in 0..32 { {0x22} }
+            for _ in 0..32 { {0x11} }
 
-    //     let a = E::ScalarField::rand(&mut rng);
-    //     let b = E::ScalarField::rand(&mut rng);
-    //     let mut c = a;
-    //     c *= b;
+            { sha256(96) }
 
-    //     let proof = Groth16::<E>::prove(
-    //         &pk,
-    //         MySillyCircuit {
-    //             a: Some(a),
-    //             b: Some(b),
-    //         },
-    //         &mut rng,
-    //     )
-    //     .unwrap();
 
-    //     println!(
-    //         "{}",
-    //         Groth16::<E>::verify_with_processed_vk(&pvk, &[c], &proof).unwrap()
-    //     );
-    //     assert!(Groth16::<E>::verify_with_processed_vk(&pvk, &[c], &proof).unwrap());
-    //     assert!(!Groth16::<E>::verify_with_processed_vk(&pvk, &[a], &proof).unwrap());
-    // }
+        };
 
-    // #[test]
-    // fn test_setup_prove_verify() {
-    //     setup_prove_verify::<Bn254>();
-    // }
+        let res = execute_script(script);
+
+        for i in 0..res.final_stack.len() {
+            println!("{i:3}: {:?}", res.final_stack.get(i));
+        }
+    }
 }
