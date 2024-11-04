@@ -8,8 +8,9 @@ use bitvm::{
 
 pub fn bridge_poc_verification_key() -> g16::VerificationKey {
     // TODO: replace this with actual verification key
-    let (_, ark_vk) = mock::compile_circuit();
-    g16::VerificationKey { ark_vk }
+    g16::VerificationKey {
+        ark_vk: mock::get_verifying_key(),
+    }
 }
 
 pub fn generate_verifier_partial_scripts() -> [Script; N_TAPLEAVES] {
@@ -40,8 +41,70 @@ pub fn validate_assertion_signatures(
     )
 }
 
-pub mod mock {
-    use ark_bn254::{Bn254, Fr as F};
+mod mock {
+    use ark_bn254::{Bn254, Fr};
+    use ark_crypto_primitives::snark::{CircuitSpecificSetupSNARK, SNARK};
+    use ark_ff::{AdditiveGroup, PrimeField};
+    use ark_groth16::{Groth16, ProvingKey, VerifyingKey};
+    use ark_r1cs_std::{alloc::AllocVar, eq::EqGadget, fields::fp::FpVar};
+    use ark_relations::r1cs::{ConstraintSynthesizer, ConstraintSystemRef, SynthesisError};
+    use ark_std::test_rng;
+    use bitvm::groth16::g16;
+    use rand::{RngCore, SeedableRng};
+
+    use crate::scripts::sp1g16;
+
+    type E = Bn254;
+
+    pub fn get_verifying_key() -> VerifyingKey<E> {
+        sp1g16::load_groth16_verifying_key_from_bytes(sp1g16::GROTH16_VK_BYTES)
+    }
+
+    pub fn get_proof() -> g16::Proof {
+        const PROOF_BYTES: [u8; 256] = [
+            3, 19, 181, 171, 106, 36, 254, 91, 176, 187, 23, 155, 242, 49, 77, 18, 29, 61, 133,
+            124, 173, 153, 46, 211, 86, 5, 150, 151, 220, 122, 45, 149, 27, 255, 221, 181, 253, 53,
+            170, 120, 140, 182, 233, 163, 0, 254, 244, 56, 60, 172, 169, 1, 73, 102, 4, 194, 124,
+            178, 79, 214, 3, 132, 72, 225, 15, 184, 72, 216, 152, 16, 211, 198, 116, 226, 163, 80,
+            58, 15, 115, 198, 161, 41, 222, 197, 138, 32, 197, 2, 176, 242, 33, 253, 86, 55, 162,
+            37, 1, 146, 31, 61, 150, 61, 163, 188, 13, 200, 103, 178, 233, 242, 182, 185, 170, 228,
+            73, 186, 112, 228, 46, 212, 153, 136, 255, 174, 213, 218, 44, 183, 19, 96, 129, 89, 14,
+            204, 7, 110, 69, 213, 130, 175, 61, 230, 32, 45, 160, 147, 11, 203, 115, 249, 220, 168,
+            41, 1, 54, 3, 136, 124, 229, 209, 14, 129, 39, 137, 91, 37, 64, 122, 221, 168, 63, 237,
+            61, 39, 210, 12, 127, 199, 198, 174, 167, 248, 43, 248, 37, 250, 6, 15, 165, 108, 139,
+            223, 30, 178, 183, 158, 238, 43, 172, 134, 237, 174, 80, 111, 220, 77, 193, 20, 66, 80,
+            139, 217, 42, 186, 62, 204, 20, 6, 106, 227, 105, 144, 168, 18, 12, 23, 198, 77, 246,
+            57, 79, 171, 234, 6, 202, 144, 181, 116, 229, 165, 196, 214, 184, 74, 81, 191, 144, 60,
+            239, 1, 67, 58, 7, 54, 51, 203,
+        ];
+
+        // 0x00288dca96fa670c0292be7bd684999e0e8a6b000abf9730a6fa1b039731b59b
+        const VKEY_HASH: [u8; 32] = [
+            0, 40, 141, 202, 150, 250, 103, 12, 2, 146, 190, 123, 214, 132, 153, 158, 14, 138, 107,
+            0, 10, 191, 151, 48, 166, 250, 27, 3, 151, 49, 181, 155,
+        ];
+
+        const PUBLIC_INPUT_BYTES: [u8; 84] = [
+            32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        ];
+
+        let proof = sp1g16::load_groth16_proof_from_bytes(&PROOF_BYTES);
+        let public_inputs = vec![
+            Fr::from_be_bytes_mod_order(&VKEY_HASH),
+            Fr::from_be_bytes_mod_order(&sp1g16::hash_bn254_be_bytes(&PUBLIC_INPUT_BYTES)),
+        ];
+
+        g16::Proof {
+            proof,
+            public_inputs,
+        }
+    }
+}
+
+mod _mock {
+    use ark_bn254::{Bn254, Fr};
     use ark_crypto_primitives::snark::{CircuitSpecificSetupSNARK, SNARK};
     use ark_ff::AdditiveGroup;
     use ark_groth16::{Groth16, ProvingKey, VerifyingKey};
@@ -51,17 +114,19 @@ pub mod mock {
     use bitvm::groth16::g16;
     use rand::{RngCore, SeedableRng};
 
+    type E = Bn254;
+
     #[derive(Clone, Debug)]
     pub struct DummyCircuit {
-        pub a: Option<F>, // Private input a
-        pub b: Option<F>, // Private input b
-        pub c: F,         // Public output: a * b
-        pub d: F,         // Public output: a + b
-        pub e: F,         // Public output: a - b
+        pub a: Option<Fr>, // Private input a
+        pub b: Option<Fr>, // Private input b
+        pub c: Fr,         // Public output: a * b
+        pub d: Fr,         // Public output: a + b
+        pub e: Fr,         // Public output: a - b
     }
 
-    impl ConstraintSynthesizer<F> for DummyCircuit {
-        fn generate_constraints(self, cs: ConstraintSystemRef<F>) -> Result<(), SynthesisError> {
+    impl ConstraintSynthesizer<Fr> for DummyCircuit {
+        fn generate_constraints(self, cs: ConstraintSystemRef<Fr>) -> Result<(), SynthesisError> {
             // Allocate private inputs a and b as witnesses
             let a = FpVar::new_witness(cs.clone(), || {
                 self.a.ok_or(SynthesisError::AssignmentMissing)
@@ -88,35 +153,43 @@ pub mod mock {
         }
     }
 
-    pub fn compile_circuit() -> (ProvingKey<Bn254>, VerifyingKey<Bn254>) {
-        type E = Bn254;
+    fn compile_circuit() -> (ProvingKey<Bn254>, VerifyingKey<Bn254>) {
         let mut rng = ark_std::rand::rngs::StdRng::seed_from_u64(test_rng().next_u64());
         let circuit = DummyCircuit {
             a: None,
             b: None,
-            c: F::ZERO,
-            d: F::ZERO,
-            e: F::ZERO,
+            c: Fr::ZERO,
+            d: Fr::ZERO,
+            e: Fr::ZERO,
         };
-        let (pk, vk) = Groth16::<E>::setup(circuit, &mut rng).unwrap();
-        (pk, vk)
+        Groth16::<E>::setup(circuit, &mut rng).unwrap()
     }
 
-    pub fn generate_proof() -> g16::Proof {
+    pub fn get_verifying_key() -> VerifyingKey<E> {
+        let (_, vk) = compile_circuit();
+        vk
+    }
+
+    pub fn get_proving_key() -> ProvingKey<E> {
+        let (pk, _) = compile_circuit();
+        pk
+    }
+
+    pub fn get_proof() -> g16::Proof {
         let (a, b) = (5, 3);
         let (c, d, e) = (a * b, a + b, a - b);
 
         let circuit = DummyCircuit {
-            a: Some(F::from(a)),
-            b: Some(F::from(b)),
-            c: F::from(c),
-            d: F::from(d),
-            e: F::from(e),
+            a: Some(Fr::from(a)),
+            b: Some(Fr::from(b)),
+            c: Fr::from(c),
+            d: Fr::from(d),
+            e: Fr::from(e),
         };
 
         let mut rng = ark_std::rand::rngs::StdRng::seed_from_u64(test_rng().next_u64());
 
-        let (pk, _) = compile_circuit();
+        let pk = get_proving_key();
 
         let proof = Groth16::<Bn254>::prove(&pk, circuit.clone(), &mut rng).unwrap();
         let public_inputs = vec![circuit.c, circuit.d, circuit.e];
@@ -156,9 +229,6 @@ mod tests {
     #[test]
     fn test_groth16_compile() {
         let scripts = generate_verifier_partial_scripts();
-        // let scripts =
-        //     std::array::from_fn::<Script, { g16::N_TAPLEAVES }, _>(|index| script! { {1+index}
-        // });
         save_verifier_scripts(&scripts);
 
         println!("script.lens: {:?}", scripts.map(|script| script.len()));
@@ -263,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_full_verification() {
-        let proof = mock::generate_proof();
+        let proof = mock::get_proof();
 
         println!("Generating assertions");
         // let assertions = {
@@ -277,9 +347,10 @@ mod tests {
         //     println!("assertions: {:?}", assertions);
         //     assertions
         // };
+        // return;
         let assertions = {
             let mut assertions = get_mock_assertions();
-            assertions.0[0] = [0u8; 32]; // make incorrect assertions
+            assertions.1[0] = [0u8; 32]; // make incorrect assertions
             assertions
         };
 
