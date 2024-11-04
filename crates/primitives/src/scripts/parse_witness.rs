@@ -1,5 +1,4 @@
 use bitvm::{
-    groth16::g16,
     signatures::wots::{wots160, wots256},
     treepp::*,
 };

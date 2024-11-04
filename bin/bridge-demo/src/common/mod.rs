@@ -137,7 +137,7 @@ mod tests {
     use std::fs;
 
     use ark_bn254::{Fq, Fr};
-    use ark_ff::{BigInteger, Field, PrimeField, UniformRand};
+    use ark_ff::{BigInteger, PrimeField, UniformRand};
     use ark_std::test_rng;
     use bitcoin::{ScriptBuf, Txid};
     use bitvm::{
@@ -204,7 +204,7 @@ mod tests {
 
     pub fn get_deposit_master_secret_key(deposit_txid: Txid) -> String {
         let master_secret_key = "helloworld";
-        format!("{}:{}", master_secret_key, deposit_txid.to_string())
+        format!("{}:{}", master_secret_key, deposit_txid)
     }
 
     fn generate_wots_public_keys(deposit_txid: Txid) -> g16::WotsPublicKeys {
@@ -255,7 +255,7 @@ mod tests {
                     &assertions.1[i],
                 )
             }),
-            std::array::from_fn(|mut i| {
+            std::array::from_fn(|i| {
                 wots160::get_signature(
                     &secret_key_for_proof_element(&deposit_msk, (i + 40) as u32),
                     &assertions.2[i],

@@ -6,7 +6,7 @@ version = "0.1.0"
 [dependencies]
 anyhow.workspace = true
 bincode.workspace = true
-bitcoin.workspace = true
+bitcoin = { version = "=0.32.3", features = ["serde"] }
 borsh.workspace = true
 hex.workspace = true
 num-bigint = "0.4.6"

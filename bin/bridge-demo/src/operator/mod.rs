@@ -1,7 +1,7 @@
 use bitcoin::Txid;
 use bitvm::{
     groth16::g16,
-    signatures::wots::{wots160, wots256, wots32},
+    signatures::wots::{wots160, wots256},
 };
 use strata_bridge_tx_graph::commitments::{
     secret_key_for_bridge_out_txid, secret_key_for_proof_element, secret_key_for_superblock_hash,
@@ -24,11 +24,7 @@ impl Operator {
     pub fn run() {}
 
     pub fn get_deposit_master_secret_key(&self, deposit_txid: Txid) -> String {
-        format!(
-            "{}:{}",
-            self.wots_master_secret_key,
-            deposit_txid.to_string()
-        )
+        format!("{}:{}", self.wots_master_secret_key, deposit_txid)
     }
 
     fn generate_wots_public_keys(&self, deposit_txid: Txid) -> g16::WotsPublicKeys {

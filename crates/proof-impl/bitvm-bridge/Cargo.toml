@@ -4,9 +4,12 @@ name = "strata-proofimpl-bitvm-bridge"
 version = "0.1.0"
 
 [dependencies]
-bitcoin = { workspace = true }
+bitcoin = { version = "=0.32.3", features = ["serde"] }
 borsh.workspace = true
 serde = { workspace = true, features = ["derive"] }
+snark-bn254-verifier = { git = "https://github.com/succinctlabs/snark-bn254-verifier.git", rev = "96bce2079584b68597f3241551e4b97300fd92c6" } # Note: This is unstable
+sp1-core-machine = "2.0.0"
 strata-primitives.workspace = true
 strata-state.workspace = true
 strata-zkvm.workspace = true
+substrate-bn = { git = "https://github.com/sp1-patches/bn", branch = "patch-v0.7.0" }
