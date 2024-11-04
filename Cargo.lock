@@ -105,9 +105,6 @@ dependencies = [
 name = "alloy-chains"
 version = "0.1.46"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-name = "alloy-chains"
-version = "0.1.46"
-source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "836cf02383d9ebb35502d379bcd1ae803155094077eaab9c29131d888cd5fa3e"
 dependencies = [
  "alloy-primitives 0.8.10",
@@ -6851,9 +6848,6 @@ name = "rustls"
 version = "0.21.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3f56a14d1f48b391359b22f731fd4bd7e43c97f3c50eee276f3aa09c94784d3e"
-version = "0.23.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eee87ff5d9b36712a58574e12e9f0ea80f915a5b0ac518d322b24a465617925e"
 dependencies = [
  "log",
  "ring 0.17.8",
@@ -7277,9 +7271,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "serde"
-version = "1.0.214"
-source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "serde"
 version = "1.0.214"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8515,28 +8506,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "strata-sp1-adapter"
-version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=releases/0.1.0#b7078bd625a178b4ab93491e5c8cbfbaaa8a3ba8"
-dependencies = [
- "anyhow",
- "bincode",
- "borsh",
- "hex",
- "num-bigint 0.4.6",
- "num-traits",
- "serde",
- "serde_json",
- "sha2",
- "snark-bn254-verifier 1.0.2 (git+https://github.com/succinctlabs/snark-bn254-verifier.git?branch=bhargav/groth16-verf)",
- "sp1-sdk",
- "strata-primitives",
- "strata-zkvm",
- "substrate-bn",
- "tracing",
-]
-
-[[package]]
 name = "strata-rpc-api"
 version = "0.1.0"
 source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
@@ -8569,6 +8538,28 @@ dependencies = [
  "strata-db",
  "strata-state",
  "thiserror",
+]
+
+[[package]]
+name = "strata-sp1-adapter"
+version = "0.1.0"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
+dependencies = [
+ "anyhow",
+ "bincode",
+ "borsh",
+ "hex",
+ "num-bigint 0.4.6",
+ "num-traits",
+ "serde",
+ "serde_json",
+ "sha2",
+ "snark-bn254-verifier 1.0.2 (git+https://github.com/succinctlabs/snark-bn254-verifier.git?branch=bhargav/groth16-verf)",
+ "sp1-sdk",
+ "strata-primitives",
+ "strata-zkvm",
+ "substrate-bn",
+ "tracing",
 ]
 
 [[package]]
@@ -8855,10 +8846,6 @@ name = "thiserror"
 version = "1.0.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d171f59dbaa811dbbb1aee1e73db92ec2b122911a48e1390dfe327a821ddede"
-name = "thiserror"
-version = "1.0.67"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b3c6efbfc763e64eb85c11c25320f0737cb7364c4b6336db90aa9ebe27a0bbd"
 dependencies = [
  "thiserror-impl",
 ]
@@ -8868,9 +8855,6 @@ name = "thiserror-impl"
 version = "1.0.66"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b08be0f17bd307950653ce45db00cd31200d82b624b36e181337d9c7d92765b5"
-version = "1.0.67"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b607164372e89797d78b8e23a6d67d5d1038c1c65efd52e1389ef8b77caba2a6"
 dependencies = [
  "proc-macro2",
  "quote",
