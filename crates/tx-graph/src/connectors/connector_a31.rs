@@ -5,6 +5,7 @@ use bitcoin::{
 };
 use bitvm::{
     bn254::chunk_superblock::H256,
+    groth16::g16,
     hash::sha256::sha256,
     pseudo::NMUL,
     signatures::wots::{wots256, wots32, SignatureImpl},
@@ -44,17 +45,6 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         Self { network, db }
     }
 
-    fn extract_superblock_ts_from_header(&self) -> Script {
-        script! {
-            for i in 0..4 {
-                { 80 - 12 + 2 * i } OP_PICK
-            }
-            for _ in 1..4 {
-                { NMUL(1 << 8) } OP_ADD
-            }
-        }
-    }
-
     pub async fn generate_tapleaf(
         &self,
         tapleaf: ConnectorA31Leaf,
@@ -67,7 +57,14 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             groth16: ([public_inputs_hash_public_key], _, _),
         } = self.db.get_wots_public_keys(0, deposit_txid).await;
 
-        fn add_padding_for_hash_bincode() -> Script {
+        fn extract_superblock_ts_from_header() -> Script {
+            script! {
+                for i in 0..4 { { 80 - 12 + 2 * i } OP_PICK }
+                for _ in 1..4 {  { NMUL(1 << 8) } OP_ADD }
+            }
+        }
+
+        fn add_bincode_padding_bytes32() -> Script {
             script! {
                 for b in [0; 7] { {b} } 32
             }
@@ -98,7 +95,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                 { ts_from_nibbles() } OP_TOALTSTACK
 
                 // extract superblock timestamp from header
-                { self.extract_superblock_ts_from_header() }
+                extract_superblock_ts_from_header
 
                 // assert: 0 < sbv.ts - sb_start_ts < superblock_period
                 OP_FROMALTSTACK
@@ -136,8 +133,8 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
 
                     for _ in 0..32 { OP_FROMALTSTACK }
                     for _ in 0..4 { OP_FROMALTSTACK }
-                    for _ in 0..32 { OP_FROMALTSTACK } add_padding_for_hash_bincode
-                    for _ in 0..32 { OP_FROMALTSTACK } add_padding_for_hash_bincode
+                    for _ in 0..32 { OP_FROMALTSTACK } add_bincode_padding_bytes32
+                    for _ in 0..32 { OP_FROMALTSTACK } add_bincode_padding_bytes32
 
                     { sha256(84) }
                     hash_to_bn254_fq
@@ -152,13 +149,15 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                 }
             }
             ConnectorA31Leaf::InvalidateProof((disprove_script_index, _)) => {
-                let scripts = generate_verifier_partial_scripts();
-                let public_keys = self.db.get_wots_public_keys(0, deposit_txid).await;
-                let tapscripts = generate_verifier_tapscripts_from_partial_scripts(
-                    &scripts,
-                    public_keys.groth16,
-                );
-                tapscripts[disprove_script_index].clone()
+                let verifier_scripts = &self.db.get_verifier_scripts().await;
+                let public_keys = self
+                    .db
+                    .get_wots_public_keys(todo!(), deposit_txid)
+                    .await
+                    .groth16;
+                let disprove_scripts =
+                    g16::Verifier::generate_tapscripts(public_keys, verifier_scripts);
+                disprove_scripts[disprove_script_index].clone()
             }
         }
         .compile()
