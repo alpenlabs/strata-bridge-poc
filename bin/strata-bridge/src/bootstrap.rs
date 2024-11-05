@@ -2,8 +2,10 @@
 
 use std::sync::Arc;
 
+use bitcoin::Address;
 use jsonrpsee::ws_client::WsClientBuilder;
 use rand::{rngs::OsRng, Rng};
+use secp256k1::SECP256K1;
 use strata_bridge_agent::{
     base::Agent,
     duty_watcher::{DutyWatcher, DutyWatcherConfig},
@@ -13,7 +15,9 @@ use strata_bridge_agent::{
 use strata_bridge_btcio::traits::Reader;
 use strata_bridge_db::{operator::OperatorDb, public::PublicDb};
 use strata_bridge_primitives::{
-    build_context::TxBuildContext, duties::BridgeDuty, types::PublickeyTable,
+    build_context::{BuildContext, TxBuildContext},
+    duties::BridgeDuty,
+    types::PublickeyTable,
 };
 use strata_common::logging;
 use strata_rpc::StrataApiClient;
@@ -122,6 +126,10 @@ pub async fn generate_operator_set(args: &Cli, pubkey_table: PublickeyTable) -> 
             .expect("should be able to get network information");
 
         let build_context = TxBuildContext::new(network, pubkey_table.clone(), operator_idx);
+
+        let aggregated_pubkey = build_context.aggregated_pubkey();
+        let bridge_address = Address::p2tr(SECP256K1, aggregated_pubkey, None, network);
+        info!(event = "build context initialized", %bridge_address, %network, %aggregated_pubkey);
 
         let is_faulty = OsRng.gen_ratio(args.fault_tolerance as u32, 100);
 
