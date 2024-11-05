@@ -1910,7 +1910,7 @@ dependencies = [
 [[package]]
 name = "bitvm"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/BitVM.git?branch=bridge-poc#4bc4e7a80f35c512aabc67a540231f8da1997a0c"
+source = "git+https://github.com/alpenlabs/BitVM.git?branch=bridge-poc#ea99124a0d687135ff48842d145939777c76f9eb"
 dependencies = [
  "alloy",
  "ark-bn254",
@@ -5198,7 +5198,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 3.2.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.87",

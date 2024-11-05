@@ -3,10 +3,16 @@ use bitcoin::{
     taproot::{ControlBlock, LeafVersion},
     Address, Network, ScriptBuf, Txid,
 };
-use bitvm::{signatures::wots::wots256, treepp::*};
+use bitvm::{
+    signatures::wots::{wots256, wots32},
+    treepp::*,
+};
 use secp256k1::XOnlyPublicKey;
 use strata_bridge_db::connector_db::ConnectorDb;
-use strata_bridge_primitives::{scripts::prelude::*, types::OperatorIdx};
+use strata_bridge_primitives::{
+    scripts::{prelude::*, wots},
+    types::OperatorIdx,
+};
 
 #[derive(Debug, Clone)]
 pub struct ConnectorK<Db: ConnectorDb> {
@@ -35,14 +41,19 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
     }
 
     async fn create_locking_script(&self, deposit_txid: Txid) -> ScriptBuf {
-        let ([superblock_period_start_ts_public_key, bridge_out_txid_public_key, _], _, _) = self
+        let wots::PublicKeys {
+            bridge_out_txid: bridge_out_txid_public_key,
+            superblock_hash: _,
+            superblock_period_start_ts: superblock_period_start_ts_public_key,
+            groth16: _,
+        } = self
             .db
             .get_wots_public_keys(self.operator_idx, deposit_txid)
             .await;
 
         script! {
             // superblock_period_start_timestamp
-            { wots256::checksig_verify(superblock_period_start_ts_public_key) }
+            { wots32::checksig_verify(superblock_period_start_ts_public_key) }
             for _ in 0..4 { OP_2DROP } // drop ts nibbles
 
             // bridge_out_tx_id

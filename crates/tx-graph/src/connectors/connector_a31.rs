@@ -4,13 +4,16 @@ use bitcoin::{
     Address, Network, ScriptBuf, Txid,
 };
 use bitvm::{
-    bn254::chunk_superblock::H256, hash::sha256::sha256, pseudo::NMUL, signatures::wots::wots256,
+    bn254::chunk_superblock::H256,
+    hash::sha256::sha256,
+    pseudo::NMUL,
+    signatures::wots::{wots256, wots32},
     treepp::*,
 };
 use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::{
     params::prelude::{NUM_PKS_A160, NUM_PKS_A256},
-    scripts::prelude::*,
+    scripts::{prelude::*, wots},
 };
 
 use crate::transactions::constants::SUPERBLOCK_PERIOD;
@@ -49,8 +52,15 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         tapleaf: ConnectorA31Leaf,
         deposit_txid: Txid,
     ) -> ScriptBuf {
-        let ([superblock_period_start_ts_public_key, _, superblock_hash_public_key], _, _) =
-            self.db.get_wots_public_keys(0, deposit_txid).await;
+        // let ([superblock_period_start_ts_public_key, _, superblock_hash_public_key], _, _) =
+        //     self.db.get_wots_public_keys(0, deposit_txid).await;
+
+        let wots::PublicKeys {
+            bridge_out_txid: _,
+            superblock_hash: superblock_hash_public_key,
+            superblock_period_start_ts: superblock_period_start_ts_public_key,
+            groth16: _,
+        } = self.db.get_wots_public_keys(0, deposit_txid).await;
 
         match tapleaf {
             ConnectorA31Leaf::DisproveChain => {
@@ -60,7 +70,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                 { sb_hash_from_nibbles() } { H256::toaltstack() }
 
                 // committed superblock period start timestamp
-                { wots256::compact::checksig_verify(superblock_period_start_ts_public_key) }
+                { wots32::compact::checksig_verify(superblock_period_start_ts_public_key) }
                 { ts_from_nibbles() } OP_TOALTSTACK
 
                 // extract superblock timestamp from header

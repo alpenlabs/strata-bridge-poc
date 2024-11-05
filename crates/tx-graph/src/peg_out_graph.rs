@@ -7,6 +7,7 @@ use strata_bridge_primitives::{
     params::connectors::{
         NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
     },
+    scripts::wots,
     types::OperatorIdx,
 };
 
@@ -165,20 +166,22 @@ impl<Db: ConnectorDb> PegOutGraphConnectors<Db> {
         let post_assert_out_0 = ConnectorA30::new(n_of_n_agg_pubkey, network, db.clone());
         let post_assert_out_1 = ConnectorA31::new(network, db.clone());
 
-        let ([_, _, superblock_hash_public_key], public_keys_256, public_keys_160) =
-            db.get_wots_public_keys(operator_idx, deposit_txid).await;
+        let wots::PublicKeys {
+            bridge_out_txid: _,
+            superblock_hash: superblock_hash_public_key,
+            superblock_period_start_ts: _,
+            groth16: ([public_inputs_hash_public_key], public_keys_256, public_keys_160),
+        } = db.get_wots_public_keys(operator_idx, deposit_txid).await;
         let assert_data160_factory: ConnectorA160Factory<NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160> =
             ConnectorA160Factory {
                 network,
                 public_keys: public_keys_160,
             };
 
-        let public_keys_256 = std::array::from_fn(|i| {
-            if i == 0 {
-                superblock_hash_public_key
-            } else {
-                public_keys_256[i - 1]
-            }
+        let public_keys_256 = std::array::from_fn(|i| match i {
+            0 => superblock_hash_public_key,
+            1 => public_inputs_hash_public_key,
+            _ => public_keys_256[i - 2],
         });
 
         let assert_data256_factory: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256> =
