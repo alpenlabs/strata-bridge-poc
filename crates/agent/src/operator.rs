@@ -102,6 +102,14 @@ impl Operator {
         self.is_faulty
     }
 
+    pub async fn start(&mut self, duty_receiver: &mut broadcast::Receiver<BridgeDuty>) {
+        info!(action = "starting operator", operator_idx=%self.build_context.own_index());
+
+        while let Ok(bridge_duty) = duty_receiver.recv().await {
+            self.process_duty(bridge_duty).await;
+        }
+    }
+
     pub async fn process_duty(&mut self, duty: BridgeDuty) {
         match duty {
             BridgeDuty::SignDeposit(deposit_info) => {

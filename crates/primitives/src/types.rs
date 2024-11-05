@@ -12,7 +12,7 @@ pub type BitcoinBlockHeight = u64;
 
 /// A table that maps [`OperatorIdx`] to the corresponding [`PublicKey`].
 ///
-/// We use a [`PublicKey`] instead of an [`bitcoin::secp256k1::XOnlyPublicKey`] for convenience
+/// We use a [`PublicKey`] instead of an [`secp256k1::XOnlyPublicKey`] for convenience
 /// since the [`musig2`] crate has functions that expect a [`PublicKey`] and this table is most
 /// useful for interacting with those functions.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
