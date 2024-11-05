@@ -5,9 +5,6 @@ fn secret_key_from_msk(msk: &str, var: &str) -> String {
     let mut hasher = sha2::Sha256::new();
     hasher.update(format!("{msk}:{var}"));
     format!("{:x}", hasher.finalize())
-    // hash160::Hash::hash(&format!("{msk}:{var}"))
-    //     .unwrap()
-    //     .to_string()
 }
 
 pub fn secret_key_for_superblock_hash(msk: &str) -> String {
@@ -25,7 +22,12 @@ pub fn secret_key_for_bridge_out_txid(msk: &str) -> String {
     secret_key_from_msk(msk, var)
 }
 
-pub fn secret_key_for_proof_element(msk: &str, id: u32) -> String {
+pub fn secret_key_for_public_inputs_hash(msk: &str) -> String {
+    let var = "public_inputs_hash";
+    secret_key_from_msk(msk, var)
+}
+
+pub fn secret_key_for_proof_element(msk: &str, id: usize) -> String {
     let var = &format!("proof_element_{}", id);
     secret_key_from_msk(msk, var)
 }
@@ -45,13 +47,8 @@ pub fn public_key_for_bridge_out_txid(msk: &str) -> wots256::PublicKey {
     wots256::generate_public_key(&secret_key)
 }
 
-pub fn public_key_for_proof_element_160(msk: &str, id: u32) -> wots160::PublicKey {
-    let secret_key = secret_key_for_proof_element(msk, id);
-    wots160::generate_public_key(&secret_key)
-}
-
-pub fn public_key_for_proof_element_256(msk: &str, id: u32) -> wots256::PublicKey {
-    let secret_key = secret_key_for_proof_element(msk, id);
+pub fn public_key_for_public_inputs_hash(msk: &str) -> wots256::PublicKey {
+    let secret_key = secret_key_for_bridge_out_txid(msk);
     wots256::generate_public_key(&secret_key)
 }
 

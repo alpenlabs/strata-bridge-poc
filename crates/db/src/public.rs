@@ -8,7 +8,7 @@ use bitcoin::Txid;
 use bitcoin_script::Script;
 use bitvm::groth16::g16::{self};
 use secp256k1::{schnorr::Signature, PublicKey};
-use strata_bridge_primitives::scripts::wots::generate_verifier_partial_scripts;
+use strata_bridge_primitives::scripts::wots::{self, bridge_poc_verification_key};
 use tokio::sync::RwLock;
 
 use super::operator::OperatorIdx;
@@ -25,10 +25,10 @@ pub struct PublicDb {
     verifier_scripts: Arc<RwLock<[Script; g16::N_TAPLEAVES]>>,
 
     // operator_id -> deposit_txid -> WotsPublicKeys
-    wots_public_keys: Arc<RwLock<HashMap<OperatorIdx, HashMap<Txid, g16::WotsPublicKeys>>>>,
+    wots_public_keys: Arc<RwLock<HashMap<OperatorIdx, HashMap<Txid, wots::PublicKeys>>>>,
 
     // operator_id -> deposit_txid -> WotsSignatures
-    wots_signatures: Arc<RwLock<HashMap<OperatorIdx, HashMap<Txid, g16::WotsSignatures>>>>,
+    wots_signatures: Arc<RwLock<HashMap<OperatorIdx, HashMap<Txid, wots::Signatures>>>>,
 
     // signature cache per txid and input index per operator
     signatures: Arc<RwLock<OperatorIdxToTxInputSigMap>>,
@@ -37,7 +37,9 @@ pub struct PublicDb {
 impl Default for PublicDb {
     fn default() -> Self {
         Self {
-            verifier_scripts: Arc::new(RwLock::new(generate_verifier_partial_scripts())),
+            verifier_scripts: Arc::new(RwLock::new(g16::compile_verifier(
+                bridge_poc_verification_key(),
+            ))),
             musig_pubkey_table: Default::default(),
             wots_public_keys: Default::default(),
             wots_signatures: Default::default(),
@@ -58,15 +60,15 @@ impl PublicDb {
         &self,
         operator_idx: OperatorIdx,
         txid: Txid,
-        pubkeys: g16::WotsPublicKeys,
+        public_keys: wots::PublicKeys,
     ) {
         let mut wots_public_keys = self.wots_public_keys.write().await;
 
         if let Some(txid_to_pubkey_map) = wots_public_keys.get_mut(&operator_idx) {
-            txid_to_pubkey_map.insert(txid, pubkeys);
+            txid_to_pubkey_map.insert(txid, public_keys);
         } else {
             let mut txid_to_pubkey_map = HashMap::new();
-            txid_to_pubkey_map.insert(txid, pubkeys);
+            txid_to_pubkey_map.insert(txid, public_keys);
 
             wots_public_keys.insert(operator_idx, txid_to_pubkey_map);
         }
@@ -75,7 +77,7 @@ impl PublicDb {
     pub async fn get_wots_public_keys(
         &self,
         operator_idx: OperatorIdx,
-    ) -> Option<HashMap<Txid, g16::WotsPublicKeys>> {
+    ) -> Option<HashMap<Txid, wots::PublicKeys>> {
         self.wots_public_keys
             .read()
             .await
@@ -87,7 +89,7 @@ impl PublicDb {
         &self,
         operator_idx: OperatorIdx,
         txid: Txid,
-        signatures: g16::WotsSignatures,
+        signatures: wots::Signatures,
     ) {
         let mut wots_signatures = self.wots_signatures.write().await;
 
@@ -104,7 +106,7 @@ impl PublicDb {
     pub async fn get_wots_signatures(
         &self,
         operator_idx: OperatorIdx,
-    ) -> Option<HashMap<Txid, g16::WotsSignatures>> {
+    ) -> Option<HashMap<Txid, wots::Signatures>> {
         self.wots_signatures
             .read()
             .await
@@ -145,15 +147,11 @@ impl PublicDb {
 
 #[async_trait]
 impl ConnectorDb for PublicDb {
-    async fn get_verifier_scripts(&self) -> [Script; g16::N_TAPLEAVES] {
+    async fn get_partial_disprove_scripts(&self) -> [Script; g16::N_TAPLEAVES] {
         self.verifier_scripts.read().await.clone()
     }
 
-    async fn get_wots_public_keys(
-        &self,
-        operator_id: u32,
-        deposit_txid: Txid,
-    ) -> g16::WotsPublicKeys {
+    async fn get_wots_public_keys(&self, operator_id: u32, deposit_txid: Txid) -> wots::PublicKeys {
         *self
             .wots_public_keys
             .read()
@@ -164,11 +162,7 @@ impl ConnectorDb for PublicDb {
             .unwrap()
     }
 
-    async fn get_wots_signatures(
-        &self,
-        operator_id: u32,
-        deposit_txid: Txid,
-    ) -> g16::WotsSignatures {
+    async fn get_wots_signatures(&self, operator_id: u32, deposit_txid: Txid) -> wots::Signatures {
         *self
             .wots_signatures
             .read()
@@ -183,7 +177,7 @@ impl ConnectorDb for PublicDb {
         &self,
         operator_id: u32,
         deposit_txid: Txid,
-        public_keys: &g16::WotsPublicKeys,
+        public_keys: &wots::PublicKeys,
     ) {
         self.wots_public_keys
             .write()
@@ -198,7 +192,7 @@ impl ConnectorDb for PublicDb {
         &self,
         operator_id: u32,
         deposit_txid: Txid,
-        signatures: &g16::WotsSignatures,
+        signatures: &wots::Signatures,
     ) {
         self.wots_signatures
             .write()

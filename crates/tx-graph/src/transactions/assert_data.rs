@@ -7,13 +7,13 @@ use strata_bridge_primitives::{
         },
         prelude::{NUM_PKS_A160, NUM_PKS_A256, NUM_PKS_A256_RESIDUAL},
     },
-    scripts::prelude::*,
+    scripts::{prelude::*, wots},
 };
 
 use super::constants::{
     NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
     NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A160_PK2,
-    NUM_ASSERT_DATA_TX2_A256_PK6, TOTAL_VALUES,
+    NUM_ASSERT_DATA_TX2_A256_PK7, TOTAL_VALUES,
 };
 use crate::connectors::prelude::*;
 
@@ -97,14 +97,14 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
         mut self,
         // FIXME: replace hard-coded values when const-generics become stable
         connector_a160_factory: ConnectorA160Factory<11, 574>,
-        connector_a256_factory: ConnectorA256Factory<7, 41>,
+        connector_a256_factory: ConnectorA256Factory<7, 42>,
         msk: &str,
-        values: [&[u8]; TOTAL_VALUES],
+        signatures: wots::Signatures,
     ) -> [Transaction; N] {
         // compile time checks to bind with consts manually
         // remove when const-generics become stable
         const _: [(); NUM_PKS_A160] = [(); 574];
-        const _: [(); NUM_PKS_A256] = [(); 41];
+        const _: [(); NUM_PKS_A256] = [(); 42];
         const _: [(); NUM_PKS_A160_PER_CONNECTOR] = [(); 11];
         const _: [(); NUM_PKS_A256_PER_CONNECTOR] = [(); 7];
 
@@ -115,8 +115,15 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
 
         let (connector256_batch, connector256_remainder): (
             Vec<ConnectorA256<7>>,
-            ConnectorA256<6>,
+            ConnectorA256<0>,
         ) = connector_a256_factory.create_connectors();
+
+        let signatures_256: [[([u8; 20], u8); 67]; NUM_PKS_A256] =
+            std::array::from_fn(|i| match i {
+                0 => signatures.superblock_hash,
+                1 => signatures.groth16.0[0],
+                _ => signatures.groth16.1[i - 2],
+            });
 
         let mut value_offset = 0;
         for psbt_index in 0..NUM_ASSERT_DATA_TX1 {
@@ -129,7 +136,8 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
                     conn.create_tx_input(
                         &mut self.0[psbt_index].inputs[input_index],
                         msk,
-                        values[value_offset..value_offset + NUM_PKS_A160_PER_CONNECTOR]
+                        signatures.groth16.2
+                            [value_offset..value_offset + NUM_PKS_A160_PER_CONNECTOR]
                             .try_into()
                             .unwrap(),
                     );
@@ -147,7 +155,7 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
                     conn.create_tx_input(
                         &mut self.0[psbt_index].inputs[input_index + input_offset],
                         msk,
-                        values[value_offset..value_offset + NUM_PKS_A256_PER_CONNECTOR]
+                        signatures_256[value_offset..value_offset + NUM_PKS_A256_PER_CONNECTOR]
                             .try_into()
                             .unwrap(),
                     );
@@ -166,7 +174,8 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
                     conn.create_tx_input(
                         &mut self.0[psbt_index].inputs[input_index],
                         msk,
-                        values[value_offset..value_offset + NUM_PKS_A160_PER_CONNECTOR]
+                        signatures.groth16.2
+                            [value_offset..value_offset + NUM_PKS_A160_PER_CONNECTOR]
                             .try_into()
                             .unwrap(),
                     );
@@ -178,7 +187,7 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
             connector160_remainder.create_tx_input(
                 residual_a160_input,
                 msk,
-                values[value_offset..value_offset + NUM_PKS_A160_RESIDUAL]
+                signatures.groth16.2[value_offset..value_offset + NUM_PKS_A160_RESIDUAL]
                     .try_into()
                     .unwrap(),
             );
@@ -188,7 +197,7 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
             connector256_remainder.create_tx_input(
                 residual_a256_input,
                 msk,
-                values[value_offset..value_offset + NUM_PKS_A256_RESIDUAL]
+                signatures_256[value_offset..value_offset + NUM_PKS_A256_RESIDUAL]
                     .try_into()
                     .unwrap(),
             );
@@ -196,7 +205,7 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
             assert_eq!(
                 NUM_ASSERT_DATA_TX2_A160_PK11
                     + NUM_ASSERT_DATA_TX2_A160_PK2
-                    + NUM_ASSERT_DATA_TX2_A256_PK6,
+                    + NUM_ASSERT_DATA_TX2_A256_PK7,
                 self.0[psbt_index].inputs.len(),
                 "number of inputs in the second psbt must match"
             );

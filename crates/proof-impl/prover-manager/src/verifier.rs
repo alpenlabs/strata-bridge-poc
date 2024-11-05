@@ -19,6 +19,9 @@ pub fn verify_proof(proof: Proof, vkey: String, comitted_values: &[u8]) -> anyho
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
+
+    use bitcoin::{hashes::Hash, BlockHash, Txid};
     use sp1_sdk::{HashableKey, SP1ProofWithPublicValues, SP1VerifyingKey};
     use strata_proofimpl_bitvm_bridge::BridgeProofPublicParams;
 
@@ -40,5 +43,30 @@ mod test {
         let commited_values = sp1_proof.public_values.as_slice();
 
         verify_proof(raw_groth16_proof, vkey_str, commited_values).unwrap();
+    }
+
+    #[test]
+    fn test_serialize_public_inputs() {
+        // let data = &[
+        //     32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        // 0,     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        // 0, 0, 0, 0, 0,     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        // 0, 0, 0, 0, 0, ];
+
+        let public_inputs: BridgeProofPublicParams = (
+            BlockHash::from_byte_array(std::array::from_fn(|i| i as u8)),
+            Txid::from_byte_array(std::array::from_fn(|i| 2 * i as u8)),
+            0x12345678,
+        );
+
+        let serialized_public_inputs = bincode::serialize(&public_inputs).unwrap();
+
+        println!("data: {:?}", serialized_public_inputs);
+        println!("length: {:?}", serialized_public_inputs.len());
+
+        let public_inputs: BridgeProofPublicParams =
+            bincode::deserialize(&serialized_public_inputs).unwrap();
+
+        println!("{:?}", public_inputs);
     }
 }

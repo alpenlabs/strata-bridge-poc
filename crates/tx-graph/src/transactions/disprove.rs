@@ -123,14 +123,14 @@ impl DisproveTx {
             )
             .await;
 
-        // TODO: Compute which `ConnectorA31Leaf` is spendable
-        connector_a31
-            .finalize_input(
-                &mut self.psbt.inputs[1],
-                ConnectorA31Leaf::InvalidateProof(0),
-                deposit_txid,
-            )
-            .await;
+        // // // TODO: Compute which `ConnectorA31Leaf` is spendable
+        // connector_a31
+        //     .finalize_input(
+        //         &mut self.psbt.inputs[1],
+        //         ConnectorA31Leaf::InvalidateProof(0),
+        //         deposit_txid,
+        //     )
+        //     .await;
 
         self.psbt
             .extract_tx()

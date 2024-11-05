@@ -40,7 +40,7 @@ impl Agent {
             TapSighashType::All,
             input_index,
         )
-        .expect("should be ablet o create message hash");
+        .expect("should be able to create message hash");
 
         SECP256K1.sign_schnorr(&msg, &self.keypair)
     }
