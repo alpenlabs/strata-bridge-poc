@@ -183,3 +183,14 @@ pr: lint sec rustdocs test-doc test-unit test-functional ## Runs lints (without 
 	@test -z "$$(git status --porcelain)" || echo "WARNNG: You have uncommitted changes"
 	@echo "All good to create a PR!"
 
+
+.PHONY: run
+run:
+	cargo r --bin strata-bridge -- \
+		--strata-url ws://localhost:8432 \
+		--btc-url http://localhost:18443 \
+		--btc-user strata \
+		--btc-pass strata \
+		--duty-interval 10 \
+		--xpriv-file .secrets/xprivs.bin
+
