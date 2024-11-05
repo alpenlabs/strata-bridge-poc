@@ -13,7 +13,7 @@ use strata_bridge_primitives::{
 use super::constants::{
     NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
     NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A160_PK2,
-    NUM_ASSERT_DATA_TX2_A256_PK6, TOTAL_VALUES,
+    NUM_ASSERT_DATA_TX2_A256_PK7, TOTAL_VALUES,
 };
 use crate::connectors::prelude::*;
 
@@ -104,7 +104,7 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
         // compile time checks to bind with consts manually
         // remove when const-generics become stable
         const _: [(); NUM_PKS_A160] = [(); 574];
-        const _: [(); NUM_PKS_A256] = [(); 41];
+        const _: [(); NUM_PKS_A256] = [(); 42];
         const _: [(); NUM_PKS_A160_PER_CONNECTOR] = [(); 11];
         const _: [(); NUM_PKS_A256_PER_CONNECTOR] = [(); 7];
 
@@ -196,7 +196,7 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
             assert_eq!(
                 NUM_ASSERT_DATA_TX2_A160_PK11
                     + NUM_ASSERT_DATA_TX2_A160_PK2
-                    + NUM_ASSERT_DATA_TX2_A256_PK6,
+                    + NUM_ASSERT_DATA_TX2_A256_PK7,
                 self.0[psbt_index].inputs.len(),
                 "number of inputs in the second psbt must match"
             );

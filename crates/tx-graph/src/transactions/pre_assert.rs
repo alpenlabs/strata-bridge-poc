@@ -49,7 +49,7 @@ impl PreAssertTx {
 
         let (connector256_batch, connector256_remainder): (
             Vec<ConnectorA256<NUM_PKS_A256_PER_CONNECTOR>>,
-            ConnectorA256<6>,
+            ConnectorA256<NUM_PKS_A256_RESIDUAL>,
         ) = connector_a256.create_connectors();
 
         let outpoints = [OutPoint {
