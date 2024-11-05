@@ -97,10 +97,6 @@ impl DisproveTx {
         }
     }
 
-    pub fn compute_txid(&self) -> Txid {
-        self.psbt.unsigned_tx.compute_txid()
-    }
-
     pub async fn finalize<Db>(
         mut self,
         connector_a30: ConnectorA30<Db>,
@@ -157,5 +153,9 @@ impl CovenantTx for DisproveTx {
 
     fn witnesses(&self) -> &[TaprootWitness] {
         &self.witnesses
+    }
+
+    fn compute_txid(&self) -> Txid {
+        self.psbt.unsigned_tx.compute_txid()
     }
 }

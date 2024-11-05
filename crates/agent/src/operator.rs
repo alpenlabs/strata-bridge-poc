@@ -7,7 +7,7 @@ use bitcoin::{
     TapSighashType, Transaction, TxOut, Txid,
 };
 use musig2::{
-    aggregate_partial_signatures, sign_partial, AggNonce, KeyAggContext, PartialSignature,
+    aggregate_partial_signatures, sign_partial, AggNonce, KeyAggContext, PartialSignature, PubNonce,
 };
 use rand::RngCore;
 use secp256k1::schnorr::Signature;
@@ -157,7 +157,7 @@ impl Operator {
             operator_pubkey: self.agent.public_key().x_only_public_key().0,
             kickoff_data: KickoffTxData {
                 funding_inputs: funding_inputs.clone(),
-                funding_utxos,
+                funding_utxos: funding_utxos.clone(),
                 change_address: change_address.as_unchecked().clone(),
                 change_amt,
                 deposit_txid,
@@ -170,6 +170,7 @@ impl Operator {
                 deposit_txid,
                 KickoffInfo {
                     funding_inputs,
+                    funding_utxos,
                     change_address,
                     change_amt,
                 },
@@ -313,8 +314,6 @@ impl Operator {
         disprove_tx: DisproveTx,
         operator_index: OperatorIdx,
     ) -> RequestFulfilled {
-        let add_to_db = operator_index == self.build_context.own_index();
-
         let key_agg_ctx = KeyAggContext::new(self.build_context.pubkey_table().0.values().copied())
             .expect("should be able to create key agg ctx");
         let key_agg_ctx_keypath = key_agg_ctx
@@ -322,82 +321,23 @@ impl Operator {
             .with_unspendable_taproot_tweak()
             .expect("should be able to create key agg ctx with unspendable key");
 
-        let pre_assert_txid = pre_assert.compute_txid();
-        let pre_assert_secnonce = self
-            .agent
-            .generate_sec_nonce(&pre_assert_txid, &key_agg_ctx);
-        let pre_assert_pubnonce = pre_assert_secnonce.public_nonce();
-
-        let post_assert_txid = post_assert.compute_txid();
-        let post_assert_secnonce = self
-            .agent
-            .generate_sec_nonce(&post_assert_txid, &key_agg_ctx_keypath);
-        let post_assert_pubnonce = post_assert_secnonce.public_nonce();
-
-        let payout_txid = payout_tx.compute_txid();
-        let payout_secnonce_0 = self
-            .agent
-            .generate_sec_nonce(&payout_txid, &key_agg_ctx_keypath);
-        let payout_pubnonce_0 = payout_secnonce_0.public_nonce();
-
-        let payout_secnonce_1 = self.agent.generate_sec_nonce(&payout_txid, &key_agg_ctx);
-        let payout_pubnonce_1 = payout_secnonce_1.public_nonce();
-
-        let disprove_txid = disprove_tx.compute_txid();
-        let disprove_secnonce = self.agent.generate_sec_nonce(&disprove_txid, &key_agg_ctx);
-        let disprove_pubnonce = disprove_secnonce.public_nonce();
-
-        if add_to_db {
-            self.db
-                .add_secnonce(pre_assert_txid, 0, pre_assert_secnonce)
-                .await;
-            self.db
-                .add_pubnonce(
-                    pre_assert_txid,
-                    0,
-                    operator_index,
-                    pre_assert_pubnonce.clone(),
-                )
-                .await;
-
-            self.db
-                .add_secnonce(post_assert_txid, 0, post_assert_secnonce)
-                .await;
-            self.db
-                .add_pubnonce(
-                    post_assert_txid,
-                    0,
-                    operator_index,
-                    post_assert_pubnonce.clone(),
-                )
-                .await;
-
-            self.db
-                .add_secnonce(payout_txid, 0, payout_secnonce_0)
-                .await;
-            self.db
-                .add_pubnonce(
-                    payout_txid,
-                    0,
-                    self.build_context.own_index(),
-                    payout_pubnonce_0.clone(),
-                )
-                .await;
-
-            self.db
-                .add_secnonce(payout_txid, 1, payout_secnonce_1)
-                .await;
-            self.db
-                .add_pubnonce(payout_txid, 1, operator_index, payout_pubnonce_1.clone())
-                .await;
-
-            self.db
-                .add_secnonce(disprove_txid, 0, disprove_secnonce)
-                .await;
-            self.db
-                .add_pubnonce(disprove_txid, 0, operator_index, disprove_pubnonce.clone())
-                .await;
-        }
+        // As all these calls lock on the same `HashMap`, there is no point in making these
+        // concurrent.
+        let pre_assert_pubnonce = self
+            .generate_nonces(operator_index, &key_agg_ctx, 0, &pre_assert)
+            .await;
+        let post_assert_pubnonce = self
+            .generate_nonces(operator_index, &key_agg_ctx_keypath, 0, &post_assert)
+            .await;
+        let payout_pubnonce_0 = self
+            .generate_nonces(operator_index, &key_agg_ctx_keypath, 0, &payout_tx)
+            .await;
+        let payout_pubnonce_1 = self
+            .generate_nonces(operator_index, &key_agg_ctx, 1, &payout_tx)
+            .await;
+        let disprove_pubnonce = self
+            .generate_nonces(operator_index, &key_agg_ctx, 0, &disprove_tx)
+            .await;
 
         RequestFulfilled::Nonce {
             pre_assert: pre_assert_pubnonce,
@@ -542,6 +482,8 @@ impl Operator {
         self_peg_out_graph_input: PegOutGraphInput,
         self_peg_out_graph: PegOutGraph,
     ) {
+        let own_index = self.build_context.own_index();
+
         // 1. Prepare txs
         let PegOutGraph {
             kickoff_tx: _,
@@ -557,6 +499,7 @@ impl Operator {
         } = assert_chain;
 
         // 2. Generate agg nonces
+        info!(action = "getting aggregated nonces", operator_idx = %own_index, deposit_txid = %deposit_txid);
         let pre_assert_agg_nonce = self
             .get_aggregated_nonce(pre_assert.compute_txid(), 0)
             .await
@@ -587,8 +530,7 @@ impl Operator {
         };
 
         // 3. Generate own signatures
-        info!(action = "generating nonce for this operator", operator_idx = %self.build_context.own_index(), deposit_txid = %deposit_txid);
-        let own_index = self.build_context.own_index();
+        info!(action = "generating signature for this operator", operator_idx = %own_index, deposit_txid = %deposit_txid);
         self.generate_covenant_signatures(
             agg_nonces.clone(),
             own_index,
@@ -600,12 +542,11 @@ impl Operator {
         .await;
 
         // 3. Broadcast signature request
-        info!(action = "broadcasting this operator's nonce", operator_idx =
-        %self.build_context.own_index(), deposit_txid = %deposit_txid);
+        info!(action = "broadcasting this operator's signature", operator_idx = %own_index, deposit_txid = %deposit_txid);
         self.covenant_signal_sender
             .send(CovenantSignal::CovenantRequest {
                 details: Request::Signature {
-                    agg_nonces,
+                    agg_nonces: agg_nonces.clone(),
                     peg_out_graph_input: self_peg_out_graph_input,
                 },
                 sender_id: self.build_context.own_index(),
@@ -613,12 +554,52 @@ impl Operator {
             .expect("should be able to send covenant signal");
 
         // 4. Listen for requests and fulfillment data from others.
+        info!(action = "listening for signature requests and fulfillments", operator_idx = %own_index, deposit_txid = %deposit_txid);
         self.gather_and_fulfill_signatures(
             deposit_txid,
             pre_assert.compute_txid(),
             post_assert.compute_txid(),
             payout_tx.compute_txid(),
             disprove_tx.compute_txid(),
+        )
+        .await;
+
+        // 5. Update public db with aggregated signatures
+        let key_agg_ctx = KeyAggContext::new(self.build_context.pubkey_table().0.values().copied())
+            .expect("should be able to create key agg ctx");
+
+        let all_inputs = pre_assert.witnesses().len();
+        self.compute_agg_sig(
+            &key_agg_ctx,
+            all_inputs,
+            pre_assert,
+            vec![agg_nonces.pre_assert; all_inputs].as_ref(),
+        )
+        .await;
+
+        let all_inputs = post_assert.witnesses().len();
+        self.compute_agg_sig(
+            &key_agg_ctx,
+            all_inputs,
+            post_assert,
+            vec![agg_nonces.post_assert; all_inputs].as_ref(),
+        )
+        .await;
+
+        self.compute_agg_sig(
+            &key_agg_ctx,
+            all_inputs,
+            payout_tx,
+            &[agg_nonces.payout_0, agg_nonces.payout_1],
+        )
+        .await;
+
+        let all_inputs = disprove_tx.witnesses().len();
+        self.compute_agg_sig(
+            &key_agg_ctx,
+            1,
+            disprove_tx,
+            vec![agg_nonces.disprove; all_inputs].as_ref(),
         )
         .await;
     }
@@ -824,9 +805,9 @@ impl Operator {
 
                                 self_requests_fulfilled = self
                                     .db
-                                    .collected_signatures(txid, input_index as u32)
+                                    .collected_signatures_per_msg(txid, input_index as u32)
                                     .await
-                                    .is_some_and(|v| v.len() == num_signers);
+                                    .is_some_and(|v| v.1.len() == num_signers);
                             }
                         }
                     } else {
@@ -976,15 +957,17 @@ impl Operator {
                     .add_partial_signature(txid, 0, sender_id, signature)
                     .await;
 
-                if let Some(collected_signatures) = self.db.collected_signatures(txid, 0).await {
-                    if collected_signatures.len() != expected_signature_count {
+                if let Some(collected_signatures) =
+                    self.db.collected_signatures_per_msg(txid, 0).await
+                {
+                    if collected_signatures.1.len() != expected_signature_count {
                         continue;
                     }
 
                     let agg_signature: Signature = aggregate_partial_signatures(
                         &key_agg_ctx,
                         &agg_nonce,
-                        collected_signatures.values().copied(),
+                        collected_signatures.1.values().copied(),
                         message,
                     )
                     .expect("should be able to aggregate signatures");
@@ -1020,7 +1003,32 @@ impl Operator {
             }
         }
 
+        error!(event = "deposit signal sender closed before completion", deposit_txid=%txid, %own_index);
         None
+    }
+
+    pub async fn generate_nonces(
+        &self,
+        operator_idx: OperatorIdx,
+        key_agg_ctx: &KeyAggContext,
+        input_index: u32,
+        tx: &impl CovenantTx,
+    ) -> PubNonce {
+        let txid = tx.compute_txid();
+
+        let secnonce = self.agent.generate_sec_nonce(&txid, key_agg_ctx);
+        let pubnonce = secnonce.public_nonce();
+
+        let own_index = self.build_context.own_index();
+
+        if own_index == operator_idx {
+            self.db.add_secnonce(txid, input_index, secnonce).await;
+            self.db
+                .add_pubnonce(txid, input_index, operator_idx, pubnonce.clone())
+                .await;
+        }
+
+        pubnonce
     }
 
     /// Get the aggregated nonce from the list of collected nonces for the transaction
@@ -1117,11 +1125,67 @@ impl Operator {
 
             if own_index == operator_index {
                 self.db
-                    .add_partial_signature(txid, input_index as u32, own_index, partial_sig)
+                    .add_message_hash_and_signature(
+                        txid,
+                        input_index as u32,
+                        message.to_vec(),
+                        own_index,
+                        partial_sig,
+                    )
                     .await;
             }
         }
 
         partial_sigs
+    }
+
+    async fn compute_agg_sig(
+        &self,
+        key_agg_ctx: &KeyAggContext,
+        inputs_to_sign: usize,
+        covenant_tx: impl CovenantTx,
+        agg_nonces: &[AggNonce],
+    ) {
+        let txid = covenant_tx.compute_txid();
+
+        let witnesses = covenant_tx.witnesses();
+
+        for (input_index, (agg_nonce, witness)) in agg_nonces
+            .iter()
+            .zip(witnesses)
+            .enumerate()
+            .take(inputs_to_sign)
+        {
+            let agg_ctx = if matches!(witness, TaprootWitness::Key) {
+                &key_agg_ctx
+                    .clone()
+                    .with_unspendable_taproot_tweak()
+                    .expect("should be able to add unspendable key tweak")
+            } else {
+                key_agg_ctx
+            };
+
+            let collected_msgs_and_sigs = self
+                .db
+                .collected_signatures_per_msg(txid, input_index as u32)
+                .await
+                .expect("partial signatures must be present");
+            let message = collected_msgs_and_sigs.0;
+            let partial_sigs: Vec<PartialSignature> =
+                collected_msgs_and_sigs.1.values().copied().collect();
+
+            let agg_sig: Signature =
+                aggregate_partial_signatures(agg_ctx, agg_nonce, partial_sigs, message)
+                    .expect("signature aggregation must succeed");
+
+            self.public_db
+                .put_signature(
+                    self.build_context.own_index(),
+                    txid,
+                    input_index as u32,
+                    agg_sig,
+                )
+                .await;
+        }
     }
 }

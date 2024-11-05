@@ -1,4 +1,4 @@
-use bitcoin::{sighash::Prevouts, Psbt, TxOut};
+use bitcoin::{sighash::Prevouts, Psbt, TxOut, Txid};
 use strata_bridge_primitives::scripts::taproot::TaprootWitness;
 
 pub trait CovenantTx {
@@ -9,4 +9,6 @@ pub trait CovenantTx {
     fn prevouts(&self) -> Prevouts<'_, TxOut>;
 
     fn witnesses(&self) -> &[TaprootWitness];
+
+    fn compute_txid(&self) -> Txid;
 }

@@ -168,8 +168,8 @@ impl PreAssertTx {
         self.remaining_stake
     }
 
-    pub fn compute_txid(&self) -> Txid {
-        self.psbt.unsigned_tx.compute_txid()
+    pub fn tx_outs(&self) -> &[TxOut] {
+        &self.tx_outs
     }
 
     pub fn tx_outs(&self) -> &[TxOut] {
@@ -204,5 +204,9 @@ impl CovenantTx for PreAssertTx {
 
     fn witnesses(&self) -> &[TaprootWitness] {
         &self.witnesses
+    }
+
+    fn compute_txid(&self) -> Txid {
+        self.psbt.unsigned_tx.compute_txid()
     }
 }

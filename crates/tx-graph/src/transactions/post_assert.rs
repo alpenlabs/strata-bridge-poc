@@ -94,10 +94,6 @@ impl PostAssertTx {
         self.remaining_stake
     }
 
-    pub fn compute_txid(&self) -> Txid {
-        self.psbt.unsigned_tx.compute_txid()
-    }
-
     pub fn finalize(mut self, signatures: &[Signature]) -> Transaction {
         for (index, input) in self.psbt.inputs.iter_mut().enumerate() {
             finalize_input(input, [signatures[index].as_ref()]);
@@ -124,5 +120,9 @@ impl CovenantTx for PostAssertTx {
 
     fn witnesses(&self) -> &[TaprootWitness] {
         &self.witnesses
+    }
+
+    fn compute_txid(&self) -> Txid {
+        self.psbt.unsigned_tx.compute_txid()
     }
 }
