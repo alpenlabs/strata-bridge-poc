@@ -37,7 +37,10 @@ pub struct PublicDb {
 
 impl Default for PublicDb {
     fn default() -> Self {
-        info!(action = "compiling verifier scripts, this will take time...");
+        info!(
+            action = "compiling verifier scripts, this will take time...",
+            estimated_time = "3 mins"
+        );
         let verifier_scripts = g16::compile_verifier(bridge_poc_verification_key());
 
         Self {

@@ -79,7 +79,7 @@ impl AssertChain {
         let post_assert =
             PostAssertTx::new(post_assert_data, connector_s, connector_a30, connector_a31).await;
 
-        trace!(event = "created assert_data tx batch", post_assert_txid = ?post_assert.compute_txid());
+        trace!(event = "created post_assert tx", post_assert_txid = ?post_assert.compute_txid());
 
         Self {
             pre_assert,

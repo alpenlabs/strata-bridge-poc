@@ -9,7 +9,7 @@ DOCKER_DIR = docker
 DOCKER_DATADIR = data
 
 # Cargo profile for builds. Default is for local builds, CI uses an override.
-PROFILE ?= debug
+PROFILE ?= dev
 
 # Extra flags for Cargo
 CARGO_INSTALL_EXTRA_FLAGS ?=
