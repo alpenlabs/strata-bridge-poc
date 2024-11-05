@@ -15,3 +15,21 @@ pub fn verify_l1_chain(
 
     state
 }
+
+#[cfg(test)]
+mod test {
+    use strata_btcio::rpc::{traits::Reader, BitcoinClient};
+
+    #[tokio::test]
+    async fn test_bitcoin() {
+        let btc_client = BitcoinClient::new(
+            "http://127.0.0.1:12423".to_string(),
+            "alpen".to_string(),
+            "alpen".to_string(),
+        )
+        .expect("failed to connect to the btc client");
+
+        let block = btc_client.get_block_at(403).await.unwrap();
+        println!("got the block {:?}", block)
+    }
+}

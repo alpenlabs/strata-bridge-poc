@@ -4777,7 +4777,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -5220,7 +5220,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -8393,6 +8393,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-btcio"
+version = "0.1.0"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.22.1",
+ "bitcoin 0.32.3",
+ "borsh",
+ "bytes",
+ "hex",
+ "musig2 0.1.0",
+ "rand",
+ "reqwest 0.12.9",
+ "serde",
+ "serde_json",
+ "sha2",
+ "strata-bridge-tx-builder",
+ "strata-db",
+ "strata-primitives",
+ "strata-rpc-types",
+ "strata-state",
+ "strata-status",
+ "strata-storage",
+ "strata-tasks",
+ "strata-tx-parser",
+ "thiserror",
+ "threadpool",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "strata-common"
 version = "0.1.0"
 source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
@@ -8478,10 +8511,13 @@ dependencies = [
  "serde",
  "snark-bn254-verifier 1.0.2 (git+https://github.com/succinctlabs/snark-bn254-verifier.git?rev=96bce2079584b68597f3241551e4b97300fd92c6)",
  "sp1-core-machine",
+ "strata-btcio",
  "strata-primitives",
  "strata-state",
  "strata-zkvm",
  "substrate-bn",
+ "tokio",
+ "tower 0.4.13",
 ]
 
 [[package]]
@@ -8584,6 +8620,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-status"
+version = "0.1.0"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
+dependencies = [
+ "strata-primitives",
+ "strata-rpc-types",
+ "strata-state",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "strata-storage"
 version = "0.1.0"
 source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
@@ -8602,12 +8651,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-tasks"
+version = "0.1.0"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
+dependencies = [
+ "anyhow",
+ "futures-util",
+ "thiserror",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "strata-test-utils"
 version = "0.1.0"
 dependencies = [
  "strata-common",
  "tempfile",
  "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "strata-tx-parser"
+version = "0.1.0"
+source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
+dependencies = [
+ "anyhow",
+ "arbitrary",
+ "bitcoin 0.32.3",
+ "borsh",
+ "hex",
+ "musig2 0.1.0",
+ "strata-bridge-tx-builder",
+ "strata-primitives",
+ "strata-state",
+ "thiserror",
  "tracing",
 ]
 
@@ -9730,7 +9809,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]

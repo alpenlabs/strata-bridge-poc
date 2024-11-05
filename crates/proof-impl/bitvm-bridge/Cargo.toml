@@ -13,3 +13,8 @@ strata-primitives.workspace = true
 strata-state.workspace = true
 strata-zkvm.workspace = true
 substrate-bn = { git = "https://github.com/sp1-patches/bn", branch = "patch-v0.7.0" }
+
+[dev-dependencies]
+tokio.workspace = true
+tower = { version = "0.4.13", features = ["util"] }
+strata-btcio = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
