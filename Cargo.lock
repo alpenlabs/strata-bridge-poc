@@ -772,7 +772,7 @@ dependencies = [
 [[package]]
 name = "ark-crypto-primitives"
 version = "0.4.0"
-source = "git+https://github.com/arkworks-rs/crypto-primitives/#6a770ebf87c13d2e0aef0237d1f4669d94eb58a7"
+source = "git+https://github.com/arkworks-rs/crypto-primitives/#b13983815e5b3a0fbeed0e7da0edec751beac270"
 dependencies = [
  "ahash",
  "ark-crypto-primitives-macros",
@@ -794,7 +794,7 @@ dependencies = [
 [[package]]
 name = "ark-crypto-primitives-macros"
 version = "0.4.0"
-source = "git+https://github.com/arkworks-rs/crypto-primitives/#6a770ebf87c13d2e0aef0237d1f4669d94eb58a7"
+source = "git+https://github.com/arkworks-rs/crypto-primitives/#b13983815e5b3a0fbeed0e7da0edec751beac270"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1910,7 +1910,7 @@ dependencies = [
 [[package]]
 name = "bitvm"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/BitVM.git?branch=bridge-poc#cb83f6486a2fbefc5f70e3570f0caf15a535cbc1"
+source = "git+https://github.com/alpenlabs/BitVM.git?branch=bridge-poc#53fbc0be04ab657977f96712beb7b839239a99f4"
 dependencies = [
  "alloy",
  "ark-bn254",
