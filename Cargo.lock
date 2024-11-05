@@ -8274,6 +8274,7 @@ dependencies = [
  "strata-bridge-btcio",
  "strata-bridge-primitives",
  "tokio",
+ "tracing",
 ]
 
 [[package]]
@@ -8371,6 +8372,7 @@ dependencies = [
  "sha2",
  "strata-bridge-db",
  "strata-bridge-primitives",
+ "tracing",
 ]
 
 [[package]]

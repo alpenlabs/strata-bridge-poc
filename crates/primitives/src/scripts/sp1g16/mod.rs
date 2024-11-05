@@ -50,7 +50,7 @@ pub fn is_zeroed(first_byte: u8, buf: &[u8]) -> bool {
 pub fn hash_bn254_be_bytes(data: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     hasher.update(data);
-    let mut hash: [u8; 32] = hasher.finalize().try_into().unwrap();
+    let mut hash: [u8; 32] = hasher.finalize().into();
     hash[0] &= 0b00011111; // mask 3 most significant bits
     hash
 }
@@ -168,11 +168,11 @@ pub fn load_groth16_proof_from_bytes(buffer: &[u8]) -> Proof<Bn254> {
 
 pub fn load_groth16_verifying_key_from_bytes(buffer: &[u8]) -> VerifyingKey<Bn254> {
     let alpha_g1 = g1_point_from_compressed_x_unchecked_bytes(&buffer[..32].try_into().unwrap());
-    let beta_g1 = g1_point_from_compressed_x_unchecked_bytes(&buffer[32..64].try_into().unwrap());
+    let _beta_g1 = g1_point_from_compressed_x_unchecked_bytes(&buffer[32..64].try_into().unwrap());
     let beta_g2 = g2_point_from_compressed_x_bytes_unchecked(&buffer[64..128].try_into().unwrap());
     let gamma_g2 =
         g2_point_from_compressed_x_bytes_unchecked(&buffer[128..192].try_into().unwrap());
-    let delta_g1 =
+    let _delta_g1 =
         g1_point_from_compressed_x_unchecked_bytes(&buffer[192..224].try_into().unwrap());
     let delta_g2 =
         g2_point_from_compressed_x_bytes_unchecked(&buffer[224..288].try_into().unwrap());

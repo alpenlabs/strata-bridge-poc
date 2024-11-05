@@ -4,7 +4,9 @@ use std::{path::PathBuf, time::Duration};
 
 use clap::{crate_version, Parser};
 
-use crate::constants::{DEFAULT_RPC_HOST, DEFAULT_RPC_PORT};
+use crate::constants::{
+    DEFAULT_NUM_THREADS, DEFAULT_RPC_HOST, DEFAULT_RPC_PORT, DEFAULT_STACK_SIZE_MB,
+};
 
 #[derive(Debug, Parser)]
 #[clap(
@@ -37,7 +39,7 @@ pub(crate) struct Cli {
     #[clap(
         long,
         help = "percentage of operators that are faulty (max: 100)",
-        default_value_t = 20,
+        default_value_t = 33,
         value_parser = parse_fault_tolerance,
     )]
     pub fault_tolerance: u8,
@@ -56,6 +58,12 @@ pub(crate) struct Cli {
         default_value = "xpriv.bin"
     )]
     pub xpriv_file: PathBuf,
+
+    #[clap(long, help = "The number of tokio threads to use", default_value_t = DEFAULT_NUM_THREADS)]
+    pub num_threads: usize,
+
+    #[clap(long, help = "The stack size per thread (in MB)", default_value_t = DEFAULT_STACK_SIZE_MB)]
+    pub stack_size: usize,
 }
 
 fn parse_duration(arg: &str) -> Result<Duration, std::num::ParseIntError> {

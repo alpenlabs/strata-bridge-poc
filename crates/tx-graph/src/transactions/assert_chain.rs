@@ -3,6 +3,7 @@ use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::params::connectors::{
     NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
 };
+use tracing::trace;
 
 use super::{
     constants::{
@@ -46,10 +47,13 @@ impl AssertChain {
             connector_a256_factory,
             connector_a160_factory,
         );
+        let pre_assert_txid = pre_assert.compute_txid();
+        trace!(event = "created pre-assert tx", %pre_assert_txid);
+
         let pre_assert_net_output_stake = pre_assert.remaining_stake();
 
         let assert_data_input = AssertDataTxInput {
-            pre_assert_txid: pre_assert.compute_txid(),
+            pre_assert_txid,
             pre_assert_txouts: pre_assert
                 .tx_outs()
                 .iter()
@@ -64,6 +68,7 @@ impl AssertChain {
         > = AssertDataTxBatch::new(assert_data_input, connector_s);
 
         let assert_data_txids = assert_data.compute_txids().to_vec();
+        trace!(event = "created assert_data tx batch", ?assert_data_txids);
 
         let post_assert_data = PostAssertTxData {
             assert_data_txids,
@@ -73,6 +78,8 @@ impl AssertChain {
 
         let post_assert =
             PostAssertTx::new(post_assert_data, connector_s, connector_a30, connector_a31).await;
+
+        trace!(event = "created assert_data tx batch", post_assert_txid = ?post_assert.compute_txid());
 
         Self {
             pre_assert,

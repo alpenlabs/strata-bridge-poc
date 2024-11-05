@@ -2,7 +2,6 @@ use bitcoin::Txid;
 use bitvm::{
     groth16::g16,
     signatures::wots::{wots160, wots256, wots32},
-    treepp::*,
 };
 
 use super::{
@@ -176,6 +175,7 @@ mod mock {
         vk
     }
 
+    #[expect(unused)]
     pub fn get_proof_and_public_inputs() -> (g16::Proof, g16::PublicInputs) {
         const PROOF_BYTES: [u8; 256] = [
             3, 19, 181, 171, 106, 36, 254, 91, 176, 187, 23, 155, 242, 49, 77, 18, 29, 61, 133,
@@ -211,6 +211,8 @@ mod mock {
 }
 
 mod _mock {
+    #![allow(unused)]
+    #![allow(dead_code)]
     use ark_bn254::{Bn254, Fr};
     use ark_crypto_primitives::snark::{CircuitSpecificSetupSNARK, SNARK};
     use ark_ff::AdditiveGroup;
@@ -306,12 +308,7 @@ mod tests {
     use ark_bn254::{Fq, Fr};
     use ark_ff::{BigInteger, PrimeField, UniformRand};
     use ark_std::test_rng;
-    use bitcoin::{
-        opcodes::all::{
-            OP_BOOLAND, OP_ENDIF, OP_EQUAL, OP_FROMALTSTACK, OP_GREATERTHAN, OP_SWAP, OP_TOALTSTACK,
-        },
-        ScriptBuf,
-    };
+    use bitcoin::ScriptBuf;
     use bitvm::{
         groth16::g16,
         hash::sha256::sha256,
@@ -328,8 +325,8 @@ mod tests {
 
     #[test]
     fn test_groth16_compile() {
-        let BRIDGE_POC_VK = bridge_poc_verification_key();
-        let partial_disprove_scripts = g16::compile_verifier(BRIDGE_POC_VK);
+        let bridge_poc_vk = bridge_poc_verification_key();
+        let partial_disprove_scripts = g16::compile_verifier(bridge_poc_vk);
         save_partial_disprove_scripts(&partial_disprove_scripts);
         println!(
             "script.lens: {:?}",
@@ -363,7 +360,7 @@ mod tests {
 
     #[test]
     fn test_full_verification() {
-        let BRIDGE_POC_VK = bridge_poc_verification_key();
+        let bridge_poc_vk = bridge_poc_verification_key();
 
         println!("Generating assertions");
         // let assertions = {
@@ -395,7 +392,7 @@ mod tests {
         let signatures = generate_wots_signatures(WOTS_MSK, deposit_txid, assertions).groth16;
 
         println!("Validating assertion signatures");
-        match g16::verify_signed_assertions(BRIDGE_POC_VK, public_keys, signatures) {
+        match g16::verify_signed_assertions(bridge_poc_vk, public_keys, signatures) {
             Some((tapleaf_index, witness_script)) => {
                 println!("Assertion is invalid");
 
@@ -2900,7 +2897,7 @@ mod tests {
     }
 
     fn from_wots256_signature<F: PrimeField>(signature: wots256::Signature) -> F {
-        let nibbles = &signature.map(|(sig, digit)| digit)[0..wots256::M_DIGITS as usize];
+        let nibbles = &signature.map(|(_sig, digit)| digit)[0..wots256::M_DIGITS as usize];
         let bytes = nibbles
             .chunks(2)
             .rev()
@@ -2909,8 +2906,9 @@ mod tests {
         F::from_le_bytes_mod_order(&bytes)
     }
 
+    #[expect(dead_code)]
     fn from_wots160_signature<F: PrimeField>(signature: wots160::Signature) -> F {
-        let nibbles = &signature.map(|(sig, digit)| digit)[0..wots160::M_DIGITS as usize];
+        let nibbles = &signature.map(|(_sig, digit)| digit)[0..wots160::M_DIGITS as usize];
         let bytes = nibbles
             .chunks(2)
             .rev()
@@ -2951,14 +2949,14 @@ mod tests {
             198, 161, 226, 103, 173, 53, 157, 114, 60, 179, 155, 37, 36, 29,
         ];
 
-        let data = &[
+        let _data = &[
             32, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
             18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 0, 0, 0, 0, 0, 0, 0, 0, 2,
             4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46,
             48, 50, 52, 54, 56, 58, 60, 62, 120, 86, 52, 18,
         ];
 
-        fn hash2fqBn254() -> Script {
+        fn hash_2fq_bn254() -> Script {
             script! {
                 for i in 1..=3 {
                     { 1 << (8 - i) }
@@ -3014,7 +3012,7 @@ mod tests {
             for _ in 0..32 { OP_FROMALTSTACK } raw_hash_padding
 
             { sha256(84) }
-            { hash2fqBn254() }
+            { hash_2fq_bn254() }
 
             // verify that hashes don't match
             for i in (1..32).rev() {

@@ -19,10 +19,9 @@ use strata_bridge_primitives::{
     duties::BridgeDuty,
     types::PublickeyTable,
 };
-use strata_common::logging;
 use strata_rpc::StrataApiClient;
 use tokio::{sync::broadcast, task::JoinSet};
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 use crate::{
     cli::Cli,
@@ -32,8 +31,6 @@ use crate::{
 };
 
 pub(crate) async fn bootstrap(args: Cli) {
-    logging::init();
-
     // instantiate RPC client for Strata and Bitcoin
     let strata_rpc_client = WsClientBuilder::default()
         .request_timeout(args.strata_ws_timeout)
@@ -41,6 +38,7 @@ pub(crate) async fn bootstrap(args: Cli) {
         .await
         .expect("failed to connect to the strata RPC server");
 
+    debug!(action = "querying for operator pubkey set");
     let pubkey_table = strata_rpc_client
         .get_active_operator_chain_pubkey_set()
         .await
@@ -59,10 +57,12 @@ pub(crate) async fn bootstrap(args: Cli) {
     let mut tasks = JoinSet::new();
 
     let duty_sender_copy = duty_sender.clone();
+    info!(action = "starting duty watcher", poll_interval=?args.duty_interval);
     tasks.spawn(async move {
         duty_watcher.start(duty_sender_copy.clone()).await;
     });
 
+    info!(action = "starting operators");
     for operator in operators {
         let mut duty_receiver = duty_sender.subscribe();
 
@@ -81,6 +81,7 @@ pub(crate) async fn bootstrap(args: Cli) {
     let rpc_port = args.rpc_port;
     let rpc_addr = format!("{rpc_host}:{rpc_port}");
 
+    info!(action = "starting rpc server");
     tasks.spawn(async move {
         if let Err(e) = rpc_server::start(&bridge_rpc, rpc_addr.as_str()).await {
             error!(error = %e, "could not start RPC server");
@@ -93,6 +94,7 @@ pub(crate) async fn bootstrap(args: Cli) {
 pub async fn generate_operator_set(args: &Cli, pubkey_table: PublickeyTable) -> Vec<Operator> {
     // initialize public database
     let public_db = PublicDb::default();
+    debug!(event = "initialized public db");
 
     public_db.set_musig_pubkey_table(&pubkey_table.0).await;
 
@@ -133,7 +135,9 @@ pub async fn generate_operator_set(args: &Cli, pubkey_table: PublickeyTable) -> 
 
         let is_faulty = OsRng.gen_ratio(args.fault_tolerance as u32, 100);
 
-        faulty_idxs.push(operator_idx);
+        if is_faulty {
+            faulty_idxs.push(operator_idx);
+        }
 
         let operator_db = OperatorDb::default();
         let operator = Operator::new(

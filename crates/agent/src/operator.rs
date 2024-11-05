@@ -133,19 +133,21 @@ impl Operator {
     }
 
     pub async fn handle_deposit(&mut self, deposit_info: DepositInfo) {
+        let own_index = self.build_context.own_index();
+
         // 1. aggregate_tx_graph
         let mut deposit_tx = deposit_info
             .construct_signing_data(&self.build_context)
             .expect("should be able to create build context");
         let deposit_txid = deposit_tx.psbt.unsigned_tx.compute_txid();
 
-        info!(action = "generating wots public keys", operator_idx = %self.build_context.own_index(), deposit_txid = %deposit_txid);
+        info!(action = "generating wots public keys", operator_idx = %own_index, deposit_txid = %deposit_txid);
         let public_keys = generate_wots_public_keys(&self.msk, deposit_txid);
         self.public_db
             .set_wots_public_keys(self.build_context.own_index(), deposit_txid, &public_keys)
             .await;
 
-        info!(action = "generating kickoff", operator_idx = %self.build_context.own_index(), deposit_txid = %deposit_txid);
+        info!(action = "generating kickoff", operator_idx = %own_index, deposit_txid = %deposit_txid);
         let reserved_outpoints = self.db.selected_outpoints().await;
         let (change_address, funding_input, total_amount, funding_utxo) = self
             .agent
@@ -159,6 +161,7 @@ impl Operator {
         let funding_utxos = vec![funding_utxo];
         let change_amt = total_amount - OPERATOR_STAKE - MIN_RELAY_FEE;
 
+        info!(action = "composing pegout graph input", operator_idx = %own_index, deposit_txid = %deposit_txid);
         let peg_out_graph_input = PegOutGraphInput {
             network: self.build_context.network(),
             deposit_amount: BRIDGE_DENOMINATION,
@@ -185,6 +188,7 @@ impl Operator {
             )
             .await;
 
+        info!(action = "composing pegout graph connectors", operator_idx = %own_index, deposit_txid = %deposit_txid);
         let peg_out_graph_connectors = PegOutGraphConnectors::new(
             self.public_db.clone(),
             &self.build_context,
@@ -192,16 +196,17 @@ impl Operator {
             self.build_context.own_index(),
         )
         .await;
+
+        info!(action = "generating pegout graph", operator_idx = %own_index, deposit_txid = %deposit_txid);
         let peg_out_graph = PegOutGraph::generate(
             peg_out_graph_input.clone(),
             deposit_txid,
             peg_out_graph_connectors,
+            own_index,
         )
         .await;
 
         // 2. Aggregate nonces for peg out graph txs that require covenant.
-        let own_index = self.build_context.own_index();
-
         info!(action = "aggregating nonces for emulated covenant", %own_index, %deposit_txid);
         self.aggregate_covenant_nonces(
             deposit_txid,
@@ -404,8 +409,13 @@ impl Operator {
                             assert_chain,
                             disprove_tx,
                             payout_tx,
-                        } = PegOutGraph::generate(peg_out_graph_input, deposit_txid, connectors)
-                            .await;
+                        } = PegOutGraph::generate(
+                            peg_out_graph_input,
+                            deposit_txid,
+                            connectors,
+                            sender_id,
+                        )
+                        .await;
                         let AssertChain {
                             pre_assert,
                             assert_data: _,
@@ -738,8 +748,13 @@ impl Operator {
                             assert_chain,
                             disprove_tx,
                             payout_tx,
-                        } = PegOutGraph::generate(peg_out_graph_input, deposit_txid, connectors)
-                            .await;
+                        } = PegOutGraph::generate(
+                            peg_out_graph_input,
+                            deposit_txid,
+                            connectors,
+                            sender_id,
+                        )
+                        .await;
                         let AssertChain {
                             pre_assert,
                             assert_data: _,

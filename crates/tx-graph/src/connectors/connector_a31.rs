@@ -27,6 +27,7 @@ pub struct ConnectorA31<DB: ConnectorDb> {
 }
 
 #[derive(Debug, Clone)]
+#[expect(clippy::large_enum_variant)]
 pub enum ConnectorA31Leaf {
     InvalidateProof((usize, Option<Script>)),
     DisproveChain(Option<(wots256::Signature, wots32::Signature, [u8; 80])>),
@@ -150,11 +151,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             }
             ConnectorA31Leaf::InvalidateProof((disprove_script_index, _)) => {
                 let partial_disprove_scripts = &self.db.get_partial_disprove_scripts().await;
-                let public_keys = self
-                    .db
-                    .get_wots_public_keys(todo!(), deposit_txid)
-                    .await
-                    .groth16;
+                let public_keys = self.db.get_wots_public_keys(0, deposit_txid).await.groth16;
                 let disprove_scripts =
                     g16::generate_disprove_scripts(public_keys, partial_disprove_scripts);
                 disprove_scripts[disprove_script_index].clone()

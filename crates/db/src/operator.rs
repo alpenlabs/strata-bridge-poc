@@ -128,7 +128,9 @@ impl OperatorDb {
     }
 
     pub async fn add_outpoint(&self, outpoint: OutPoint) -> bool {
-        self.selected_outpoints.write().await.insert(outpoint)
+        let mut selected_outpoints = self.selected_outpoints.write().await;
+
+        selected_outpoints.insert(outpoint)
     }
 
     pub async fn selected_outpoints(&self) -> HashSet<OutPoint> {
@@ -136,10 +138,9 @@ impl OperatorDb {
     }
 
     pub async fn add_kickoff_info(&self, deposit_txid: Txid, kickoff_info: KickoffInfo) {
-        self.peg_out_graphs
-            .write()
-            .await
-            .insert(deposit_txid, kickoff_info);
+        let mut peg_out_graph = self.peg_out_graphs.write().await;
+
+        peg_out_graph.insert(deposit_txid, kickoff_info);
     }
 
     pub async fn get_kickoff_info(&self, deposit_txid: Txid) -> Option<KickoffInfo> {

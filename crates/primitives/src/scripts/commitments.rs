@@ -1,4 +1,4 @@
-use bitvm::signatures::wots::{wots160, wots256, wots32};
+use bitvm::signatures::wots::{wots256, wots32};
 use sha2::Digest;
 
 fn secret_key_from_msk(msk: &str, var: &str) -> String {

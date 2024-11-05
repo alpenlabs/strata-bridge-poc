@@ -10,6 +10,7 @@ use strata_bridge_primitives::{
     scripts::wots,
     types::OperatorIdx,
 };
+use tracing::debug;
 
 use crate::{connectors::prelude::*, transactions::prelude::*};
 
@@ -42,6 +43,7 @@ impl PegOutGraph {
         input: PegOutGraphInput,
         deposit_txid: Txid,
         connectors: PegOutGraphConnectors<Db>,
+        operator_idx: OperatorIdx,
     ) -> Self {
         let kickoff_tx = KickOffTx::new(
             input.kickoff_data,
@@ -50,6 +52,7 @@ impl PegOutGraph {
         )
         .await;
         let kickoff_txid = kickoff_tx.compute_txid();
+        debug!(event = "created kickoff tx", %operator_idx, %kickoff_txid);
 
         let claim_data = ClaimData {
             kickoff_txid,
@@ -64,6 +67,7 @@ impl PegOutGraph {
         )
         .await;
         let claim_txid = claim_tx.compute_txid();
+        debug!(event = "created claim tx", %operator_idx, %claim_txid);
 
         let assert_chain_data = AssertChainData {
             pre_assert_data: PreAssertData {
@@ -87,6 +91,8 @@ impl PegOutGraph {
         let post_assert_txid = assert_chain.post_assert.compute_txid();
         let post_assert_out_stake = assert_chain.post_assert.remaining_stake();
 
+        debug!(event = "created assert chain", %operator_idx, %post_assert_txid);
+
         let payout_data = PayoutData {
             post_assert_txid,
             deposit_txid,
@@ -101,6 +107,8 @@ impl PegOutGraph {
             connectors.post_assert_out_0.clone(),
             connectors.stake,
         );
+        let payout_txid = payout_tx.compute_txid();
+        debug!(event = "created payout tx", %operator_idx, %payout_txid);
 
         let disprove_data = DisproveData {
             post_assert_txid,
@@ -115,6 +123,8 @@ impl PegOutGraph {
             connectors.post_assert_out_1,
         )
         .await;
+        let disprove_txid = disprove_tx.compute_txid();
+        debug!(event = "created disprove tx", %operator_idx, %disprove_txid);
 
         Self {
             kickoff_tx,

@@ -9,7 +9,7 @@ DOCKER_DIR = docker
 DOCKER_DATADIR = data
 
 # Cargo profile for builds. Default is for local builds, CI uses an override.
-PROFILE ?= release
+PROFILE ?= debug
 
 # Extra flags for Cargo
 CARGO_INSTALL_EXTRA_FLAGS ?=
@@ -186,11 +186,14 @@ pr: lint sec rustdocs test-doc test-unit test-functional ## Runs lints (without 
 
 .PHONY: run
 run:
-	cargo r --bin strata-bridge -- \
+	RUST_LOG=trace,soketto=error,strata_bridge_btcio=warn,strata_bridge_agent=info,hyper_util=error,jsonrpsee=error \
+		cargo r \
+		--bin strata-bridge \
+		--profile "$(PROFILE)" \
+		-- \
 		--strata-url ws://localhost:8432 \
 		--btc-url http://localhost:18443 \
-		--btc-user strata \
-		--btc-pass strata \
+		--btc-user rpcuser \
+		--btc-pass rpcpassword \
 		--duty-interval 10 \
 		--xpriv-file .secrets/xprivs.bin
-

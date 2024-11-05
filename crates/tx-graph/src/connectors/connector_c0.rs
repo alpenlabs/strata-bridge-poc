@@ -34,7 +34,7 @@ impl ConnectorC0 {
             ConnectorC0Leaf::PayoutOptimistic => {
                 n_of_n_with_timelock(&self.n_of_n_agg_pubkey, PAYOUT_OPTIMISTIC_TIMELOCK)
             }
-            ConnectorC0Leaf::Assert => unimplemented!("add script for using T_s bitcommitment"),
+            ConnectorC0Leaf::Assert => anyone_can_spend_script(), // FIXME: implement this
             ConnectorC0Leaf::InvalidateTs => {
                 n_of_n_with_timelock(&self.n_of_n_agg_pubkey, SUPERBLOCK_MEASUREMENT_PERIOD)
             }

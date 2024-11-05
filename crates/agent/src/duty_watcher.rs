@@ -42,7 +42,8 @@ impl<StrataClient: StrataApiClient + Send + Sync> DutyWatcher<StrataClient> {
                     start_index,
                     stop_index,
                 }) => {
-                    info!(event = "fetched duties", %start_index, %stop_index, num_duties = %duties.len());
+                    let num_duties = duties.len();
+                    info!(event = "fetched duties", %start_index, %stop_index, %num_duties);
 
                     for duty in duties {
                         duty_sender.send(duty).expect("should be able to send duty");
