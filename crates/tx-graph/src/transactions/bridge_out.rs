@@ -1,8 +1,9 @@
 use bitcoin::{Address, Amount, Network, OutPoint, Transaction};
 use rand::Rng;
 use secp256k1::{XOnlyPublicKey, SECP256K1};
-use strata_bridge_primitives::scripts::general::{
-    create_tx, create_tx_ins, create_tx_outs, op_return_nonce,
+use strata_bridge_primitives::{
+    scripts::general::{create_tx, create_tx_ins, create_tx_outs, op_return_nonce},
+    types::OperatorIdx,
 };
 
 #[derive(Debug, Clone)]
@@ -11,6 +12,7 @@ pub struct BridgeOut(Transaction);
 impl BridgeOut {
     pub fn new(
         network: Network,
+        operator_idx: OperatorIdx,
         sender_outpoints: Vec<OutPoint>,
         amount: Amount,
         change_address: Address,
@@ -26,10 +28,14 @@ impl BridgeOut {
         let op_return_amount = Amount::from_int_btc(0);
 
         let mut rng = rand::thread_rng();
+        let prefix: [u8; 4] = operator_idx.to_be_bytes();
         loop {
-            let random_data: Vec<u8> = (0..2).map(|_| rng.gen()).collect(); // 2 random bytes
+            let random_data = (0..2).map(|_| rng.gen::<u8>()); // 2 random bytes
+            let mut nonce = vec![];
+            nonce.extend(prefix);
+            nonce.extend(random_data);
 
-            let op_return_script = op_return_nonce(random_data);
+            let op_return_script = op_return_nonce(nonce);
 
             let scripts_and_amounts = [
                 (recipient_pubkey.clone(), amount),
@@ -96,8 +102,10 @@ mod tests {
         );
 
         // Call the `new` function to create a transaction
+        let operator_idx: u32 = rand::thread_rng().gen();
         let bridge_out = BridgeOut::new(
             network,
+            operator_idx,
             sender_outpoints,
             amount,
             change_address.clone(),
@@ -110,7 +118,6 @@ mod tests {
 
         // Check if the transaction hash starts with a zero nibble
         let txid = tx.compute_txid();
-        dbg!(&txid);
         assert!(
             txid.to_string().starts_with('0'),
             "Transaction ID does not start with zero nibble"

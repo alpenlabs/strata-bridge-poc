@@ -36,6 +36,15 @@ impl From<WithdrawalInfo> for BridgeDuty {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BridgeDuties {
+    pub duties: Vec<BridgeDuty>,
+
+    pub start_index: u64,
+
+    pub stop_index: u64,
+}
+
 /// The various states a bridge duty may be in.
 ///
 /// The full state transition looks as follows:

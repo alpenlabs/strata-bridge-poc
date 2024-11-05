@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "strata-bridge-agent"
+name = "strata-bridge-rpc"
 version = "0.1.0"
 
 [lints]
@@ -11,22 +11,18 @@ rust.rust_2018_idioms = { level = "deny", priority = -1 }
 rust.unused_must_use = "deny"
 
 [dependencies]
-strata-bridge-btcio.workspace = true
 strata-bridge-db.workspace = true
 strata-bridge-primitives.workspace = true
-strata-bridge-tx-graph.workspace = true
-strata-rpc = { workspace = true, features = ["client"] }
-
-strata-bridge-tx-builder.workspace = true
-strata-state.workspace = true
 
 anyhow.workspace = true
+async-trait.workspace = true
 bitcoin = { workspace = true, features = ["rand-std"] }
 bitcoin-script = { workspace = true }
 bitcoin-scriptexec = { workspace = true }
 bitvm = { workspace = true }
 esplora-client.workspace = true
 hex.workspace = true
+jsonrpsee = { workspace = true, features = ["server", "macros"] }
 lazy_static.workspace = true
 musig2 = { workspace = true, features = ["serde"] }
 rand.workspace = true
@@ -35,4 +31,7 @@ serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
 tokio.workspace = true
-tracing.workspace = true
+
+[features]
+default = []
+client = ["jsonrpsee/client"]

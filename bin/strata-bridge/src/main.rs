@@ -5,6 +5,8 @@
 
 mod bootstrap;
 mod cli;
+mod constants;
+mod rpc_server;
 pub mod xpriv;
 
 use bootstrap::bootstrap;
@@ -15,7 +17,5 @@ use cli::Cli;
 async fn main() {
     let cli_args: Cli = Cli::parse();
 
-    bootstrap(cli_args)
-        .await
-        .expect("should be able to bootstrap node");
+    bootstrap(cli_args).await;
 }
