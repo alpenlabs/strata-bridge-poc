@@ -379,7 +379,7 @@ mod tests {
         // return;
         let assertions = {
             let mut assertions = get_mock_assertions();
-            assertions.groth16.0[0] = [1u8; 32]; // make incorrect assertions
+            assertions.groth16.1[0] = [1u8; 32]; // make incorrect assertions
             assertions
         };
 
