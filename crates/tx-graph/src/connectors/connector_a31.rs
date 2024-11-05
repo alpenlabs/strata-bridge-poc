@@ -7,7 +7,7 @@ use bitvm::{
     bn254::chunk_superblock::H256,
     hash::sha256::sha256,
     pseudo::NMUL,
-    signatures::wots::{wots256, wots32, ISignature},
+    signatures::wots::{wots256, wots32, SignatureImpl},
     treepp::*,
 };
 use strata_bridge_db::connector_db::ConnectorDb;

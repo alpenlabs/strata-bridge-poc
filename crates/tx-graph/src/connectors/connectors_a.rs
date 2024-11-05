@@ -7,7 +7,10 @@ use bitcoin::{
 use bitvm::{
     bigint::U254,
     bn254::{fp254impl::Fp254Impl, fq::Fq},
-    signatures::wots::{wots160, wots256},
+    signatures::{
+        self,
+        wots::{wots160, wots256, SignatureImpl},
+    },
     treepp::*,
 };
 use strata_bridge_primitives::scripts::prelude::*;
@@ -104,11 +107,14 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA256<N_PUBLIC_KEYS> {
         (script, control_block)
     }
 
-    pub fn create_tx_input(&self, input: &mut Input, msk: &str, values: [&[u8]; N_PUBLIC_KEYS]) {
+    pub fn create_tx_input(
+        &self,
+        input: &mut Input,
+        msk: &str,
+        signatures: [wots256::Signature; N_PUBLIC_KEYS],
+    ) {
         let witness = script! {
-            for i in (0..self.public_keys.len()).rev() {
-                // { wots256::sign(&secret_key_for_proof_element(msk, self.public_keys[i]), values[i]) }
-            }
+            for sig in signatures { { sig.to_script() } }
         }
         .compile();
 
@@ -216,11 +222,14 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA160<N_PUBLIC_KEYS> {
         (script, control_block)
     }
 
-    pub fn create_tx_input(&self, input: &mut Input, msk: &str, values: [&[u8]; N_PUBLIC_KEYS]) {
+    pub fn create_tx_input(
+        &self,
+        input: &mut Input,
+        msk: &str,
+        signatures: [wots160::Signature; N_PUBLIC_KEYS],
+    ) {
         let witness = script! {
-            for i in (0..self.public_keys.len()).rev() {
-                // { wots160::sign(&secret_key_for_proof_element(msk, self.public_keys[i]), values[i]) }
-            }
+            for sig in signatures { { sig.to_script() } }
         }
         .compile();
 
