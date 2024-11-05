@@ -18,7 +18,7 @@ pub struct PublicKeys {
     pub bridge_out_txid: wots256::PublicKey,
     pub superblock_hash: wots256::PublicKey,
     pub superblock_period_start_ts: wots32::PublicKey,
-    pub groth16: g16::WotsPublicKeys,
+    pub groth16: g16::PublicKeys,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -26,7 +26,7 @@ pub struct Signatures {
     pub bridge_out_txid: wots256::Signature,
     pub superblock_hash: wots256::Signature,
     pub superblock_period_start_ts: wots32::Signature,
-    pub groth16: g16::WotsSignatures,
+    pub groth16: g16::Signatures,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -34,7 +34,7 @@ pub struct Assertions {
     pub bridge_out_txid: [u8; 32],
     pub superblock_hash: [u8; 32],
     pub superblock_period_start_ts: [u8; 4],
-    pub groth16: g16::ProofAssertions,
+    pub groth16: g16::Assertions,
 }
 
 pub fn bridge_poc_verification_key() -> g16::VerifyingKey {
@@ -42,35 +42,35 @@ pub fn bridge_poc_verification_key() -> g16::VerifyingKey {
     mock::get_verifying_key()
 }
 
-pub fn generate_verifier_partial_scripts() -> [Script; g16::N_TAPLEAVES] {
-    g16::Verifier::compile(bridge_poc_verification_key())
-}
+// pub fn generate_verifier_partial_scripts() -> [Script; g16::N_TAPLEAVES] {
+//     g16::Verifier::compile(bridge_poc_verification_key())
+// }
 
-pub fn generate_verifier_tapscripts_from_partial_scripts(
-    verifier_scripts: &[Script; g16::N_TAPLEAVES],
-    public_keys: g16::WotsPublicKeys,
-) -> [Script; g16::N_TAPLEAVES] {
-    g16::Verifier::generate_tapscripts(public_keys, verifier_scripts)
-}
+// pub fn generate_verifier_tapscripts_from_partial_scripts(
+//     verifier_scripts: &[Script; g16::N_TAPLEAVES],
+//     public_keys: g16::PublicKeys,
+// ) -> [Script; g16::N_TAPLEAVES] {
+//     g16::Verifier::generate_tapscripts(public_keys, verifier_scripts)
+// }
 
-pub fn generate_assertions_for_proof(
-    vk: g16::VerifyingKey,
-    proof: g16::Proof,
-    public_inputs: g16::PublicInputs,
-) -> g16::ProofAssertions {
-    g16::Verifier::generate_assertions(vk, proof, public_inputs)
-}
+// pub fn generate_assertions_for_proof(
+//     vk: g16::VerifyingKey,
+//     proof: g16::Proof,
+//     public_inputs: g16::PublicInputs,
+// ) -> g16::Assertions {
+//     g16::Verifier::generate_assertions(vk, proof, public_inputs)
+// }
 
-pub fn validate_assertion_signatures(
-    signatures: g16::WotsSignatures,
-    public_keys: g16::WotsPublicKeys,
-) -> Option<(usize, Script)> {
-    g16::Verifier::validate_assertion_signatures(
-        bridge_poc_verification_key(),
-        signatures,
-        public_keys,
-    )
-}
+// pub fn validate_assertion_signatures(
+//     signatures: g16::Signatures,
+//     public_keys: g16::PublicKeys,
+// ) -> Option<(usize, Script)> {
+//     g16::Verifier::validate_assertion_signatures(
+//         bridge_poc_verification_key(),
+//         signatures,
+//         public_keys,
+//     )
+// }
 
 pub fn get_deposit_master_secret_key(msk: &str, deposit_txid: Txid) -> String {
     format!("{}:{}", msk, deposit_txid)
@@ -329,27 +329,30 @@ mod tests {
     #[test]
     fn test_groth16_compile() {
         let BRIDGE_POC_VK = bridge_poc_verification_key();
-        let scripts = g16::Verifier::compile(BRIDGE_POC_VK);
-        save_verifier_scripts(&scripts);
-        println!("script.lens: {:?}", scripts.map(|script| script.len()));
+        let partial_disprove_scripts = g16::compile_verifier(BRIDGE_POC_VK);
+        save_partial_disprove_scripts(&partial_disprove_scripts);
+        println!(
+            "script.lens: {:?}",
+            partial_disprove_scripts.map(|script| script.len())
+        );
     }
 
-    fn save_verifier_scripts(scripts: &[Script; g16::N_TAPLEAVES]) {
-        print!("Saving verifier scripts...");
+    fn save_partial_disprove_scripts(scripts: &[Script; g16::N_TAPLEAVES]) {
+        print!("Saving partial disprove scripts...");
 
         for (index, script) in scripts.iter().enumerate() {
-            let path = format!("data/verifier-scripts/{index}");
+            let path = format!("data/partial-disprove-scripts/{index}");
             fs::write(path, script.clone().compile().to_bytes()).unwrap();
             print!("{}, ", index);
         }
         println!();
     }
 
-    fn read_verifier_scripts() -> [Script; g16::N_TAPLEAVES] {
+    fn read_partial_disprove_scripts() -> [Script; g16::N_TAPLEAVES] {
         print!("Reading verifier scripts...");
 
         let scripts = std::array::from_fn(|index| {
-            let path = format!("data/verifier-scripts/{index}");
+            let path = format!("data/partial-disprove-scripts/{index}");
             let script_buf = ScriptBuf::from_bytes(fs::read(path).unwrap());
             print!("{}, ", index);
             script!().push_script(script_buf)
@@ -386,27 +389,20 @@ mod tests {
         let deposit_txid = mock_txid();
 
         println!("Generating wots public keys");
-        let wots_public_keys = generate_wots_public_keys(WOTS_MSK, deposit_txid);
+        let public_keys = generate_wots_public_keys(WOTS_MSK, deposit_txid).groth16;
 
         println!("Generating wots signatures");
-        let wots_signatures = generate_wots_signatures(WOTS_MSK, deposit_txid, assertions);
+        let signatures = generate_wots_signatures(WOTS_MSK, deposit_txid, assertions).groth16;
 
         println!("Validating assertion signatures");
-        let res = g16::Verifier::validate_assertion_signatures(
-            BRIDGE_POC_VK,
-            wots_signatures.groth16,
-            wots_public_keys.groth16,
-        );
-
-        match res {
+        match g16::verify_signed_assertions(BRIDGE_POC_VK, public_keys, signatures) {
             Some((tapleaf_index, witness_script)) => {
                 println!("Assertion is invalid");
 
-                let tapleaf_script = g16::Verifier::generate_tapscripts(
-                    wots_public_keys.groth16,
-                    &read_verifier_scripts(),
-                )[tapleaf_index]
-                    .clone();
+                let tapleaf_script =
+                    g16::generate_disprove_scripts(public_keys, &read_partial_disprove_scripts())
+                        [tapleaf_index]
+                        .clone();
 
                 println!(
                     "{tapleaf_index}: {}, {}",

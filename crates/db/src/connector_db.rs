@@ -8,7 +8,7 @@ use strata_bridge_primitives::{scripts::wots, types::OperatorIdx};
 
 #[async_trait]
 pub trait ConnectorDb: Clone + Debug + Send + Sync {
-    async fn get_verifier_scripts(&self) -> [Script; g16::N_TAPLEAVES];
+    async fn get_partial_disprove_scripts(&self) -> [Script; g16::N_TAPLEAVES];
 
     async fn get_wots_public_keys(&self, operator_id: u32, deposit_txid: Txid) -> wots::PublicKeys;
 

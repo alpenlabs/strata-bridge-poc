@@ -149,14 +149,14 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                 }
             }
             ConnectorA31Leaf::InvalidateProof((disprove_script_index, _)) => {
-                let verifier_scripts = &self.db.get_verifier_scripts().await;
+                let partial_disprove_scripts = &self.db.get_partial_disprove_scripts().await;
                 let public_keys = self
                     .db
                     .get_wots_public_keys(todo!(), deposit_txid)
                     .await
                     .groth16;
                 let disprove_scripts =
-                    g16::Verifier::generate_tapscripts(public_keys, verifier_scripts);
+                    g16::generate_disprove_scripts(public_keys, partial_disprove_scripts);
                 disprove_scripts[disprove_script_index].clone()
             }
         }

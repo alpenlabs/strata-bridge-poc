@@ -8,7 +8,7 @@ use bitcoin::Txid;
 use bitcoin_script::Script;
 use bitvm::groth16::g16::{self};
 use secp256k1::{schnorr::Signature, PublicKey};
-use strata_bridge_primitives::scripts::wots::{self, generate_verifier_partial_scripts};
+use strata_bridge_primitives::scripts::wots::{self, bridge_poc_verification_key};
 use tokio::sync::RwLock;
 
 use super::operator::OperatorIdx;
@@ -37,7 +37,9 @@ pub struct PublicDb {
 impl Default for PublicDb {
     fn default() -> Self {
         Self {
-            verifier_scripts: Arc::new(RwLock::new(generate_verifier_partial_scripts())),
+            verifier_scripts: Arc::new(RwLock::new(g16::compile_verifier(
+                bridge_poc_verification_key(),
+            ))),
             musig_pubkey_table: Default::default(),
             wots_public_keys: Default::default(),
             wots_signatures: Default::default(),
@@ -145,7 +147,7 @@ impl PublicDb {
 
 #[async_trait]
 impl ConnectorDb for PublicDb {
-    async fn get_verifier_scripts(&self) -> [Script; g16::N_TAPLEAVES] {
+    async fn get_partial_disprove_scripts(&self) -> [Script; g16::N_TAPLEAVES] {
         self.verifier_scripts.read().await.clone()
     }
 
