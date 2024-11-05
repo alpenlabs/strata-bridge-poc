@@ -42,6 +42,31 @@ fn get_batch_checkpoint(block: &Block, tx_filters: Vec<TxFilterRule>) -> Option<
     None
 }
 
+// Paid to the user Tap Scripit
+// OP Return has the Operator info
+// Find these infos and return the:
+// i)  User <Address, Aamt>
+// ii) Operator address
+fn get_payment_txn(block: &Block) -> (u64, Vec<u8>, Vec<u8>) {
+    assert!(check_merkle_root(block));
+    assert!(check_witness_commitment(block));
+
+    let amt: u64 = 10;
+    let dest_addrs: Vec<u8> = Vec::new();
+    let operator_address: Vec<u8> = Vec::new();
+
+    (amt, dest_addrs, operator_address)
+}
+
+// Ts is commited in the Claim Transaction
+fn get_claim_txn(block: &Block) -> u32 {
+    assert!(check_merkle_root(block));
+    assert!(check_witness_commitment(block));
+
+    // TODO: Filter out the claim txn and parse the Ts
+    block.header.time
+}
+
 #[cfg(test)]
 mod test {
     use bitcoin::block::Header;
