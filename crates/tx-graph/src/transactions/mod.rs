@@ -3,6 +3,7 @@ pub mod assert_data;
 pub mod bridge_out;
 pub mod claim;
 pub mod constants;
+pub mod covenant_tx;
 pub mod disprove;
 pub mod kickoff;
 pub mod payout;

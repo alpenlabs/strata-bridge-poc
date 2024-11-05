@@ -1,9 +1,16 @@
+use bitcoin::Txid;
 use bitvm::{
     groth16::g16::{
         self, Proof, ProofAssertions as Groth16ProofAssertions, VerificationKey, WotsPublicKeys,
         WotsSignatures, N_TAPLEAVES,
     },
+    signatures::wots::{wots160, wots256},
     treepp::*,
+};
+
+use super::commitments::{
+    secret_key_for_bridge_out_txid, secret_key_for_proof_element, secret_key_for_superblock_hash,
+    secret_key_for_superblock_period_start_ts,
 };
 
 pub fn bridge_poc_verification_key() -> g16::VerificationKey {
@@ -38,6 +45,63 @@ pub fn validate_assertion_signatures(
         bridge_poc_verification_key(),
         signatures,
         public_keys,
+    )
+}
+
+pub fn get_deposit_master_secret_key(msk: &str, deposit_txid: Txid) -> String {
+    format!("{}:{}", msk, deposit_txid)
+}
+
+pub fn generate_wots_public_keys(msk: &str, deposit_txid: Txid) -> g16::WotsPublicKeys {
+    let deposit_msk = get_deposit_master_secret_key(msk, deposit_txid);
+    (
+        [
+            wots256::generate_public_key(&secret_key_for_superblock_period_start_ts(&deposit_msk)),
+            wots256::generate_public_key(&secret_key_for_bridge_out_txid(&deposit_msk)),
+            wots256::generate_public_key(&secret_key_for_superblock_hash(&deposit_msk)),
+        ],
+        std::array::from_fn(|i| {
+            wots256::generate_public_key(&secret_key_for_proof_element(&deposit_msk, i))
+        }),
+        std::array::from_fn(|i| {
+            wots160::generate_public_key(&secret_key_for_proof_element(&deposit_msk, i + 40))
+        }),
+    )
+}
+
+pub fn generate_wots_signatures(
+    msk: &str,
+    deposit_txid: Txid,
+    assertions: g16::ProofAssertions,
+) -> g16::WotsSignatures {
+    let deposit_msk = get_deposit_master_secret_key(msk, deposit_txid);
+    (
+        [
+            wots256::get_signature(
+                &secret_key_for_superblock_period_start_ts(&deposit_msk),
+                &assertions.0[0],
+            ),
+            wots256::get_signature(
+                &secret_key_for_bridge_out_txid(&deposit_msk),
+                &assertions.0[1],
+            ),
+            wots256::get_signature(
+                &secret_key_for_superblock_hash(&deposit_msk),
+                &assertions.0[2],
+            ),
+        ],
+        std::array::from_fn(|i| {
+            wots256::get_signature(
+                &secret_key_for_proof_element(&deposit_msk, i),
+                &assertions.1[i],
+            )
+        }),
+        std::array::from_fn(|i| {
+            wots160::get_signature(
+                &secret_key_for_proof_element(&deposit_msk, i + 40),
+                &assertions.2[i],
+            )
+        }),
     )
 }
 
@@ -216,15 +280,11 @@ mod tests {
         treepp::*,
     };
     use rand::{RngCore, SeedableRng};
-    use strata_bridge_tx_graph::{
-        commitments::{
-            secret_key_for_bridge_out_txid, secret_key_for_proof_element,
-            secret_key_for_superblock_hash, secret_key_for_superblock_period_start_ts,
-        },
-        mock_txid,
-    };
+    use strata_bridge_tx_graph::mock_txid;
 
     use super::*;
+
+    const WOTS_MSK: &str = "helloworld";
 
     #[test]
     fn test_groth16_compile() {
@@ -269,68 +329,6 @@ mod tests {
     //     println!();
     // }
 
-    pub fn get_deposit_master_secret_key(deposit_txid: Txid) -> String {
-        let master_secret_key = "helloworld";
-        format!("{}:{}", master_secret_key, deposit_txid.to_string())
-    }
-
-    fn generate_wots_public_keys(deposit_txid: Txid) -> g16::WotsPublicKeys {
-        let deposit_msk = get_deposit_master_secret_key(deposit_txid);
-        (
-            [
-                wots256::generate_public_key(&secret_key_for_superblock_period_start_ts(
-                    &deposit_msk,
-                )),
-                wots256::generate_public_key(&secret_key_for_bridge_out_txid(&deposit_msk)),
-                wots256::generate_public_key(&secret_key_for_superblock_hash(&deposit_msk)),
-            ],
-            std::array::from_fn(|i| {
-                wots256::generate_public_key(&secret_key_for_proof_element(&deposit_msk, i))
-            }),
-            std::array::from_fn(|i| {
-                wots160::generate_public_key(&secret_key_for_proof_element(
-                    &deposit_msk,
-                    i + g16::N_VERIFIER_FQs,
-                ))
-            }),
-        )
-    }
-
-    fn generate_wots_signatures(
-        deposit_txid: Txid,
-        assertions: g16::ProofAssertions,
-    ) -> g16::WotsSignatures {
-        let deposit_msk = get_deposit_master_secret_key(deposit_txid);
-        (
-            [
-                wots256::get_signature(
-                    &secret_key_for_superblock_period_start_ts(&deposit_msk),
-                    &assertions.0[0],
-                ),
-                wots256::get_signature(
-                    &secret_key_for_bridge_out_txid(&deposit_msk),
-                    &assertions.0[1],
-                ),
-                wots256::get_signature(
-                    &secret_key_for_superblock_hash(&deposit_msk),
-                    &assertions.0[2],
-                ),
-            ],
-            std::array::from_fn(|i| {
-                wots256::get_signature(
-                    &secret_key_for_proof_element(&deposit_msk, i),
-                    &assertions.1[i],
-                )
-            }),
-            std::array::from_fn(|i| {
-                wots160::get_signature(
-                    &secret_key_for_proof_element(&deposit_msk, i + g16::N_VERIFIER_FQs),
-                    &assertions.2[i],
-                )
-            }),
-        )
-    }
-
     #[test]
     fn test_full_verification() {
         let proof = mock::get_proof();
@@ -357,13 +355,13 @@ mod tests {
         let deposit_txid = mock_txid();
 
         println!("Generating wots public keys");
-        let wots_public_keys = generate_wots_public_keys(deposit_txid);
+        let wots_public_keys = generate_wots_public_keys(WOTS_MSK, deposit_txid);
 
         println!("Generating wots signatures");
-        let wots_signatures = generate_wots_signatures(deposit_txid, assertions);
+        let wots_signatures = generate_wots_signatures(WOTS_MSK, deposit_txid, assertions);
 
         println!("Validating assertion signatures");
-        let res = validate_assertion_signatures(
+        let _res = validate_assertion_signatures(
             g16::Proof {
                 proof: proof.proof.clone(),
                 public_inputs: proof.public_inputs.clone(),

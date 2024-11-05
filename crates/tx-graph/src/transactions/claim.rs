@@ -1,4 +1,4 @@
-use bitcoin::{Amount, OutPoint, Psbt, Transaction, Txid};
+use bitcoin::{Amount, OutPoint, Psbt, Transaction, TxOut, Txid};
 use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::{
     params::prelude::{MIN_RELAY_FEE, OPERATOR_STAKE},
@@ -10,6 +10,8 @@ use crate::connectors::prelude::*;
 #[derive(Debug, Clone)]
 pub struct ClaimData {
     pub kickoff_txid: Txid,
+
+    pub deposit_txid: Txid,
 }
 
 #[derive(Debug, Clone)]
@@ -20,7 +22,12 @@ pub struct ClaimTx {
 }
 
 impl ClaimTx {
-    pub fn new(data: ClaimData, connector_c0: ConnectorC0, connector_c1: ConnectorC1) -> Self {
+    pub async fn new<Db: ConnectorDb>(
+        data: ClaimData,
+        connector_k: ConnectorK<Db>,
+        connector_c0: ConnectorC0,
+        connector_c1: ConnectorC1,
+    ) -> Self {
         let tx_ins = create_tx_ins([OutPoint {
             txid: data.kickoff_txid,
             vout: 0,
@@ -40,7 +47,15 @@ impl ClaimTx {
 
         let tx = create_tx(tx_ins, tx_outs);
 
-        let psbt = Psbt::from_unsigned_tx(tx).expect("tx should have an empty witness");
+        let mut psbt = Psbt::from_unsigned_tx(tx).expect("tx should have an empty witness");
+
+        psbt.inputs[0].witness_utxo = Some(TxOut {
+            value: OPERATOR_STAKE,
+            script_pubkey: connector_k
+                .create_taproot_address(data.deposit_txid)
+                .await
+                .script_pubkey(),
+        });
 
         Self {
             psbt,

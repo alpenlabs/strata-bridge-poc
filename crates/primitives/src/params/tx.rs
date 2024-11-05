@@ -15,6 +15,11 @@ pub const BRIDGE_DENOMINATION: Amount = Amount::from_int_btc(10);
 /// transaction computes to ~5.5 sats/vB (run integration tests with `RUST_LOG=warn` to verify).
 pub const MIN_RELAY_FEE: Amount = Amount::from_sat(1000);
 
+/// The assert data tx is almost as big as the standardness limit allows.
+///
+/// So, it requires extra fees. Here, we set it to 4 times the normal.
+pub const ASSERT_DATA_FEE: Amount = Amount::from_sat(4 * 1000);
+
 pub const OPERATOR_STAKE: Amount = Amount::from_int_btc(2);
 
 /// The fee charged by the operator to process a withdrawal.

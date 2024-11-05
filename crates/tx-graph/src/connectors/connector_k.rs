@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use bitcoin::{
     psbt::Input,
     taproot::{ControlBlock, LeafVersion},
@@ -8,11 +6,7 @@ use bitcoin::{
 use bitvm::{signatures::wots::wots256, treepp::*};
 use secp256k1::XOnlyPublicKey;
 use strata_bridge_db::connector_db::ConnectorDb;
-use strata_bridge_primitives::scripts::prelude::*;
-
-use crate::commitments::{
-    secret_key_for_bridge_out_txid, secret_key_for_superblock_period_start_ts,
-};
+use strata_bridge_primitives::{scripts::prelude::*, types::OperatorIdx};
 
 #[derive(Debug, Clone)]
 pub struct ConnectorK<Db: ConnectorDb> {
@@ -20,21 +14,31 @@ pub struct ConnectorK<Db: ConnectorDb> {
 
     pub network: Network,
 
-    pub db: Arc<Db>,
+    pub operator_idx: OperatorIdx,
+
+    pub db: Db,
 }
 
 impl<Db: ConnectorDb> ConnectorK<Db> {
-    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Arc<Db>) -> Self {
+    pub fn new(
+        n_of_n_agg_pubkey: XOnlyPublicKey,
+        network: Network,
+        operator_idx: OperatorIdx,
+        db: Db,
+    ) -> Self {
         Self {
             n_of_n_agg_pubkey,
+            operator_idx,
             network,
             db,
         }
     }
 
     async fn create_locking_script(&self, deposit_txid: Txid) -> ScriptBuf {
-        let ([superblock_period_start_ts_public_key, bridge_out_txid_public_key, _], _, _) =
-            self.db.get_wots_public_keys(0, deposit_txid).await;
+        let ([superblock_period_start_ts_public_key, bridge_out_txid_public_key, _], _, _) = self
+            .db
+            .get_wots_public_keys(self.operator_idx, deposit_txid)
+            .await;
 
         script! {
             // superblock_period_start_timestamp

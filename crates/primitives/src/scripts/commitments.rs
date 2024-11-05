@@ -44,7 +44,7 @@ pub fn public_key_for_bridge_out_txid(msk: &str) -> wots256::PublicKey {
 
 #[cfg(test)]
 mod tests {
-    use crate::commitments::secret_key_from_msk;
+    use super::*;
 
     #[test]
     fn test_secret_key_from_msk() {

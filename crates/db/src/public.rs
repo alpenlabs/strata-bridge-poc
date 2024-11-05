@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, HashMap};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use bitcoin::Txid;
@@ -11,27 +14,30 @@ use tokio::sync::RwLock;
 use super::operator::OperatorIdx;
 use crate::connector_db::ConnectorDb;
 
-// Assume that no node will update other nodes' data in this public db.
-#[derive(Debug)]
-pub struct PublicDb {
-    musig_pubkey_table: RwLock<BTreeMap<OperatorIdx, PublicKey>>,
+pub type TxInputToSignatureMap = HashMap<(Txid, u32), Signature>;
+pub type OperatorIdxToTxInputSigMap = HashMap<OperatorIdx, TxInputToSignatureMap>;
 
-    verifier_scripts: RwLock<[Script; g16::N_TAPLEAVES]>,
+// Assume that no node will update other nodes' data in this public db.
+#[derive(Debug, Clone)]
+pub struct PublicDb {
+    musig_pubkey_table: Arc<RwLock<BTreeMap<OperatorIdx, PublicKey>>>,
+
+    verifier_scripts: Arc<RwLock<[Script; g16::N_TAPLEAVES]>>,
 
     // operator_id -> deposit_txid -> WotsPublicKeys
-    wots_public_keys: RwLock<HashMap<OperatorIdx, HashMap<Txid, g16::WotsPublicKeys>>>,
+    wots_public_keys: Arc<RwLock<HashMap<OperatorIdx, HashMap<Txid, g16::WotsPublicKeys>>>>,
 
     // operator_id -> deposit_txid -> WotsSignatures
-    wots_signatures: RwLock<HashMap<OperatorIdx, HashMap<Txid, g16::WotsSignatures>>>,
+    wots_signatures: Arc<RwLock<HashMap<OperatorIdx, HashMap<Txid, g16::WotsSignatures>>>>,
 
-    // signature cache
-    signatures: RwLock<HashMap<Txid, Signature>>,
+    // signature cache per txid and input index per operator
+    signatures: Arc<RwLock<OperatorIdxToTxInputSigMap>>,
 }
 
 impl Default for PublicDb {
     fn default() -> Self {
         Self {
-            verifier_scripts: RwLock::new(generate_verifier_partial_scripts()),
+            verifier_scripts: Arc::new(RwLock::new(generate_verifier_partial_scripts())),
             musig_pubkey_table: Default::default(),
             wots_public_keys: Default::default(),
             wots_signatures: Default::default(),
@@ -106,8 +112,23 @@ impl PublicDb {
             .cloned()
     }
 
-    pub async fn put_signature(&self, txid: Txid, signature: Signature) {
-        self.signatures.write().await.insert(txid, signature);
+    pub async fn put_signature(
+        &self,
+        operator_idx: OperatorIdx,
+        txid: Txid,
+        input_index: u32,
+        signature: Signature,
+    ) {
+        let mut signatures = self.signatures.write().await;
+
+        if let Some(txid_and_input_index_to_signature) = signatures.get_mut(&operator_idx) {
+            txid_and_input_index_to_signature.insert((txid, input_index), signature);
+        } else {
+            let mut txid_and_input_index_to_signature = HashMap::new();
+            txid_and_input_index_to_signature.insert((txid, input_index), signature);
+
+            signatures.insert(operator_idx, txid_and_input_index_to_signature);
+        }
     }
 
     pub async fn set_musig_pubkey_table(&self, pubkey_table: &BTreeMap<OperatorIdx, PublicKey>) {
@@ -159,7 +180,7 @@ impl ConnectorDb for PublicDb {
     }
 
     async fn set_wots_public_keys(
-        &mut self,
+        &self,
         operator_id: u32,
         deposit_txid: Txid,
         public_keys: &g16::WotsPublicKeys,
@@ -174,7 +195,7 @@ impl ConnectorDb for PublicDb {
     }
 
     async fn set_wots_signatures(
-        &mut self,
+        &self,
         operator_id: u32,
         deposit_txid: Txid,
         signatures: &g16::WotsSignatures,
@@ -188,11 +209,20 @@ impl ConnectorDb for PublicDb {
             .unwrap();
     }
 
-    async fn get_signature(&self, txid: Txid) -> Signature {
+    async fn get_signature(
+        &self,
+        operator_idx: OperatorIdx,
+        txid: Txid,
+        input_index: u32,
+    ) -> Signature {
         self.signatures
             .read()
             .await
-            .get(&txid)
+            .get(&operator_idx)
+            .unwrap_or_else(|| {
+                panic!("operato_idx: {operator_idx} must have a signature in the database")
+            })
+            .get(&(txid, input_index))
             .copied()
             .unwrap_or_else(|| {
                 panic!("txid: {txid} must have a signature in the database");

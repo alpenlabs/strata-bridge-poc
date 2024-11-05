@@ -12,8 +12,6 @@ use bitvm::{
 };
 use strata_bridge_primitives::scripts::prelude::*;
 
-use crate::commitments::secret_key_for_proof_element;
-
 #[derive(Debug, Clone)]
 pub struct ConnectorA256Factory<
     const N_PUBLIC_KEYS_PER_CONNECTOR: usize,

@@ -4,7 +4,6 @@
 
 use bitcoin::{hashes::Hash, Txid};
 
-pub mod commitments;
 pub mod connectors;
 pub mod db;
 pub mod peg_out_graph;

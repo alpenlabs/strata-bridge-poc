@@ -1,76 +1,110 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use bitcoin::{OutPoint, Txid};
+use bitcoin::{Address, Amount, OutPoint, Txid};
 use musig2::{PartialSignature, PubNonce, SecNonce};
 use tokio::sync::RwLock;
 
 pub(super) type OperatorIdx = u32;
 
+#[derive(Debug, Clone)]
+pub struct KickoffInfo {
+    pub funding_inputs: Vec<OutPoint>,
+    pub change_address: Address,
+    pub change_amt: Amount,
+}
+
 #[derive(Debug, Default)]
 pub struct OperatorDb {
     /// Txid -> OperatorIdx -> PubNonce
-    collected_pubnonces: RwLock<HashMap<Txid, BTreeMap<OperatorIdx, PubNonce>>>,
+    collected_pubnonces: RwLock<HashMap<(Txid, u32), BTreeMap<OperatorIdx, PubNonce>>>,
 
     /// Txid -> PubNonce
-    sec_nonces: RwLock<HashMap<Txid, SecNonce>>,
+    sec_nonces: RwLock<HashMap<(Txid, u32), SecNonce>>,
 
     /// Txid -> OperatorIdx -> PartialSignature
-    collected_signatures: RwLock<HashMap<Txid, BTreeMap<OperatorIdx, PartialSignature>>>,
+    collected_signatures: RwLock<HashMap<(Txid, u32), BTreeMap<OperatorIdx, PartialSignature>>>,
 
     /// OutPoints that have already been used to create KickoffTx.
     selected_outpoints: RwLock<HashSet<OutPoint>>,
+
+    /// Deposit Txid -> PegOutGraphData
+    peg_out_graphs: RwLock<BTreeMap<Txid, KickoffInfo>>,
 }
 
 impl OperatorDb {
-    pub async fn add_pubnonce(&self, txid: Txid, operator_idx: OperatorIdx, pubnonce: PubNonce) {
+    pub async fn add_pubnonce(
+        &self,
+        txid: Txid,
+        input_index: u32,
+        operator_idx: OperatorIdx,
+        pubnonce: PubNonce,
+    ) {
         let mut collected_pubnonces = self.collected_pubnonces.write().await;
 
-        if let Some(pubnonce_table) = collected_pubnonces.get_mut(&txid) {
+        if let Some(pubnonce_table) = collected_pubnonces.get_mut(&(txid, input_index)) {
             pubnonce_table.insert(operator_idx, pubnonce);
         } else {
             let mut new_entry = BTreeMap::new();
             new_entry.insert(operator_idx, pubnonce);
 
-            collected_pubnonces.insert(txid, new_entry);
+            collected_pubnonces.insert((txid, input_index), new_entry);
         }
     }
-    pub async fn collected_pubnonces(&self, txid: Txid) -> Option<BTreeMap<OperatorIdx, PubNonce>> {
-        self.collected_pubnonces.read().await.get(&txid).cloned()
+    pub async fn collected_pubnonces(
+        &self,
+        txid: Txid,
+        input_index: u32,
+    ) -> Option<BTreeMap<OperatorIdx, PubNonce>> {
+        self.collected_pubnonces
+            .read()
+            .await
+            .get(&(txid, input_index))
+            .cloned()
     }
 
-    pub async fn add_secnonce(&self, txid: Txid, secnonce: SecNonce) {
+    pub async fn add_secnonce(&self, txid: Txid, input_index: u32, secnonce: SecNonce) {
         let mut sec_nonces = self.sec_nonces.write().await;
 
-        sec_nonces.insert(txid, secnonce);
+        sec_nonces.insert((txid, input_index), secnonce);
     }
 
-    pub async fn secnonce(&self, txid: Txid) -> Option<SecNonce> {
-        self.sec_nonces.read().await.get(&txid).cloned()
+    pub async fn secnonce(&self, txid: Txid, input_index: u32) -> Option<SecNonce> {
+        self.sec_nonces
+            .read()
+            .await
+            .get(&(txid, input_index))
+            .cloned()
     }
 
     pub async fn add_partial_signature(
         &self,
         txid: Txid,
+        input_index: u32,
         operator_idx: OperatorIdx,
         signature: PartialSignature,
     ) {
         let mut collected_sigs = self.collected_signatures.write().await;
 
-        if let Some(sig_table) = collected_sigs.get_mut(&txid) {
+        if let Some(sig_table) = collected_sigs.get_mut(&(txid, input_index)) {
             sig_table.insert(operator_idx, signature);
         } else {
             let mut new_entry = BTreeMap::new();
             new_entry.insert(operator_idx, signature);
 
-            collected_sigs.insert(txid, new_entry);
+            collected_sigs.insert((txid, input_index), new_entry);
         }
     }
 
     pub async fn collected_signatures(
         &self,
         txid: Txid,
+        input_index: u32,
     ) -> Option<BTreeMap<OperatorIdx, PartialSignature>> {
-        self.collected_signatures.read().await.get(&txid).cloned()
+        self.collected_signatures
+            .read()
+            .await
+            .get(&(txid, input_index))
+            .cloned()
     }
 
     pub async fn add_outpoint(&self, outpoint: OutPoint) -> bool {
@@ -79,5 +113,16 @@ impl OperatorDb {
 
     pub async fn selected_outpoints(&self) -> HashSet<OutPoint> {
         self.selected_outpoints.read().await.clone()
+    }
+
+    pub async fn add_kickoff_info(&self, deposit_txid: Txid, kickoff_info: KickoffInfo) {
+        self.peg_out_graphs
+            .write()
+            .await
+            .insert(deposit_txid, kickoff_info);
+    }
+
+    pub async fn get_kickoff_info(&self, deposit_txid: Txid) -> Option<KickoffInfo> {
+        self.peg_out_graphs.read().await.get(&deposit_txid).cloned()
     }
 }

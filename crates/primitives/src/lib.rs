@@ -4,7 +4,6 @@ pub mod deposit;
 pub mod duties;
 pub mod params;
 pub mod scripts;
-pub mod signal;
 pub mod types;
 pub mod withdrawal;
 pub mod wots;

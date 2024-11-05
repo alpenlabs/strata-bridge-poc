@@ -1,5 +1,5 @@
 use bitcoin::{
-    address::NetworkUnchecked, Address, Amount, Network, OutPoint, Psbt, Transaction, Txid,
+    address::NetworkUnchecked, Address, Amount, Network, OutPoint, Psbt, Transaction, TxOut, Txid,
 };
 use serde::{Deserialize, Serialize};
 use strata_bridge_db::connector_db::ConnectorDb;
@@ -10,6 +10,7 @@ use crate::connectors::prelude::*;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KickoffTxData {
     pub funding_inputs: Vec<OutPoint>,
+    pub funding_utxos: Vec<TxOut>,
     pub change_address: Address<NetworkUnchecked>,
     pub change_amt: Amount,
     pub deposit_txid: Txid,
@@ -48,7 +49,11 @@ impl KickOffTx {
 
         let tx = create_tx(tx_ins, tx_outs);
 
-        let psbt = Psbt::from_unsigned_tx(tx).expect("witness should be empty");
+        let mut psbt = Psbt::from_unsigned_tx(tx).expect("witness should be empty");
+
+        for (input, utxo) in psbt.inputs.iter_mut().zip(data.funding_utxos) {
+            input.witness_utxo = Some(utxo);
+        }
 
         Self(psbt)
     }
