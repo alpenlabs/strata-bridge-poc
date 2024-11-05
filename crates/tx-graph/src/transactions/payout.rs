@@ -94,10 +94,6 @@ impl PayoutTx {
         }
     }
 
-    pub fn compute_txid(&self) -> Txid {
-        self.psbt.unsigned_tx.compute_txid()
-    }
-
     pub fn finalize(mut self, n_of_n_signature: Signature) -> Transaction {
         finalize_input(&mut self.psbt.inputs[0], [n_of_n_signature.serialize()]);
         finalize_input(&mut self.psbt.inputs[1], [n_of_n_signature.serialize()]);
@@ -123,5 +119,9 @@ impl CovenantTx for PayoutTx {
 
     fn witnesses(&self) -> &[TaprootWitness] {
         &self.witnesses
+    }
+
+    fn compute_txid(&self) -> Txid {
+        self.psbt.unsigned_tx.compute_txid()
     }
 }
