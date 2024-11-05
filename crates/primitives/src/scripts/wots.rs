@@ -307,12 +307,15 @@ mod tests {
     use ark_ff::{BigInteger, PrimeField, UniformRand};
     use ark_std::test_rng;
     use bitcoin::{
-        opcodes::all::{OP_ENDIF, OP_GREATERTHAN},
+        opcodes::all::{
+            OP_BOOLAND, OP_ENDIF, OP_EQUAL, OP_FROMALTSTACK, OP_GREATERTHAN, OP_SWAP, OP_TOALTSTACK,
+        },
         ScriptBuf,
     };
     use bitvm::{
         groth16::g16,
         hash::sha256::sha256,
+        pseudo::NMUL,
         signatures::wots::{wots160, wots256},
         treepp::*,
     };
@@ -2939,11 +2942,18 @@ mod tests {
 
     #[test]
     fn test_hash_public_inputs() {
+        let msk = "helloworld";
+
         let public_inputs: ([u8; 32], [u8; 32], u32) = (
             std::array::from_fn(|i| i as u8),
             std::array::from_fn(|i| 2 * i as u8),
             0x12345678,
         );
+
+        let public_inputs_hash: [u8; 32] = [
+            10, 147, 218, 229, 179, 32, 184, 74, 205, 238, 18, 254, 120, 22, 115, 172, 108, 142,
+            198, 161, 226, 103, 173, 53, 157, 114, 60, 179, 155, 37, 36, 29,
+        ];
 
         let data = &[
             32, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
@@ -2967,18 +2977,61 @@ mod tests {
             }
         }
 
-        let script = script! {
-            // commitment to public input hash
-            for b in public_inputs.2.to_be_bytes() { { b } }
-            for &b in public_inputs.1.iter().rev() { { b } }
-            for b in [0, 0, 0, 0, 0, 0, 0, 32] { { b } }
-            for &b in public_inputs.0.iter().rev() { { b } }
-            for b in [0, 0, 0, 0, 0, 0, 0, 32] { { b } }
+        let public_inputs_hash_public_key =
+            wots256::generate_public_key(&secret_key_for_public_inputs_hash(msk));
+
+        let public_keys = (
+            wots256::generate_public_key(&secret_key_for_superblock_hash(msk)),
+            wots256::generate_public_key(&secret_key_for_bridge_out_txid(msk)),
+            wots32::generate_public_key(&secret_key_for_superblock_period_start_ts(msk)),
+        );
+
+        let witness_script = script! {
+            { wots256::sign(&secret_key_for_public_inputs_hash(msk), &public_inputs_hash) }
+            { wots32::sign(&secret_key_for_superblock_period_start_ts(msk), &public_inputs.2.to_le_bytes()) }
+            { wots256::sign(&secret_key_for_bridge_out_txid(msk), &public_inputs.1) }
+            { wots256::sign(&secret_key_for_superblock_hash(msk), &public_inputs.0) }
+        };
+
+        fn raw_hash_padding() -> Script {
+            script! {
+                for b in [0; 7] { {b} } 32
+            }
+        }
+
+        let locking_script = script! {
+            { wots256::checksig_verify(public_keys.0) }
+            for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
+
+            { wots256::checksig_verify(public_keys.1) }
+            for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
+
+            { wots32::checksig_verify(public_keys.2) }
+            for _ in 0..4 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
+
+            { wots256::checksig_verify(public_inputs_hash_public_key) }
+            for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
+
+            for _ in 0..32 { OP_FROMALTSTACK }
+            for _ in 0..4 { OP_FROMALTSTACK }
+            for _ in 0..32 { OP_FROMALTSTACK } raw_hash_padding
+            for _ in 0..32 { OP_FROMALTSTACK } raw_hash_padding
 
             { sha256(84) }
-
             { hash2fqBn254() }
 
+            // verify that hashes don't match
+            for i in (1..32).rev() {
+                {i + 1} OP_ROLL OP_EQUAL OP_TOALTSTACK
+            }
+            OP_EQUAL
+            for _ in 1..32 { OP_FROMALTSTACK OP_BOOLAND }
+            OP_NOT
+        };
+
+        let script = script! {
+            { witness_script }
+            { locking_script }
         };
 
         let res = execute_script(script);

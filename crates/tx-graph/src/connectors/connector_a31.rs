@@ -7,7 +7,7 @@ use bitvm::{
     bn254::chunk_superblock::H256,
     hash::sha256::sha256,
     pseudo::NMUL,
-    signatures::wots::{wots256, wots32},
+    signatures::wots::{wots256, wots32, ISignature},
     treepp::*,
 };
 use strata_bridge_db::connector_db::ConnectorDb;
@@ -25,10 +25,18 @@ pub struct ConnectorA31<DB: ConnectorDb> {
     db: DB,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum ConnectorA31Leaf {
-    DisproveChain,
-    InvalidateProof(usize),
+    InvalidateProof((usize, Option<Script>)),
+    DisproveChain(Option<(wots256::Signature, wots32::Signature, [u8; 80])>),
+    InvalidatePublicDataHash(
+        Option<(
+            wots256::Signature,
+            wots256::Signature,
+            wots32::Signature,
+            wots256::Signature,
+        )>,
+    ),
 }
 
 impl<DB: ConnectorDb> ConnectorA31<DB> {
@@ -52,18 +60,34 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         tapleaf: ConnectorA31Leaf,
         deposit_txid: Txid,
     ) -> ScriptBuf {
-        // let ([superblock_period_start_ts_public_key, _, superblock_hash_public_key], _, _) =
-        //     self.db.get_wots_public_keys(0, deposit_txid).await;
-
         let wots::PublicKeys {
-            bridge_out_txid: _,
+            bridge_out_txid: bridge_out_txid_public_key,
             superblock_hash: superblock_hash_public_key,
             superblock_period_start_ts: superblock_period_start_ts_public_key,
-            groth16: _,
+            groth16: ([public_inputs_hash_public_key], _, _),
         } = self.db.get_wots_public_keys(0, deposit_txid).await;
 
+        fn add_padding_for_hash_bincode() -> Script {
+            script! {
+                for b in [0; 7] { {b} } 32
+            }
+        }
+
+        fn hash_to_bn254_fq() -> Script {
+            script! {
+                for i in 1..=3 {
+                    { 1 << (8 - i) }
+                    OP_2DUP
+                    OP_GREATERTHAN
+                    OP_IF OP_SUB
+                    OP_ELSE OP_DROP
+                    OP_ENDIF
+                }
+            }
+        }
+
         match tapleaf {
-            ConnectorA31Leaf::DisproveChain => {
+            ConnectorA31Leaf::DisproveChain(_) => {
                 script! {
                 // committed superblock hash
                 { wots256::compact::checksig_verify(superblock_hash_public_key) }
@@ -96,36 +120,45 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                 OP_TRUE
                 }
             }
-            ConnectorA31Leaf::InvalidateProof(_tapleaf_index) => {
-                // let (invalidate_proof_script, public_keys) = self
-                //     .db
-                //     .get_verifier_script_and_public_keys(tapleaf_index)
-                //     .await;
-
-                // let wots_script_pub_keys = public_keys.iter().map(|&public_key| match public_key
-                // {     WotsPublicKeyData::SuperblockHash(public_key) => {
-                //         wots256::compact::checksig_verify(public_key)
-                //     }
-                //     WotsPublicKeyData::SuperblockPeriodStartTs(public_key) => {
-                //         wots32::compact::checksig_verify(public_key)
-                //     }
-                //     WotsPublicKeyData::BridgeOutTxid(public_key) => {
-                //         wots256::compact::checksig_verify(public_key)
-                //     }
-                //     WotsPublicKeyData::ProofElement160(public_key) => {
-                //         wots160::compact::checksig_verify(public_key)
-                //     }
-                //     WotsPublicKeyData::ProofElement256(public_key) => {
-                //         wots256::compact::checksig_verify(public_key)
-                //     }
-                // });
-
+            ConnectorA31Leaf::InvalidatePublicDataHash(_) => {
                 script! {
-                    // for script in wots_script_pub_keys {
-                    //     { script }
-                    // }
-                    // { invalidate_proof_script }
+                    { wots256::checksig_verify(superblock_hash_public_key) }
+                    for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
+
+                    { wots256::checksig_verify(bridge_out_txid_public_key) }
+                    for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
+
+                    { wots32::checksig_verify(superblock_period_start_ts_public_key) }
+                    for _ in 0..4 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
+
+                    { wots256::checksig_verify(public_inputs_hash_public_key) }
+                    for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
+
+                    for _ in 0..32 { OP_FROMALTSTACK }
+                    for _ in 0..4 { OP_FROMALTSTACK }
+                    for _ in 0..32 { OP_FROMALTSTACK } add_padding_for_hash_bincode
+                    for _ in 0..32 { OP_FROMALTSTACK } add_padding_for_hash_bincode
+
+                    { sha256(84) }
+                    hash_to_bn254_fq
+
+                    // verify that hashes don't match
+                    for i in (1..32).rev() {
+                        {i + 1} OP_ROLL OP_EQUAL OP_TOALTSTACK
+                    }
+                    OP_EQUAL
+                    for _ in 1..32 { OP_FROMALTSTACK OP_BOOLAND }
+                    OP_NOT
                 }
+            }
+            ConnectorA31Leaf::InvalidateProof((disprove_script_index, _)) => {
+                let scripts = generate_verifier_partial_scripts();
+                let public_keys = self.db.get_wots_public_keys(0, deposit_txid).await;
+                let tapscripts = generate_verifier_tapscripts_from_partial_scripts(
+                    &scripts,
+                    public_keys.groth16,
+                );
+                tapscripts[disprove_script_index].clone()
             }
         }
         .compile()
@@ -154,15 +187,20 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
 
     async fn generate_taproot_address(&self, deposit_txid: Txid) -> (Address, TaprootSpendInfo) {
         let mut scripts = vec![
-            self.generate_tapleaf(ConnectorA31Leaf::DisproveChain, deposit_txid)
+            self.generate_tapleaf(ConnectorA31Leaf::DisproveChain(None), deposit_txid)
                 .await,
+            self.generate_tapleaf(
+                ConnectorA31Leaf::InvalidatePublicDataHash(None),
+                deposit_txid,
+            )
+            .await,
         ];
 
         const TOTAL_SCRIPTS: usize = NUM_PKS_A160 + NUM_PKS_A256;
         let mut invalidate_proof_tapleaves = Vec::with_capacity(TOTAL_SCRIPTS);
         for i in 0..TOTAL_SCRIPTS {
             invalidate_proof_tapleaves.push(
-                self.generate_tapleaf(ConnectorA31Leaf::InvalidateProof(i), deposit_txid)
+                self.generate_tapleaf(ConnectorA31Leaf::InvalidateProof((i, None)), deposit_txid)
                     .await,
             );
         }
@@ -179,20 +217,37 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         tapleaf: ConnectorA31Leaf,
         deposit_txid: Txid,
     ) {
-        let (script, control_block) = self.generate_spend_info(tapleaf, deposit_txid).await;
+        let (script, control_block) = self
+            .generate_spend_info(tapleaf.clone(), deposit_txid)
+            .await;
 
         let witness_script = match tapleaf {
-            ConnectorA31Leaf::DisproveChain => {
-                script! {}
-            }
-            ConnectorA31Leaf::InvalidateProof(_tapleaf_index) => {
-                // let _signatures = self.db.get_verifier_disprove_signatures(tapleaf_index);
-
+            ConnectorA31Leaf::DisproveChain(Some((
+                sig_superblock_hash,
+                sig_superblock_period_start_ts,
+                raw_superblock_header_bytes,
+            ))) => {
                 script! {
-                    // add signatures script
-                    // add aux input (quotients)
+                    { raw_superblock_header_bytes.to_vec() }
+                    { sig_superblock_period_start_ts.to_compact_script() }
+                    { sig_superblock_hash.to_compact_script() }
                 }
             }
+            ConnectorA31Leaf::InvalidatePublicDataHash(Some((
+                sig_superblock_hash,
+                sig_bridge_out_txid,
+                sig_superblock_period_start_ts,
+                sig_public_inputs_hash,
+            ))) => {
+                script! {
+                    { sig_public_inputs_hash.to_compact_script() }
+                    { sig_superblock_period_start_ts.to_compact_script() }
+                    { sig_bridge_out_txid.to_compact_script() }
+                    { sig_superblock_hash.to_compact_script() }
+                }
+            }
+            ConnectorA31Leaf::InvalidateProof((_, Some(witness_script))) => witness_script,
+            _ => panic!("no data provided to finalize input"),
         };
 
         finalize_input(

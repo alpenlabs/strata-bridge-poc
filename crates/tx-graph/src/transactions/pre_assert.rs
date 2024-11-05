@@ -172,10 +172,6 @@ impl PreAssertTx {
         &self.tx_outs
     }
 
-    pub fn tx_outs(&self) -> &[TxOut] {
-        &self.tx_outs
-    }
-
     pub fn finalize(mut self, n_of_n_sig: Signature, connector_c0: ConnectorC0) -> Transaction {
         connector_c0.finalize_input_with_n_of_n(
             &mut self.psbt_mut().inputs[0],
