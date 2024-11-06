@@ -73,6 +73,26 @@ pub(crate) async fn bootstrap(args: Cli) {
     }
 
     // TODO: spawn verifier
+    {
+        // Event::Claim:
+        //     Validate(Claim):
+        //         - bridge_out_txid included in bitcoin chain
+        //         - bridge_out_tx pays to the user address the specified amount in the withdrawal
+        //           request (inside rollup state)
+        //         - checkpoint_tx.timestamp < bridge_out_tx.timestamp < claim_tx.timestamp
+        //     If invalid: make a challenge by spending PayoutOptimistic connector.
+
+        // Event:Assert:
+        //     Validate(Assert):
+        //         - extract signatures from assert utxo witnesses
+        //         - verify assertions and get disprove script
+        //             - check if there is a better superblock than operator.sb_hash() in period Ts
+        //               < verifier.sb_timestamp < Ts + 2w -> run superblock_invalidation_tapscript
+        //             - check if the hash of the public inputs does not match the committed
+        //               public_inputs_hash -> run public_inputs_hash_invalidation_tapscript
+        //             - check if the groth16 proof is valid -> run one of the many disprove scripts
+        //         - execute disprove txn
+    }
 
     // spawn rpc server
     let bridge_rpc = BridgeRpc::new();

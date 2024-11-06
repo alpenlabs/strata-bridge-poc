@@ -303,12 +303,12 @@ mod _mock {
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
+    use std::{fs, time::Instant};
 
     use ark_bn254::{Fq, Fr};
     use ark_ff::{BigInteger, PrimeField, UniformRand};
     use ark_std::test_rng;
-    use bitcoin::ScriptBuf;
+    use bitcoin::{hashes::Hash, ScriptBuf};
     use bitvm::{
         groth16::g16,
         hash::sha256::sha256,
@@ -317,7 +317,6 @@ mod tests {
         treepp::*,
     };
     use rand::{RngCore, SeedableRng};
-    use strata_bridge_tx_graph::mock_txid;
 
     use super::*;
 
@@ -3033,5 +3032,25 @@ mod tests {
         for i in 0..res.final_stack.len() {
             println!("{i:3}: {:?}", res.final_stack.get(i));
         }
+    }
+
+    #[test]
+    fn test_generate_disprove_scripts_duration() {
+        let start = Instant::now();
+        let partial_disprove_scripts = &read_partial_disprove_scripts();
+        println!(
+            "read_partial_disprove_scripts: {:?}",
+            Instant::now() - start
+        );
+
+        let public_keys = generate_wots_public_keys("msk", mock_txid());
+
+        let start = Instant::now();
+        g16::generate_disprove_scripts(public_keys.groth16, partial_disprove_scripts);
+        println!("generate_disprove_scripts: {:?}", Instant::now() - start);
+    }
+
+    fn mock_txid() -> Txid {
+        Txid::from_slice(&[0u8; 32]).unwrap()
     }
 }
