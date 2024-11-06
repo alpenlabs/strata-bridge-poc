@@ -1,3 +1,4 @@
+mod bitcoin;
 mod ckp_verifier;
 mod l1_sement;
 mod primitives;

@@ -1,138 +1,58 @@
 #![allow(unused)]
-use bitcoin::{block::Header, Block};
+use bitcoin::{block::Header, Block, Txid};
+use strata_primitives::{
+    buf::Buf32,
+    l1::{BitcoinAmount, XOnlyPk},
+};
 use strata_proofimpl_btc_blockspace::block::{check_merkle_root, check_witness_commitment};
 use strata_state::{
-    batch::BatchCheckpoint,
-    l1::{BtcParams, HeaderVerificationState},
+    batch::{BatchCheckpoint, BatchInfo},
+    bridge_state::DepositState,
+    chain_state::ChainState,
+    l1::{compute_block_hash, get_btc_params, BtcParams, HeaderVerificationState},
     tx::ProtocolOperation,
 };
 use strata_tx_parser::filter::{filter_relevant_txs, TxFilterRule};
 
-pub fn verify_l1_chain(
-    initial_header_state: &HeaderVerificationState,
+use crate::bitcoin::{
+    checkpoint::verify_checkpoint_and_extract_info, claim_txn::get_claim_txn,
+    header_chain::verify_l1_chain, payment_txn::get_payment_txn, primitives::WithdrwalInfo,
+};
+
+pub fn process_blocks(
+    checkpoint: (Block, ChainState),
+    payment: Block,
+    claim_txn_block: Block,
     headers: &[Header],
-    params: &BtcParams,
-) -> HeaderVerificationState {
-    let mut state = initial_header_state.clone();
+    start_header: HeaderVerificationState,
+    ts_block_header: Header,
+) {
+    let (ckp_withdrawl_info, batch_info) =
+        verify_checkpoint_and_extract_info(&checkpoint.0, &checkpoint.1);
+    let operator_withdrawl_info = get_payment_txn(&payment);
+    let claim_txn = get_claim_txn(&claim_txn_block);
 
-    for header in headers {
-        state = state.check_and_update_continuity_new(header, params);
-    }
+    // TODO: Match the info from `ckp_withdrawl_info` & `operator_withdrawl_info`
 
-    state
-}
+    // TODO: Link the `operator_withdrawl_info` and `claim_txn`
 
-pub fn filter_out_checkpoint(block: &Block) -> BatchCheckpoint {
-    assert!(check_merkle_root(block));
-    assert!(check_witness_commitment(block));
+    // TODO: Assert inclusion of `checkpoint`, `claim_txn_block` & `payment` blocks in headers
 
-    let tx_filters = [TxFilterRule::RollupInscription("strata".to_string())];
-    get_batch_checkpoint(block, tx_filters.to_vec()).unwrap()
-}
+    // TODO: Find the super block
+    // ts <- claim_txn (B4 time := ts)
+    // ckp < payment < B4
+    // asseert B4.time == ts
+    // super_block = min_block(B4 + 2016)
+    // Maybe pass the closure
+    let params = get_btc_params();
 
-fn get_batch_checkpoint(block: &Block, tx_filters: Vec<TxFilterRule>) -> Option<BatchCheckpoint> {
-    let relevant_txs = filter_relevant_txs(block, &tx_filters);
-    for tx in relevant_txs {
-        if let ProtocolOperation::RollupInscription(signed_batch) = tx.proto_op() {
-            // TODO: Apply cred rule
-            let batch: BatchCheckpoint = signed_batch.clone().into();
-            return Some(batch);
-        }
-    }
-    None
-}
-
-// Paid to the user Tap Scripit
-// OP Return has the Operator info
-// Find these infos and return the:
-// i)  User <Address, Aamt>
-// ii) Operator address
-fn get_payment_txn(block: &Block) -> (u64, Vec<u8>, Vec<u8>) {
-    assert!(check_merkle_root(block));
-    assert!(check_witness_commitment(block));
-
-    let amt: u64 = 10;
-    let dest_addrs: Vec<u8> = Vec::new();
-    let operator_address: Vec<u8> = Vec::new();
-
-    (amt, dest_addrs, operator_address)
-}
-
-// Ts is commited in the Claim Transaction
-fn get_claim_txn(block: &Block) -> u32 {
-    assert!(check_merkle_root(block));
-    assert!(check_witness_commitment(block));
-
-    // TODO: Filter out the claim txn and parse the Ts
-    block.header.time
+    let header_inclusion = [
+        compute_block_hash(&checkpoint.0.header),
+        compute_block_hash(&payment.header),
+        compute_block_hash(&claim_txn_block.header),
+    ];
+    verify_l1_chain(&start_header, headers, &params);
 }
 
 #[cfg(test)]
-mod test {
-    use bitcoin::block::Header;
-    use strata_btcio::{
-        reader::query::get_verification_state,
-        rpc::{traits::Reader, BitcoinClient},
-    };
-    use strata_state::l1::{get_btc_params, HeaderVerificationState};
-
-    use crate::l1_sement::{filter_out_checkpoint, verify_l1_chain};
-
-    #[tokio::test]
-    async fn test_bitcoin() {
-        let geneis_block = 0;
-        let start_block = 501;
-        let end_block = 503;
-
-        let (block_hvs, headers) =
-            get_header_verification_data(start_block, end_block, geneis_block).await;
-
-        let params = get_btc_params();
-        let res = verify_l1_chain(&block_hvs, &headers, &params);
-        println!("got the res {:?} ", res.compute_final_snapshot())
-    }
-
-    #[tokio::test]
-    async fn get_checkpoint_data() {
-        let block_num: u64 = 502;
-        let btc_client = get_bitcoin_client();
-        let block = btc_client.get_block_at(block_num).await.unwrap();
-
-        let batch_checkpoint = filter_out_checkpoint(&block);
-        println!("Got the batch checkpoint {:?}", batch_checkpoint)
-    }
-
-    async fn get_header_verification_data(
-        start_block: u64,
-        end_block: u64,
-        genesis_block_num: u64,
-    ) -> (HeaderVerificationState, Vec<Header>) {
-        let btc_client = get_bitcoin_client();
-        let params = get_btc_params();
-
-        let block_hvs =
-            get_verification_state(&btc_client, start_block, genesis_block_num, &params)
-                .await
-                .unwrap();
-
-        let mut headers: Vec<Header> = Vec::new();
-        for block_num in start_block..=end_block {
-            let block = btc_client.get_block_at(block_num).await.unwrap();
-            let header = block.header;
-            headers.push(header);
-        }
-
-        let params = get_btc_params();
-
-        (block_hvs, headers)
-    }
-
-    fn get_bitcoin_client() -> BitcoinClient {
-        BitcoinClient::new(
-            "http://127.0.0.1:12423".to_string(),
-            "alpen".to_string(),
-            "alpen".to_string(),
-        )
-        .expect("failed to connect to the btc client")
-    }
-}
+mod test {}

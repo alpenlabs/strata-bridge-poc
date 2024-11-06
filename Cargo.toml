@@ -8,6 +8,7 @@ members = [
   "crates/proof-impl/prover-manager",
   "crates/rpc/bridge",
   "crates/rpc/strata",
+  "crates/proof-impl/test-utils",
   "crates/tx-graph",
   "bridge-proofs",
 
@@ -33,6 +34,7 @@ strata-bridge-rpc = { path = "crates/rpc/bridge" }
 strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
 strata-rpc = { path = "crates/rpc/strata" }
+prover-test-utils = { path = "crates/proof-impl/test-utils" }
 strata-test-utils = { path = "crates/test-utils" }
 
 # deps from original strata repo

@@ -1,6 +1,6 @@
 [package]
 edition = "2021"
-name = "strata-proofimpl-bitvm-bridge"
+name = "prover-test-utils"
 version = "0.1.0"
 
 [dependencies]
@@ -15,9 +15,6 @@ strata-zkvm.workspace = true
 substrate-bn = { git = "https://github.com/sp1-patches/bn", branch = "patch-v0.7.0" }
 strata-tx-parser = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
 strata-proofimpl-btc-blockspace = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
-
-[dev-dependencies]
 tokio.workspace = true
 tower = { version = "0.4.13", features = ["util"] }
 strata-btcio = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
-prover-test-utils.workspace = true
