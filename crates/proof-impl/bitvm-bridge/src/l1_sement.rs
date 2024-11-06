@@ -2,7 +2,7 @@
 use bitcoin::{block::Header, Block, Txid};
 use strata_primitives::{
     buf::Buf32,
-    l1::{BitcoinAmount, XOnlyPk},
+    l1::{BitcoinAmount, OutputRef, XOnlyPk},
 };
 use strata_proofimpl_btc_blockspace::block::{check_merkle_root, check_witness_commitment};
 use strata_state::{
@@ -20,7 +20,7 @@ use crate::bitcoin::{
 };
 
 pub fn process_blocks(
-    checkpoint: (Block, ChainState),
+    checkpoint: (Block, ChainState, OutputRef),
     payment: Block,
     claim_txn_block: Block,
     headers: &[Header],
@@ -28,7 +28,7 @@ pub fn process_blocks(
     ts_block_header: Header,
 ) {
     let (ckp_withdrawl_info, batch_info) =
-        verify_checkpoint_and_extract_info(&checkpoint.0, &checkpoint.1);
+        verify_checkpoint_and_extract_info(&checkpoint.0, &checkpoint.1, &checkpoint.2);
     let operator_withdrawl_info = get_payment_txn(&payment);
     let claim_txn = get_claim_txn(&claim_txn_block);
 

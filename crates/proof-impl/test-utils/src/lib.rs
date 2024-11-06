@@ -3,6 +3,7 @@ use strata_btcio::{
     reader::query::get_verification_state,
     rpc::{traits::Reader, BitcoinClient},
 };
+use strata_primitives::l1::OutputRef;
 use strata_state::{
     block::L2Block,
     chain_state::ChainState,
@@ -18,7 +19,7 @@ pub fn get_bitcoin_client() -> BitcoinClient {
     .expect("failed to connect to the btc client")
 }
 
-pub fn get_chain_state() -> ChainState {
+pub fn get_chain_state() -> (ChainState, OutputRef) {
     let witness_buf: Vec<u8> = vec![
         77, 159, 210, 174, 194, 181, 134, 6, 61, 216, 221, 4, 119, 78, 48, 47, 88, 175, 72, 158,
         122, 231, 97, 84, 254, 179, 113, 45, 21, 91, 98, 116, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -79,7 +80,16 @@ pub fn get_chain_state() -> ChainState {
     ];
 
     let (chain_state, _): (ChainState, L2Block) = borsh::from_slice(&witness_buf).unwrap();
-    chain_state
+
+    // Get the output ref
+    let deposit_idx = chain_state.deposits_table().len() - 1;
+    let deposit_entry = chain_state
+        .deposits_table()
+        .get_deposit(deposit_idx)
+        .unwrap();
+    let output_ref = deposit_entry.output().clone();
+
+    (chain_state, output_ref)
 }
 
 pub async fn get_header_verification_data(

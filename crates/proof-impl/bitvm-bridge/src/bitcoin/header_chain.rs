@@ -19,7 +19,7 @@ pub fn verify_l1_chain(
     for header in headers {
         state = state.check_and_update_continuity_new(header, params);
 
-        // If inclusions are not empty
+        // Assert the inclusion of the `header_inclusions` lists
         if !inclusions.is_empty()
             && inclusions.first().unwrap().as_ref() == state.last_verified_block_hash.as_ref()
         {
