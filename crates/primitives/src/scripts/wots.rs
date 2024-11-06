@@ -41,36 +41,6 @@ pub fn bridge_poc_verification_key() -> g16::VerifyingKey {
     mock::get_verifying_key()
 }
 
-// pub fn generate_verifier_partial_scripts() -> [Script; g16::N_TAPLEAVES] {
-//     g16::Verifier::compile(bridge_poc_verification_key())
-// }
-
-// pub fn generate_verifier_tapscripts_from_partial_scripts(
-//     verifier_scripts: &[Script; g16::N_TAPLEAVES],
-//     public_keys: g16::PublicKeys,
-// ) -> [Script; g16::N_TAPLEAVES] {
-//     g16::Verifier::generate_tapscripts(public_keys, verifier_scripts)
-// }
-
-// pub fn generate_assertions_for_proof(
-//     vk: g16::VerifyingKey,
-//     proof: g16::Proof,
-//     public_inputs: g16::PublicInputs,
-// ) -> g16::Assertions {
-//     g16::Verifier::generate_assertions(vk, proof, public_inputs)
-// }
-
-// pub fn validate_assertion_signatures(
-//     signatures: g16::Signatures,
-//     public_keys: g16::PublicKeys,
-// ) -> Option<(usize, Script)> {
-//     g16::Verifier::validate_assertion_signatures(
-//         bridge_poc_verification_key(),
-//         signatures,
-//         public_keys,
-//     )
-// }
-
 pub fn get_deposit_master_secret_key(msk: &str, deposit_txid: Txid) -> String {
     format!("{}:{}", msk, deposit_txid)
 }
@@ -334,8 +304,6 @@ mod tests {
     }
 
     fn save_partial_disprove_scripts(scripts: &[Script; g16::N_TAPLEAVES]) {
-        print!("Saving partial disprove scripts...");
-
         for (index, script) in scripts.iter().enumerate() {
             let path = format!("data/partial-disprove-scripts/{index}");
             fs::write(path, script.clone().compile().to_bytes()).unwrap();
@@ -345,15 +313,11 @@ mod tests {
     }
 
     fn read_partial_disprove_scripts() -> [Script; g16::N_TAPLEAVES] {
-        print!("Reading verifier scripts...");
-
         let scripts = std::array::from_fn(|index| {
             let path = format!("data/partial-disprove-scripts/{index}");
             let script_buf = ScriptBuf::from_bytes(fs::read(path).unwrap());
-            print!("{}, ", index);
             script!().push_script(script_buf)
         });
-        println!();
         scripts
     }
 
@@ -376,47 +340,54 @@ mod tests {
         //     assertions
         // };
         // return;
-        let assertions = {
-            let mut assertions = get_mock_assertions();
-            assertions.groth16.1[0] = [1u8; 32]; // make incorrect assertions
-            assertions
-        };
 
         let deposit_txid = mock_txid();
 
         println!("Generating wots public keys");
         let public_keys = generate_wots_public_keys(WOTS_MSK, deposit_txid).groth16;
 
-        println!("Generating wots signatures");
-        let signatures = generate_wots_signatures(WOTS_MSK, deposit_txid, assertions).groth16;
+        println!("Reading partial disprove scripts");
+        let partial_disprove_scripts = &read_partial_disprove_scripts();
 
-        println!("Validating assertion signatures");
-        match g16::verify_signed_assertions(bridge_poc_vk, public_keys, signatures) {
-            Some((tapleaf_index, witness_script)) => {
-                println!("Assertion is invalid");
+        fn invalidate_groth16_assertions(mut assertions: Assertions, i: usize) -> Assertions {
+            match i {
+                0 => assertions.groth16.0[i] = [0u8; 32],
+                1..=g16::N_VERIFIER_FQS => assertions.groth16.1[i - 1] = [0u8; 32],
+                _ => assertions.groth16.2[i - g16::N_VERIFIER_FQS - 1] = [0u8; 20],
+            };
+            assertions
+        }
 
-                let tapleaf_script =
-                    g16::generate_disprove_scripts(public_keys, &read_partial_disprove_scripts())
-                        [tapleaf_index]
-                        .clone();
+        // for i in 0..g16::N_VERIFIER_PUBLIC_INPUTS + g16::N_VERIFIER_FQS + g16::N_VERIFIER_HASHES
+        // {
+        for i in [0, 1, 2, 39, 40, 41, 42, 610, 611, 612, 613, 614] {
+            println!("Verifying signed assertions (invalidated={i})");
+            let assertions = invalidate_groth16_assertions(get_mock_assertions(), i);
 
-                println!(
-                    "{tapleaf_index}: {}, {}",
-                    witness_script.len(),
-                    tapleaf_script.len()
-                );
+            println!("    Generating wots signatures for assertions (invalidated={i}");
+            let signatures = generate_wots_signatures(WOTS_MSK, deposit_txid, assertions).groth16;
 
-                let script = script! {
-                    { witness_script }
-                    { tapleaf_script }
-                };
-                let res = execute_script(script);
-                assert!(
-                    res.success,
-                    "Invalid assertion: Disprove script should not fail"
-                );
+            match g16::verify_signed_assertions(bridge_poc_vk.clone(), public_keys, signatures) {
+                Some((tapleaf_index, witness_script)) => {
+                    println!("    Assertions (invalidated={i}) is invalid!");
+
+                    let tapleaf_script =
+                        g16::generate_disprove_scripts(public_keys, partial_disprove_scripts)
+                            [tapleaf_index]
+                            .clone();
+
+                    let script = script! {
+                        { witness_script }
+                        { tapleaf_script }
+                    };
+                    let res = execute_script(script);
+                    assert!(
+                        res.success,
+                        "    Assertion (invalidated={i}): Disprove script should not fail!"
+                    );
+                }
+                None => println!("    Assertions (invalidated={i}) is valid!"),
             }
-            None => println!("Assertion is valid"),
         }
     }
 
