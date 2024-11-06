@@ -32,6 +32,7 @@ pub struct DisproveTx {
 impl DisproveTx {
     pub async fn new<Db: ConnectorDb>(
         data: DisproveData,
+        operator_idx: OperatorIdx,
         connector_a30: ConnectorA30<Db>,
         connector_a31: ConnectorA31<Db>,
     ) -> Self {
@@ -68,7 +69,7 @@ impl DisproveTx {
         let mut psbt = Psbt::from_unsigned_tx(tx).expect("should be able to create psbt");
 
         let connector_a31_script = connector_a31
-            .generate_locking_script(data.deposit_txid)
+            .generate_locking_script(data.deposit_txid, operator_idx)
             .await;
         let connector_a31_value = connector_a31_script.minimal_non_dust();
 

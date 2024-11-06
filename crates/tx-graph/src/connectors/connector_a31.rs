@@ -5,7 +5,7 @@ use bitcoin::{
 };
 use bitvm::{
     bn254::chunk_superblock::H256,
-    groth16::g16,
+    groth16::g16::{self, N_TAPLEAVES},
     hash::sha256::sha256,
     pseudo::NMUL,
     signatures::wots::{wots256, wots32, SignatureImpl},
@@ -13,8 +13,8 @@ use bitvm::{
 };
 use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::{
-    params::prelude::{NUM_PKS_A160, NUM_PKS_A256},
     scripts::{prelude::*, wots},
+    types::OperatorIdx,
 };
 use tracing::trace;
 
@@ -30,7 +30,7 @@ pub struct ConnectorA31<DB: ConnectorDb> {
 #[derive(Debug, Clone)]
 #[expect(clippy::large_enum_variant)]
 pub enum ConnectorA31Leaf {
-    InvalidateProof((usize, Option<Script>)),
+    InvalidateProof((Script, Option<Script>)),
     DisproveChain(Option<(wots256::Signature, wots32::Signature, [u8; 80])>),
     InvalidatePublicDataHash(
         Option<(
@@ -150,19 +150,19 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                     OP_NOT
                 }
             }
-            ConnectorA31Leaf::InvalidateProof((disprove_script_index, _)) => {
-                let partial_disprove_scripts = &self.db.get_partial_disprove_scripts().await;
-                let public_keys = self.db.get_wots_public_keys(0, deposit_txid).await.groth16;
-                let disprove_scripts =
-                    g16::generate_disprove_scripts(public_keys, partial_disprove_scripts);
-                disprove_scripts[disprove_script_index].clone()
-            }
+            ConnectorA31Leaf::InvalidateProof((disprove_script, _)) => disprove_script,
         }
         .compile()
     }
 
-    pub async fn generate_locking_script(&self, deposit_txid: Txid) -> ScriptBuf {
-        let (address, _) = self.generate_taproot_address(deposit_txid).await;
+    pub async fn generate_locking_script(
+        &self,
+        deposit_txid: Txid,
+        operator_idx: OperatorIdx,
+    ) -> ScriptBuf {
+        let (address, _) = self
+            .generate_taproot_address(deposit_txid, operator_idx)
+            .await;
 
         address.script_pubkey()
     }
@@ -171,8 +171,11 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         &self,
         tapleaf: ConnectorA31Leaf,
         deposit_txid: Txid,
+        operator_idx: OperatorIdx,
     ) -> (ScriptBuf, ControlBlock) {
-        let (_, taproot_spend_info) = self.generate_taproot_address(deposit_txid).await;
+        let (_, taproot_spend_info) = self
+            .generate_taproot_address(deposit_txid, operator_idx)
+            .await;
 
         let script = self.generate_tapleaf(tapleaf, deposit_txid).await;
         let control_block = taproot_spend_info
@@ -182,8 +185,41 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         (script, control_block)
     }
 
-    async fn generate_taproot_address(&self, deposit_txid: Txid) -> (Address, TaprootSpendInfo) {
-        trace!(action = "generating disprove chain and invalidate public data leaves");
+    pub async fn generate_disprove_scripts(
+        &self,
+        deposit_txid: Txid,
+        operator_idx: OperatorIdx,
+    ) -> [Script; N_TAPLEAVES] {
+        trace!(action = "getting partial disprove scripts from db", %operator_idx);
+        let partial_disprove_scripts = &self.db.get_partial_disprove_scripts().await;
+        trace!(event = "got partial disprove scripts from db", %operator_idx);
+
+        trace!(action = "getting public_keys from db", %operator_idx, %deposit_txid);
+        let public_keys = self
+            .db
+            .get_wots_public_keys(operator_idx, deposit_txid)
+            .await
+            .groth16;
+        trace!(action = "got public_keys from db", %operator_idx, %deposit_txid);
+
+        trace!(action = "generating disprove scripts", %operator_idx);
+        let disprove_scripts =
+            g16::generate_disprove_scripts(public_keys, partial_disprove_scripts);
+        trace!(action = "generated disprove scripts", %operator_idx, num_disprove_scripts=%disprove_scripts.len());
+
+        disprove_scripts
+    }
+
+    async fn generate_taproot_address(
+        &self,
+        deposit_txid: Txid,
+        operator_idx: OperatorIdx,
+    ) -> (Address, TaprootSpendInfo) {
+        trace!(action = "generating disprove chain and invalidate public data leaves", %operator_idx);
+        let disprove_scripts = self
+            .generate_disprove_scripts(deposit_txid, operator_idx)
+            .await;
+
         let mut scripts = vec![
             self.generate_tapleaf(ConnectorA31Leaf::DisproveChain(None), deposit_txid)
                 .await,
@@ -193,22 +229,25 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             )
             .await,
         ];
-        trace!(event = "generated disprove chain and invalidate public data leaves");
+        trace!(event = "generated disprove chain and invalidate public data leaves", %operator_idx);
 
-        const TOTAL_SCRIPTS: usize = NUM_PKS_A160 + NUM_PKS_A256;
-        trace!(action = "generating invalidate proof leaves", %TOTAL_SCRIPTS);
-        let mut invalidate_proof_tapleaves = Vec::with_capacity(TOTAL_SCRIPTS);
-        for i in 0..TOTAL_SCRIPTS {
+        trace!(action = "generating invalidate proof leaves", %N_TAPLEAVES, %operator_idx);
+
+        let mut invalidate_proof_tapleaves = Vec::with_capacity(N_TAPLEAVES);
+        for disprove_script in disprove_scripts.into_iter() {
             invalidate_proof_tapleaves.push(
-                self.generate_tapleaf(ConnectorA31Leaf::InvalidateProof((i, None)), deposit_txid)
-                    .await,
+                self.generate_tapleaf(
+                    ConnectorA31Leaf::InvalidateProof((disprove_script, None)),
+                    deposit_txid,
+                )
+                .await,
             );
         }
-        trace!(event = "generated invalidate proof leaves");
+        trace!(event = "generated invalidate proof leaves", %operator_idx);
 
         scripts.extend(invalidate_proof_tapleaves.into_iter());
 
-        trace!(action = "create taproot address");
+        trace!(action = "creating taproot address", %operator_idx);
         create_taproot_addr(&self.network, SpendPath::ScriptSpend { scripts: &scripts })
             .expect("should be able to create taproot address")
     }
@@ -218,9 +257,10 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         input: &mut Input,
         tapleaf: ConnectorA31Leaf,
         deposit_txid: Txid,
+        operator_idx: OperatorIdx,
     ) {
         let (script, control_block) = self
-            .generate_spend_info(tapleaf.clone(), deposit_txid)
+            .generate_spend_info(tapleaf.clone(), deposit_txid, operator_idx)
             .await;
 
         let witness_script = match tapleaf {
