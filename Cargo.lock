@@ -6176,6 +6176,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "prover-test-utils"
+version = "0.1.0"
+dependencies = [
+ "bitcoin 0.32.3",
+ "borsh",
+ "serde",
+ "snark-bn254-verifier 1.0.2 (git+https://github.com/succinctlabs/snark-bn254-verifier.git?rev=96bce2079584b68597f3241551e4b97300fd92c6)",
+ "sp1-core-machine",
+ "strata-btcio",
+ "strata-primitives",
+ "strata-proofimpl-btc-blockspace",
+ "strata-state",
+ "strata-tx-parser",
+ "strata-zkvm",
+ "substrate-bn",
+ "tokio",
+ "tower 0.4.13",
+]
+
+[[package]]
 name = "psm"
 version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8508,6 +8528,7 @@ version = "0.1.0"
 dependencies = [
  "bitcoin 0.32.3",
  "borsh",
+ "prover-test-utils",
  "serde",
  "snark-bn254-verifier 1.0.2 (git+https://github.com/succinctlabs/snark-bn254-verifier.git?rev=96bce2079584b68597f3241551e4b97300fd92c6)",
  "sp1-core-machine",
