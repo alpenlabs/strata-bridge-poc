@@ -30,9 +30,9 @@ pub struct ConnectorA31<DB: ConnectorDb> {
 #[derive(Debug, Clone)]
 #[expect(clippy::large_enum_variant)]
 pub enum ConnectorA31Leaf {
-    InvalidateProof((Script, Option<Script>)),
-    DisproveChain(Option<(wots256::Signature, wots32::Signature, [u8; 80])>),
-    InvalidatePublicDataHash(
+    DisproveProof((Script, Option<Script>)),
+    DisproveSuperblockCommitment(Option<(wots256::Signature, wots32::Signature, [u8; 80])>),
+    DisprovePublicInputsCommitment(
         Option<(
             wots256::Signature,
             wots256::Signature,
@@ -86,7 +86,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         }
 
         match tapleaf {
-            ConnectorA31Leaf::DisproveChain(_) => {
+            ConnectorA31Leaf::DisproveSuperblockCommitment(_) => {
                 script! {
                 // committed superblock hash
                 { wots256::compact::checksig_verify(superblock_hash_public_key) }
@@ -119,7 +119,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                 OP_TRUE
                 }
             }
-            ConnectorA31Leaf::InvalidatePublicDataHash(_) => {
+            ConnectorA31Leaf::DisprovePublicInputsCommitment(_) => {
                 script! {
                     { wots256::checksig_verify(superblock_hash_public_key) }
                     for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
@@ -154,7 +154,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                     OP_NOT
                 }
             }
-            ConnectorA31Leaf::InvalidateProof((disprove_script, _)) => disprove_script,
+            ConnectorA31Leaf::DisproveProof((disprove_script, _)) => disprove_script,
         }
         .compile()
     }
@@ -225,10 +225,13 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             .await;
 
         let mut scripts = vec![
-            self.generate_tapleaf(ConnectorA31Leaf::DisproveChain(None), deposit_txid)
-                .await,
             self.generate_tapleaf(
-                ConnectorA31Leaf::InvalidatePublicDataHash(None),
+                ConnectorA31Leaf::DisproveSuperblockCommitment(None),
+                deposit_txid,
+            )
+            .await,
+            self.generate_tapleaf(
+                ConnectorA31Leaf::DisprovePublicInputsCommitment(None),
                 deposit_txid,
             )
             .await,
@@ -241,7 +244,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         for disprove_script in disprove_scripts.into_iter() {
             invalidate_proof_tapleaves.push(
                 self.generate_tapleaf(
-                    ConnectorA31Leaf::InvalidateProof((disprove_script, None)),
+                    ConnectorA31Leaf::DisproveProof((disprove_script, None)),
                     deposit_txid,
                 )
                 .await,
@@ -268,7 +271,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             .await;
 
         let witness_script = match tapleaf {
-            ConnectorA31Leaf::DisproveChain(Some((
+            ConnectorA31Leaf::DisproveSuperblockCommitment(Some((
                 sig_superblock_hash,
                 sig_superblock_period_start_ts,
                 raw_superblock_header_bytes,
@@ -279,7 +282,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                     { sig_superblock_hash.to_compact_script() }
                 }
             }
-            ConnectorA31Leaf::InvalidatePublicDataHash(Some((
+            ConnectorA31Leaf::DisprovePublicInputsCommitment(Some((
                 sig_superblock_hash,
                 sig_bridge_out_txid,
                 sig_superblock_period_start_ts,
@@ -292,7 +295,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                     { sig_superblock_hash.to_compact_script() }
                 }
             }
-            ConnectorA31Leaf::InvalidateProof((_, Some(witness_script))) => witness_script,
+            ConnectorA31Leaf::DisproveProof((_, Some(witness_script))) => witness_script,
             _ => panic!("no data provided to finalize input"),
         };
 

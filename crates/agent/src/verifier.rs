@@ -170,7 +170,7 @@ impl Verifier {
                     let public_inputs_hash = hash_to_bn254_fq(&serialized_public_inputs);
                     let committed_public_inputs_hash = groth16.0[0].parse();
                     if public_inputs_hash != committed_public_inputs_hash {
-                        Some(ConnectorA31Leaf::InvalidatePublicDataHash(Some((
+                        Some(ConnectorA31Leaf::DisprovePublicInputsCommitment(Some((
                             superblock_hash,
                             bridge_out_txid,
                             superblock_period_start_ts,
@@ -195,7 +195,7 @@ impl Verifier {
                                     &self.public_db.get_partial_disprove_scripts().await,
                                 )[tapleaf_index]
                                     .clone();
-                                Some(ConnectorA31Leaf::InvalidateProof((
+                                Some(ConnectorA31Leaf::DisproveProof((
                                     disprove_script,
                                     Some(witness_script),
                                 )))
