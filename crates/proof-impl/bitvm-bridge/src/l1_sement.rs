@@ -33,10 +33,7 @@ pub fn process_blocks(
     let claim_txn = get_claim_txn(&claim_txn_block);
 
     // TODO: Match the info from `ckp_withdrawl_info` & `operator_withdrawl_info`
-
     // TODO: Link the `operator_withdrawl_info` and `claim_txn`
-
-    // TODO: Assert inclusion of `checkpoint`, `claim_txn_block` & `payment` blocks in headers
 
     // TODO: Find the super block
     // ts <- claim_txn (B4 time := ts)
@@ -44,14 +41,24 @@ pub fn process_blocks(
     // asseert B4.time == ts
     // super_block = min_block(B4 + 2016)
     // Maybe pass the closure
-    let params = get_btc_params();
 
-    let header_inclusion = [
+    // Ensure the block we scan falls inside the L1 fragment
+    let params = get_btc_params();
+    let header_inclusions = [
         compute_block_hash(&checkpoint.0.header),
         compute_block_hash(&payment.header),
         compute_block_hash(&claim_txn_block.header),
     ];
-    verify_l1_chain(&start_header, headers, &params);
+
+    let ts_block_hash = compute_block_hash(&ts_block_header);
+
+    verify_l1_chain(
+        &start_header,
+        headers,
+        &params,
+        ts_block_hash,
+        header_inclusions.to_vec(),
+    );
 }
 
 #[cfg(test)]

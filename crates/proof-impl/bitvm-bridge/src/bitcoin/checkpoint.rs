@@ -20,8 +20,8 @@ pub fn verify_checkpoint_and_extract_info(
     check_point_block: &Block,
     chain_state: &ChainState,
 ) -> (WithdrwalInfo, BatchInfo) {
-    let ckp = extract_batch_checkpoint(&check_point_block);
-    let (operator_pk, user_withdrawl_info, ckp_state_root) = extract_chain_state_info(&chain_state);
+    let ckp = extract_batch_checkpoint(check_point_block);
+    let (operator_pk, user_withdrawl_info, ckp_state_root) = extract_chain_state_info(chain_state);
 
     assert_eq!(*ckp.batch_info().final_l2_state_hash(), ckp_state_root);
 
@@ -73,6 +73,7 @@ fn extract_chain_state_info(chain_state: &ChainState) -> (Buf32, (XOnlyPk, Bitco
     let deposit_table = chain_state.deposits_table();
 
     // TODO: Is this the actaul way to handle the deposit entry ??
+    // FIXME: No, search by the output ref
     let latest_deposit = deposit_table.len() - 1;
     let deposit_entry = deposit_table.get_deposit(latest_deposit).unwrap();
 
