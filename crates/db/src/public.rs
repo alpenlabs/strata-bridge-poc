@@ -178,9 +178,7 @@ impl ConnectorDb for PublicDb {
         trace!(event = "wlock acquired on wots public keys", %operator_id, %deposit_txid);
 
         if let Some(op_keys) = map.get_mut(&operator_id) {
-            op_keys
-                .insert(deposit_txid, *public_keys)
-                .expect("must be able to add public keys");
+            op_keys.insert(deposit_txid, *public_keys);
         } else {
             let mut keys = HashMap::new();
             keys.insert(deposit_txid, *public_keys);
@@ -200,9 +198,7 @@ impl ConnectorDb for PublicDb {
         trace!(event = "wlock acquired on wots signatures", %operator_id, %deposit_txid);
 
         if let Some(op_keys) = map.get_mut(&operator_id) {
-            op_keys
-                .insert(deposit_txid, *signatures)
-                .expect("must be able to add public keys");
+            op_keys.insert(deposit_txid, *signatures);
         } else {
             let mut sigs_map = HashMap::new();
             sigs_map.insert(deposit_txid, *signatures);

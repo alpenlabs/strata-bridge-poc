@@ -151,7 +151,7 @@ fn build_taptree(
     ))
 }
 
-pub fn finalize_input<D>(input: &mut Input, witnesses: impl IntoIterator<Item = D>) -> &Input
+pub fn finalize_input<D>(input: &mut Input, witnesses: impl IntoIterator<Item = D>)
 where
     D: AsRef<[u8]>,
 {
@@ -174,8 +174,6 @@ where
     input.redeem_script = None;
     input.witness_script = None;
     input.bip32_derivation = BTreeMap::new();
-
-    input
 }
 
 /// The components required in the witness stack to spend a taproot output.
@@ -205,7 +203,7 @@ pub enum TaprootWitness {
 /// This hash may be for the key path spend or the script path spend depending upon the
 /// `spend_path`.
 pub fn create_message_hash(
-    sighash_cache: &mut SighashCache<&mut Transaction>,
+    sighash_cache: &mut SighashCache<&Transaction>,
     prevouts: Prevouts<'_, TxOut>,
     witness_type: &TaprootWitness,
     sighash_type: TapSighashType,
@@ -231,7 +229,7 @@ pub fn create_message_hash(
 /// Generate a sighash message for a taproot `script` spending path at the `input_index` of
 /// all `prevouts`.
 pub fn create_script_spend_hash(
-    sighash_cache: &mut SighashCache<&mut Transaction>,
+    sighash_cache: &mut SighashCache<&Transaction>,
     script: &ScriptBuf,
     prevouts: Prevouts<'_, TxOut>,
     sighash_type: TapSighashType,
@@ -255,7 +253,7 @@ pub fn create_script_spend_hash(
 /// Generate a sighash message for a taproot `key` spending path at the `input_index` of
 /// all `prevouts`.
 pub fn create_key_spend_hash(
-    sighash_cache: &mut SighashCache<&mut Transaction>,
+    sighash_cache: &mut SighashCache<&Transaction>,
     prevouts: Prevouts<'_, TxOut>,
     sighash_type: TapSighashType,
     input_index: usize,

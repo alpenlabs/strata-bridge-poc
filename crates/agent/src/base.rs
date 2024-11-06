@@ -31,7 +31,7 @@ impl Agent {
         Self { keypair, client }
     }
 
-    pub fn sign(&self, tx: &mut Transaction, prevouts: &[TxOut], input_index: usize) -> Signature {
+    pub fn sign(&self, tx: &Transaction, prevouts: &[TxOut], input_index: usize) -> Signature {
         let mut sighash_cache = SighashCache::new(tx);
         let msg = create_message_hash(
             &mut sighash_cache,

@@ -263,3 +263,12 @@ provers/sp1/proofs/
 
 # secrets
 .secrets/
+
+# log files
+*.log
+
+# verifier scripts
+*.scripts
+
+# backup files
+*.bak
