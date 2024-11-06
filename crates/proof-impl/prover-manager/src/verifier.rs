@@ -19,8 +19,6 @@ pub fn verify_proof(proof: Proof, vkey: String, comitted_values: &[u8]) -> anyho
 
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
-
     use bitcoin::{hashes::Hash, BlockHash, Txid};
     use sp1_sdk::{HashableKey, SP1ProofWithPublicValues, SP1VerifyingKey};
     use strata_proofimpl_bitvm_bridge::BridgeProofPublicParams;

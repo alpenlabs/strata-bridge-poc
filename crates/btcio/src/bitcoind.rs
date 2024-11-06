@@ -101,7 +101,7 @@ impl BitcoinClient {
     }
 
     fn next_id(&self) -> usize {
-        self.id.fetch_add(1, Ordering::AcqRel)
+        self.id.fetch_add(1, Ordering::SeqCst)
     }
 
     async fn call<T: de::DeserializeOwned + fmt::Debug>(
@@ -111,9 +111,9 @@ impl BitcoinClient {
     ) -> ClientResult<T> {
         let mut retries = 0;
         loop {
-            trace!(%method, ?params, %retries, "Calling bitcoin client");
-
+            debug!(%method, %retries, "Fetching new id");
             let id = self.next_id();
+            debug!(%method, ?params, %retries, %id, "Calling bitcoin client");
 
             let response = self
                 .client

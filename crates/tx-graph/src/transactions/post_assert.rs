@@ -2,7 +2,7 @@ use bitcoin::{sighash::Prevouts, Amount, OutPoint, Psbt, Transaction, TxOut, Txi
 use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
 use strata_bridge_db::connector_db::ConnectorDb;
-use strata_bridge_primitives::scripts::prelude::*;
+use strata_bridge_primitives::{scripts::prelude::*, types::OperatorIdx};
 use tracing::trace;
 
 use super::{
@@ -34,6 +34,7 @@ pub struct PostAssertTx {
 impl PostAssertTx {
     pub async fn new<Db: ConnectorDb>(
         data: PostAssertTxData,
+        operator_idx: OperatorIdx,
         connector_a2: ConnectorS,
         connector_a30: ConnectorA30<Db>,
         connector_a31: ConnectorA31<Db>,
@@ -44,14 +45,14 @@ impl PostAssertTx {
         });
         let tx_ins = create_tx_ins(utxos);
 
-        trace!(event = "created tx ins", count = tx_ins.len());
+        trace!(event = "created tx ins", count = tx_ins.len(), %operator_idx);
 
         let connector_a31_script = connector_a31
-            .generate_locking_script(data.deposit_txid)
+            .generate_locking_script(data.deposit_txid, operator_idx)
             .await;
         trace!(
             event = "generated a31 locking script",
-            size = connector_a31_script.len()
+            size = connector_a31_script.len(), %operator_idx,
         );
 
         let mut scripts_and_amounts = [
@@ -69,7 +70,7 @@ impl PostAssertTx {
         scripts_and_amounts[0].1 = net_stake;
 
         let tx_outs = create_tx_outs(scripts_and_amounts);
-        trace!(event = "created tx outs", count = tx_outs.len());
+        trace!(event = "created tx outs", count = tx_outs.len(), %operator_idx);
 
         let tx = create_tx(tx_ins, tx_outs);
 
@@ -83,7 +84,7 @@ impl PostAssertTx {
                 value: assert_data_output_script.minimal_non_dust(),
             })
             .collect::<Vec<TxOut>>();
-        trace!(event = "created prevouts", count = prevouts.len());
+        trace!(event = "created prevouts", count = prevouts.len(), %operator_idx);
 
         for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts.clone()) {
             input.witness_utxo = Some(utxo);

@@ -10,7 +10,6 @@ use strata_bridge_primitives::{
         wots::{bridge_poc_verification_key, Signatures},
     },
     types::OperatorIdx,
-    withdrawal::WithdrawalInfo,
 };
 use strata_bridge_tx_graph::{
     connectors::prelude::ConnectorA31Leaf,
@@ -19,10 +18,7 @@ use strata_bridge_tx_graph::{
 use tokio::sync::broadcast;
 use tracing::info;
 
-use crate::{
-    base::Agent,
-    signal::{CovenantSignal, DepositSignal},
-};
+use crate::base::Agent;
 
 #[derive(Clone, Debug)]
 pub enum VerifierDuty {
@@ -187,16 +183,21 @@ impl Verifier {
                             None
                         } else {
                             // 3. groth16 proof validation
-                            if let Some((tapleaf_index, disprove_script)) =
+                            if let Some((tapleaf_index, witness_script)) =
                                 g16::verify_signed_assertions(
                                     bridge_poc_verification_key(),
                                     public_keys.groth16,
                                     signatures.groth16,
                                 )
                             {
+                                let disprove_script = g16::generate_disprove_scripts(
+                                    public_keys.groth16,
+                                    &self.public_db.get_partial_disprove_scripts().await,
+                                )[tapleaf_index]
+                                    .clone();
                                 Some(ConnectorA31Leaf::InvalidateProof((
-                                    tapleaf_index,
-                                    Some(disprove_script),
+                                    disprove_script,
+                                    Some(witness_script),
                                 )))
                             } else {
                                 None

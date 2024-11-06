@@ -79,6 +79,7 @@ impl PegOutGraph {
 
         let assert_chain = AssertChain::new(
             assert_chain_data,
+            operator_idx,
             connectors.claim_out_0,
             connectors.stake,
             connectors.post_assert_out_0.clone(),
@@ -119,6 +120,7 @@ impl PegOutGraph {
 
         let disprove_tx = DisproveTx::new(
             disprove_data,
+            operator_idx,
             connectors.post_assert_out_0,
             connectors.post_assert_out_1,
         )

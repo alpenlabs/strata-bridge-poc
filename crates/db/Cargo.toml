@@ -16,6 +16,7 @@ strata-bridge-primitives.workspace = true
 
 anyhow.workspace = true
 async-trait.workspace = true
+bincode.workspace = true
 bitcoin = { workspace = true, features = ["rand-std"] }
 bitcoin-script = { workspace = true }
 bitcoin-scriptexec = { workspace = true }

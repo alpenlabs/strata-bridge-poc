@@ -3199,9 +3199,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 [[package]]
 name = "strata-bridge-tx-builder"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#c93aeece9c92d3565d6fa52f1d99ff7f012b9e03"
 dependencies = [
- "bitcoin",
+ "bitcoin 0.32.3",
  "lazy_static",
  "musig2",
  "serde",
@@ -3212,7 +3212,7 @@ dependencies = [
 [[package]]
 name = "strata-crypto"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#c93aeece9c92d3565d6fa52f1d99ff7f012b9e03"
 dependencies = [
  "borsh",
  "secp256k1",
@@ -3223,12 +3223,12 @@ dependencies = [
 [[package]]
 name = "strata-primitives"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#c93aeece9c92d3565d6fa52f1d99ff7f012b9e03"
 dependencies = [
  "anyhow",
  "arbitrary",
  "bincode",
- "bitcoin",
+ "bitcoin 0.32.3",
  "borsh",
  "digest 0.10.7",
  "hex",
@@ -3261,10 +3261,10 @@ dependencies = [
 [[package]]
 name = "strata-state"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#c93aeece9c92d3565d6fa52f1d99ff7f012b9e03"
 dependencies = [
  "arbitrary",
- "bitcoin",
+ "bitcoin 0.32.3",
  "borsh",
  "digest 0.10.7",
  "ethnum",
@@ -3282,7 +3282,7 @@ dependencies = [
 [[package]]
 name = "strata-zkvm"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=fix/add-getters-for-withdrawal-info-fields#96369d954c1529a9daa4c07aa4cedf8163132674"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#c93aeece9c92d3565d6fa52f1d99ff7f012b9e03"
 dependencies = [
  "anyhow",
  "arbitrary",

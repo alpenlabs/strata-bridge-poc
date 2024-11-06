@@ -70,6 +70,12 @@ impl Agent {
             .await
             .expect("should get change address");
 
+        let network = self
+            .client
+            .network()
+            .await
+            .expect("should get network from node");
+
         // FIXME: allow selecting multiple UTXOs that sum up to the required amount
         for entry in unspent_utxos {
             let outpoint = OutPoint {
@@ -80,12 +86,6 @@ impl Agent {
                 // this utxo has already been selected for some other tx
                 continue;
             }
-
-            let network = self
-                .client
-                .network()
-                .await
-                .expect("should get network from node");
 
             trace!(%entry.amount, %entry.txid, %entry.vout, %entry.confirmations, "checking unspent utxos");
             if entry.amount > target_amount + MIN_RELAY_FEE {
