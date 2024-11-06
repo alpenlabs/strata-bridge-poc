@@ -1,8 +1,10 @@
 //! Provides types/traits associated with the withdrawal process.
 
+use std::str::FromStr;
+
 use bitcoin::OutPoint;
 use secp256k1::XOnlyPublicKey;
-use serde::{Deserialize, Serialize};
+use serde::{de, Deserialize, Deserializer, Serialize};
 
 use crate::types::{BitcoinBlockHeight, OperatorIdx};
 
@@ -18,6 +20,7 @@ pub struct WithdrawalInfo {
 
     /// The x-only public key of the user used to create the taproot address that the user can
     /// spend from.
+    #[serde(deserialize_with = "deserialize_hex_xonly_pubkey")]
     user_pk: XOnlyPublicKey,
 
     /// The index of the operator that is assigned the withdrawal.
@@ -28,6 +31,18 @@ pub struct WithdrawalInfo {
     /// Any withdrawal request whose `exec_deadline` is before the current bitcoin block height is
     /// considered stale and must be ignored.
     exec_deadline: BitcoinBlockHeight,
+}
+fn deserialize_hex_xonly_pubkey<'de, D>(deserializer: D) -> Result<XOnlyPublicKey, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let hex_str: String = Deserialize::deserialize(deserializer)?;
+
+    // Strip the `0x` prefix if it exists
+    let hex_str = hex_str.strip_prefix("0x").unwrap_or(&hex_str);
+
+    // Parse the hex string to XOnlyPublicKey
+    XOnlyPublicKey::from_str(hex_str).map_err(de::Error::custom)
 }
 
 impl WithdrawalInfo {

@@ -2,6 +2,8 @@ use std::collections::HashSet;
 
 use anyhow::bail;
 use bitcoin::{
+    consensus,
+    hashes::Hash,
     hex::DisplayHex,
     sighash::{Prevouts, SighashCache},
     TapSighashType, Transaction, TxOut, Txid,
@@ -9,9 +11,9 @@ use bitcoin::{
 use musig2::{
     aggregate_partial_signatures, sign_partial, AggNonce, KeyAggContext, PartialSignature, PubNonce,
 };
-use rand::RngCore;
-use secp256k1::schnorr::Signature;
-use strata_bridge_btcio::traits::Broadcaster;
+use rand::{rngs::OsRng, Rng, RngCore};
+use secp256k1::{schnorr::Signature, XOnlyPublicKey};
+use strata_bridge_btcio::traits::{Broadcaster, Reader, Signer};
 use strata_bridge_db::{
     connector_db::ConnectorDb,
     operator::{KickoffInfo, OperatorDb},
@@ -21,7 +23,10 @@ use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext, TxKind},
     deposit::DepositInfo,
     duties::BridgeDuty,
-    params::prelude::{BRIDGE_DENOMINATION, MIN_RELAY_FEE, OPERATOR_STAKE},
+    params::{
+        prelude::{BRIDGE_DENOMINATION, MIN_RELAY_FEE, OPERATOR_STAKE},
+        tx::OPERATOR_FEE,
+    },
     scripts::{
         taproot::{create_message_hash, finalize_input, TaprootWitness},
         wots::generate_wots_public_keys,
@@ -31,7 +36,7 @@ use strata_bridge_primitives::{
 };
 use strata_bridge_tx_graph::{
     peg_out_graph::{PegOutGraph, PegOutGraphConnectors, PegOutGraphInput},
-    transactions::prelude::*,
+    transactions::{bridge_out::BridgeOut, prelude::*},
 };
 use tokio::sync::broadcast;
 use tracing::{debug, error, info, trace, warn};
@@ -132,9 +137,12 @@ impl Operator {
             BridgeDuty::FulfillWithdrawal(cooperative_withdrawal_info) => {
                 let txid = cooperative_withdrawal_info.deposit_outpoint().txid;
                 let assignee_id = cooperative_withdrawal_info.assigned_operator_idx();
-                info!(event = "received withdrawal", operator_idx = %self.build_context.own_index(), dt_txid = %txid, assignee = %assignee_id);
+                let own_index = self.build_context.own_index();
 
-                if assignee_id != self.build_context.own_index() {
+                info!(event = "received withdrawal", dt_txid = %txid, assignee = %assignee_id, %own_index);
+
+                if assignee_id != own_index {
+                    warn!(action = "ignoring withdrawal duty unassigned to this operator", %own_index);
                     return;
                 }
 
@@ -259,25 +267,6 @@ impl Operator {
                 error!(?e, "could not broadcast deposit tx");
             }
         }
-    }
-
-    pub async fn handle_withdrawal(&self, _withdrawal_info: WithdrawalInfo) {
-        // for withdrawal duty (assigned),
-        // 1. pay the user with PoW transaction
-        // 2. create tx graph from public data
-        // 3. publish kickoff -> claim
-        // 4. compute superblock and proof
-        // 5. publish assert chain
-        // 6. settle reimbursement tx after wait time
-    }
-
-    pub async fn handle_withdrawal_faulty(&self) {
-        // for withdrawal duty (assigned and self.am_i_faulty()),
-        // 1. create tx graph from public data
-        // 2. publish kickoff -> claim
-        // 3. compute superblock and faulty proof
-        // 4. publish assert chain
-        // 5. try to settle reimbursement tx after wait time
     }
 
     pub async fn aggregate_covenant_nonces(
@@ -1314,5 +1303,214 @@ impl Operator {
                 )
                 .await;
         }
+    }
+
+    pub async fn handle_withdrawal(&self, withdrawal_info: WithdrawalInfo) {
+        // 0. get context
+        let network = self.build_context.network();
+        let own_index = self.build_context.own_index();
+        let deposit_txid = withdrawal_info.deposit_outpoint().txid;
+        let own_pubkey = self.agent.public_key().x_only_public_key().0;
+
+        // 1. pay the user with PoW transaction
+        let user_pk = withdrawal_info.user_pk();
+
+        info!(action = "paying out the user", %user_pk, %own_index);
+        let bridge_out_txid = self
+            .pay_user(user_pk, network, own_index)
+            .await
+            .expect("must be able to pay user");
+
+        // 2. create tx graph from public data
+        info!(action = "reconstructing pegout graph", %deposit_txid, %own_index);
+        let KickoffInfo {
+            funding_inputs,
+            funding_utxos,
+            change_address,
+            change_amt,
+        } = self
+            .db
+            .get_kickoff_info(deposit_txid)
+            .await
+            .expect("kickoff data for the deposit must be present");
+
+        let peg_out_graph_input = PegOutGraphInput {
+            network,
+            deposit_amount: BRIDGE_DENOMINATION,
+            operator_pubkey: own_pubkey,
+            kickoff_data: KickoffTxData {
+                funding_inputs,
+                funding_utxos,
+                change_address: change_address.as_unchecked().clone(),
+                change_amt,
+                deposit_txid,
+            },
+        };
+
+        let connectors = PegOutGraphConnectors::new(
+            self.public_db.clone(),
+            &self.build_context,
+            deposit_txid,
+            own_index,
+        )
+        .await;
+
+        let PegOutGraph {
+            kickoff_tx,
+            claim_tx,
+            assert_chain: _,
+            payout_tx: _,
+            disprove_tx: _,
+        } = PegOutGraph::generate(
+            peg_out_graph_input,
+            deposit_txid,
+            connectors.clone(),
+            own_index,
+        )
+        .await;
+
+        // 3. publish kickoff -> claim
+        self.broadcast_kickoff_and_claim(
+            &connectors,
+            own_index,
+            deposit_txid,
+            kickoff_tx,
+            claim_tx,
+            bridge_out_txid,
+        )
+        .await;
+
+        // 4. compute superblock and proof
+        // 5. publish assert chain
+        // 6. settle reimbursement tx after wait time
+    }
+
+    async fn broadcast_kickoff_and_claim(
+        &self,
+        connectors: &PegOutGraphConnectors<PublicDb>,
+        own_index: u32,
+        deposit_txid: Txid,
+        kickoff_tx: KickOffTx,
+        claim_tx: ClaimTx,
+        bridge_out_txid: Txid,
+    ) {
+        let superblock_period_start_ts = self
+            .agent
+            .client
+            .get_current_timestamp()
+            .await
+            .expect("should be able to get the latest timestamp from the best block");
+        debug!(event = "got current timestamp (T_s)", %superblock_period_start_ts, %own_index);
+
+        let unsigned_kickoff = &kickoff_tx.psbt().unsigned_tx;
+        let funded_kickoff = self
+            .agent
+            .client
+            .sign_raw_transaction_with_wallet(unsigned_kickoff)
+            .await
+            .expect("should be able to sign kickoff tx with wallet");
+        let funded_kickoff_tx: Transaction =
+            consensus::encode::deserialize_hex(&funded_kickoff.hex)
+                .expect("must be able to decode kickoff tx");
+
+        let kickoff_txid = self
+            .agent
+            .client
+            .send_raw_transaction(&funded_kickoff_tx)
+            .await
+            .expect("should be able to broadcast signed kickoff tx");
+
+        info!(event = "broadcasted kickoff tx", %deposit_txid, %kickoff_txid, %own_index);
+
+        let claim_tx_with_commitment = claim_tx
+            .finalize(
+                deposit_txid,
+                &connectors.kickoff,
+                &self.msk,
+                bridge_out_txid,
+                superblock_period_start_ts,
+            )
+            .await;
+
+        let claim_txid = self
+            .agent
+            .client
+            .send_raw_transaction(&claim_tx_with_commitment)
+            .await
+            .expect("should be able to publish claim tx with commitment to bridge_out_txid and superblock period start_ts");
+
+        info!(event = "broadcasted claim tx", %deposit_txid, %claim_txid, %own_index);
+    }
+
+    async fn pay_user(
+        &self,
+        user_pk: XOnlyPublicKey,
+        network: bitcoin::Network,
+        own_index: OperatorIdx,
+    ) -> anyhow::Result<Txid> {
+        if self.am_i_faulty() {
+            let buffer: [u8; 32] = OsRng.gen();
+            let fake_txid = Txid::from_byte_array(buffer);
+
+            warn!(action = "faking bridge out", %fake_txid, %own_index);
+            return Ok(fake_txid);
+        }
+
+        let net_payment = BRIDGE_DENOMINATION - OPERATOR_FEE;
+
+        // don't use kickoff utxo for payment
+        let reserved_utxos = self.db.selected_outpoints().await;
+
+        let (change_address, outpoint, total_amount, prevout) = self
+            .agent
+            .select_utxo(net_payment, reserved_utxos)
+            .await
+            .expect("at least one funding utxo must be present in wallet");
+
+        let change_amount = total_amount - net_payment - MIN_RELAY_FEE;
+        debug!(%change_address, %change_amount, %total_amount, %net_payment, ?prevout, "found funding utxo for bridge out");
+
+        let bridge_out = BridgeOut::new(
+            network,
+            own_index,
+            vec![outpoint],
+            net_payment,
+            change_address,
+            change_amount,
+            user_pk,
+        );
+
+        let signed_tx_result = self
+            .agent
+            .client
+            .sign_raw_transaction_with_wallet(&bridge_out.tx())
+            .await
+            .expect("must be able to sign bridge out transaction");
+
+        assert!(
+            signed_tx_result.complete,
+            "bridge out tx must be completely signed"
+        );
+
+        let signed_tx: Transaction = consensus::encode::deserialize_hex(&signed_tx_result.hex)
+            .expect("should be able to deserialize signed tx");
+
+        match self.agent.client.send_raw_transaction(&signed_tx).await {
+            Ok(txid) => Ok(txid),
+            Err(e) => {
+                error!(?e, "could not broadcast bridge out tx");
+
+                bail!(e.to_string());
+            }
+        }
+    }
+
+    pub async fn handle_withdrawal_faulty(&self) {
+        // for withdrawal duty (assigned and self.am_i_faulty()),
+        // 1. create tx graph from public data
+        // 2. publish kickoff -> claim
+        // 3. compute superblock and faulty proof
+        // 4. publish assert chain
+        // 5. try to settle reimbursement tx after wait time
     }
 }

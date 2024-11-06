@@ -138,7 +138,7 @@ impl PegOutGraph {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PegOutGraphConnectors<Db: ConnectorDb + Clone> {
     pub kickoff: ConnectorK<Db>,
 

@@ -195,6 +195,7 @@ run:
 		--btc-url http://localhost:18443 \
 		--btc-user rpcuser \
 		--btc-pass rpcpassword \
+		--fault-tolerance 0 \
 		--duty-interval 10 \
 		--xpriv-file .secrets/xprivs.bin
 

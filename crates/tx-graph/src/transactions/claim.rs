@@ -82,7 +82,7 @@ impl ClaimTx {
     pub async fn finalize<Db: ConnectorDb>(
         mut self,
         deposit_txid: Txid,
-        connector_k: ConnectorK<Db>,
+        connector_k: &ConnectorK<Db>,
         msk: &str,
         bridge_out_txid: Txid,
         superblock_period_start_ts: u32,
