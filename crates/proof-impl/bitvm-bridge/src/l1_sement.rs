@@ -6,18 +6,52 @@ use strata_primitives::{
 };
 use strata_proofimpl_btc_blockspace::block::{check_merkle_root, check_witness_commitment};
 use strata_state::{
-    batch::BatchCheckpoint,
+    batch::{BatchCheckpoint, BatchInfo},
     bridge_state::DepositState,
     chain_state::ChainState,
-    l1::{BtcParams, HeaderVerificationState},
+    l1::{get_btc_params, BtcParams, HeaderVerificationState},
     tx::ProtocolOperation,
 };
 use strata_tx_parser::filter::{filter_relevant_txs, TxFilterRule};
 
-pub fn process_proof_1(check_point_block: Block, chain_state: ChainState) {
+pub type WithdrwalInfo = (Buf32, (XOnlyPk, BitcoinAmount));
+
+pub fn process_blocks(
+    checkpoint: (Block, ChainState),
+    payment: Block,
+    claim_txn_block: Block,
+    headers: &[Header],
+    start_header: HeaderVerificationState,
+) {
+    let (ckp_withdrawl_info, batch_info) =
+        process_checkpoint_and_chain_state(checkpoint.0, checkpoint.1);
+    let operator_withdrawl_info = get_payment_txn(&payment);
+    let claim_txn = get_claim_txn(&claim_txn_block);
+
+    // TODO: Match the info from `ckp_withdrawl_info` & `operator_withdrawl_info`
+
+    // TODO: Link the `operator_withdrawl_info` and `claim_txn`
+
+    // TODO: Assert inclusion of `checkpoint`, `claim_txn_block` & `payment` blocks in headers
+    // TODO: Find the super block
+    // Maybe pass the closure
+    let params = get_btc_params();
+    let _ = verify_l1_chain(&start_header, headers, &params);
+}
+
+pub fn process_checkpoint_and_chain_state(
+    check_point_block: Block,
+    chain_state: ChainState,
+) -> (WithdrwalInfo, BatchInfo) {
     let ckp = filter_out_checkpoint(&check_point_block);
-    let (operator_pk, withdraw_info, ckp_state_root) = parse_chain_state(chain_state);
-    assert_eq!(*ckp.batch_info().final_l2_state_hash(), ckp_state_root)
+    let (operator_pk, user_withdrawl_info, ckp_state_root) = parse_chain_state(chain_state);
+
+    assert_eq!(*ckp.batch_info().final_l2_state_hash(), ckp_state_root);
+
+    let withdrwal_info: WithdrwalInfo = (operator_pk, user_withdrawl_info);
+    let batch_info = ckp.batch_info();
+
+    (withdrwal_info, batch_info.clone())
 }
 
 pub fn verify_l1_chain(
@@ -95,15 +129,15 @@ fn parse_chain_state(chain_state: ChainState) -> (Buf32, (XOnlyPk, BitcoinAmount
 // Find these infos and return the:
 // i)  User <Address, Aamt>
 // ii) Operator address
-fn get_payment_txn(block: &Block) -> (u64, Vec<u8>, Vec<u8>) {
+fn get_payment_txn(block: &Block) -> WithdrwalInfo {
     assert!(check_merkle_root(block));
     assert!(check_witness_commitment(block));
 
-    let amt: u64 = 10;
-    let dest_addrs: Vec<u8> = Vec::new();
-    let operator_address: Vec<u8> = Vec::new();
+    let amt = BitcoinAmount::from_sat(1000000000);
+    let dest_addrs = XOnlyPk::new(Default::default());
+    let operator_address = Default::default();
 
-    (amt, dest_addrs, operator_address)
+    (operator_address, (dest_addrs, amt))
 }
 
 // Ts is commited in the Claim Transaction
@@ -130,7 +164,9 @@ mod test {
     };
 
     use super::parse_chain_state;
-    use crate::l1_sement::{filter_out_checkpoint, process_proof_1, verify_l1_chain};
+    use crate::l1_sement::{
+        filter_out_checkpoint, process_checkpoint_and_chain_state, verify_l1_chain,
+    };
 
     #[tokio::test]
     async fn test_ckp() {
@@ -139,7 +175,7 @@ mod test {
         let btc_client = get_bitcoin_client();
         let block = btc_client.get_block_at(block_num).await.unwrap();
 
-        process_proof_1(block, chain_state);
+        process_checkpoint_and_chain_state(block, chain_state);
     }
 
     #[test]
