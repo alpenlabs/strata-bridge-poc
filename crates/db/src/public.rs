@@ -10,6 +10,7 @@ use bitvm::groth16::g16::{self};
 use secp256k1::{schnorr::Signature, PublicKey};
 use strata_bridge_primitives::scripts::wots::{self, bridge_poc_verification_key};
 use tokio::sync::RwLock;
+use tracing::{info, trace};
 
 use super::operator::OperatorIdx;
 use crate::connector_db::ConnectorDb;
@@ -36,10 +37,14 @@ pub struct PublicDb {
 
 impl Default for PublicDb {
     fn default() -> Self {
+        info!(
+            action = "compiling verifier scripts, this will take time...",
+            estimated_time = "3 mins"
+        );
+        let verifier_scripts = g16::compile_verifier(bridge_poc_verification_key());
+
         Self {
-            verifier_scripts: Arc::new(RwLock::new(g16::compile_verifier(
-                bridge_poc_verification_key(),
-            ))),
+            verifier_scripts: Arc::new(RwLock::new(verifier_scripts)),
             musig_pubkey_table: Default::default(),
             wots_public_keys: Default::default(),
             wots_signatures: Default::default(),
@@ -56,64 +61,6 @@ impl PublicDb {
             .clone_from(verifier_scripts);
     }
 
-    pub async fn put_wots_public_keys(
-        &self,
-        operator_idx: OperatorIdx,
-        txid: Txid,
-        public_keys: wots::PublicKeys,
-    ) {
-        let mut wots_public_keys = self.wots_public_keys.write().await;
-
-        if let Some(txid_to_pubkey_map) = wots_public_keys.get_mut(&operator_idx) {
-            txid_to_pubkey_map.insert(txid, public_keys);
-        } else {
-            let mut txid_to_pubkey_map = HashMap::new();
-            txid_to_pubkey_map.insert(txid, public_keys);
-
-            wots_public_keys.insert(operator_idx, txid_to_pubkey_map);
-        }
-    }
-
-    pub async fn get_wots_public_keys(
-        &self,
-        operator_idx: OperatorIdx,
-    ) -> Option<HashMap<Txid, wots::PublicKeys>> {
-        self.wots_public_keys
-            .read()
-            .await
-            .get(&operator_idx)
-            .cloned()
-    }
-
-    pub async fn put_wots_signatures(
-        &self,
-        operator_idx: OperatorIdx,
-        txid: Txid,
-        signatures: wots::Signatures,
-    ) {
-        let mut wots_signatures = self.wots_signatures.write().await;
-
-        if let Some(txid_to_signatures_map) = wots_signatures.get_mut(&operator_idx) {
-            txid_to_signatures_map.insert(txid, signatures);
-        } else {
-            let mut txid_to_signatures_map = HashMap::new();
-            txid_to_signatures_map.insert(txid, signatures);
-
-            wots_signatures.insert(operator_idx, txid_to_signatures_map);
-        }
-    }
-
-    pub async fn get_wots_signatures(
-        &self,
-        operator_idx: OperatorIdx,
-    ) -> Option<HashMap<Txid, wots::Signatures>> {
-        self.wots_signatures
-            .read()
-            .await
-            .get(&operator_idx)
-            .cloned()
-    }
-
     pub async fn put_signature(
         &self,
         operator_idx: OperatorIdx,
@@ -121,7 +68,9 @@ impl PublicDb {
         input_index: u32,
         signature: Signature,
     ) {
+        trace!(action = "trying to acquire wlock on schnorr signatures", %operator_idx, %txid);
         let mut signatures = self.signatures.write().await;
+        trace!(event = "acquired wlock on schnorr signatures", %operator_idx, %txid);
 
         if let Some(txid_and_input_index_to_signature) = signatures.get_mut(&operator_idx) {
             txid_and_input_index_to_signature.insert((txid, input_index), signature);
@@ -179,13 +128,20 @@ impl ConnectorDb for PublicDb {
         deposit_txid: Txid,
         public_keys: &wots::PublicKeys,
     ) {
-        self.wots_public_keys
-            .write()
-            .await
-            .get_mut(&operator_id)
-            .unwrap()
-            .insert(deposit_txid, *public_keys)
-            .unwrap();
+        trace!(action = "trying to acquire wlock on wots public keys", %operator_id, %deposit_txid);
+        let mut map = self.wots_public_keys.write().await;
+        trace!(event = "wlock acquired on wots public keys", %operator_id, %deposit_txid);
+
+        if let Some(op_keys) = map.get_mut(&operator_id) {
+            op_keys
+                .insert(deposit_txid, *public_keys)
+                .expect("must be able to add public keys");
+        } else {
+            let mut keys = HashMap::new();
+            keys.insert(deposit_txid, *public_keys);
+
+            map.insert(operator_id, keys);
+        }
     }
 
     async fn set_wots_signatures(
@@ -194,13 +150,20 @@ impl ConnectorDb for PublicDb {
         deposit_txid: Txid,
         signatures: &wots::Signatures,
     ) {
-        self.wots_signatures
-            .write()
-            .await
-            .get_mut(&operator_id)
-            .unwrap()
-            .insert(deposit_txid, *signatures)
-            .unwrap();
+        trace!(action = "trying to acquire wlock on wots signatures", %operator_id, %deposit_txid);
+        let mut map = self.wots_signatures.write().await;
+        trace!(event = "wlock acquired on wots signatures", %operator_id, %deposit_txid);
+
+        if let Some(op_keys) = map.get_mut(&operator_id) {
+            op_keys
+                .insert(deposit_txid, *signatures)
+                .expect("must be able to add public keys");
+        } else {
+            let mut sigs_map = HashMap::new();
+            sigs_map.insert(deposit_txid, *signatures);
+
+            map.insert(operator_id, sigs_map);
+        }
     }
 
     async fn get_signature(
@@ -214,7 +177,7 @@ impl ConnectorDb for PublicDb {
             .await
             .get(&operator_idx)
             .unwrap_or_else(|| {
-                panic!("operato_idx: {operator_idx} must have a signature in the database")
+                panic!("operator_idx: {operator_idx} must have a signature in the database")
             })
             .get(&(txid, input_index))
             .copied()

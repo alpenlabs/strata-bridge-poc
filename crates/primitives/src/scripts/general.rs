@@ -1,6 +1,6 @@
 use bitcoin::{
     absolute::LockTime,
-    opcodes::{all::OP_RETURN, OP_TRUE},
+    opcodes::all::OP_RETURN,
     script::{Builder, PushBytesBuf},
     transaction, Amount, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Witness,
 };
@@ -65,9 +65,16 @@ pub fn metadata_script(el_address: &[u8; 20]) -> ScriptBuf {
         .into_script()
 }
 
+pub fn anyone_can_spend_script() -> ScriptBuf {
+    script! {
+        OP_TRUE
+    }
+    .compile()
+}
+
 /// Create an output that can be spent by anyone, i.e. its script contains a single `OP_TRUE`.
 pub fn anyone_can_spend_txout() -> TxOut {
-    let script = Builder::new().push_opcode(OP_TRUE).into_script();
+    let script = anyone_can_spend_script();
     let script_pubkey = script.to_p2wsh();
     let value = script_pubkey.minimal_non_dust();
 

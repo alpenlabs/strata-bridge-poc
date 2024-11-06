@@ -100,9 +100,9 @@ impl DisproveTx {
     pub async fn finalize<Db>(
         mut self,
         connector_a30: ConnectorA30<Db>,
-        connector_a31: ConnectorA31<Db>,
+        _connector_a31: ConnectorA31<Db>,
         reward: TxOut,
-        deposit_txid: Txid,
+        _deposit_txid: Txid,
         operator_idx: OperatorIdx,
     ) -> Transaction
     where

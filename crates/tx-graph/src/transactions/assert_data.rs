@@ -13,7 +13,7 @@ use strata_bridge_primitives::{
 use super::constants::{
     NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
     NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A160_PK2,
-    NUM_ASSERT_DATA_TX2_A256_PK7, TOTAL_VALUES,
+    NUM_ASSERT_DATA_TX2_A256_PK7,
 };
 use crate::connectors::prelude::*;
 
@@ -38,13 +38,19 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
             // in the last iteration, there will be less than `N_INPUTS_PER_TX` utxos.
             let mut utxos: Vec<OutPoint> = Vec::with_capacity(N_INPUTS_PER_TX);
             let mut prevouts: Vec<TxOut> = Vec::with_capacity(N_INPUTS_PER_TX);
-            for vout in starting_index..(starting_index + N_INPUTS_PER_TX) {
+            for (vout, txout) in input
+                .pre_assert_txouts
+                .iter()
+                .enumerate()
+                .skip(starting_index)
+                .take(N_INPUTS_PER_TX)
+            {
                 utxos.push(OutPoint {
                     txid: input.pre_assert_txid,
                     vout: vout as u32,
                 });
 
-                prevouts.push(input.pre_assert_txouts[vout].clone());
+                prevouts.push(txout.clone());
             }
 
             let tx_ins = create_tx_ins(utxos);

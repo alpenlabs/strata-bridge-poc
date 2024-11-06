@@ -4,3 +4,6 @@ pub const DEFAULT_RPC_PORT: u32 = 4781;
 pub const DUTY_QUEUE_SIZE: usize = 5; // probably overkill
 pub const DEPOSIT_QUEUE_MULTIPLIER: usize = 2;
 pub const COVENANT_QUEUE_MULTIPLIER: usize = 10;
+
+pub const DEFAULT_NUM_THREADS: usize = 3;
+pub const DEFAULT_STACK_SIZE_MB: usize = 16;

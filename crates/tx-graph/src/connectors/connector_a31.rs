@@ -16,6 +16,7 @@ use strata_bridge_primitives::{
     params::prelude::{NUM_PKS_A160, NUM_PKS_A256},
     scripts::{prelude::*, wots},
 };
+use tracing::trace;
 
 use crate::transactions::constants::SUPERBLOCK_PERIOD;
 
@@ -27,6 +28,7 @@ pub struct ConnectorA31<DB: ConnectorDb> {
 }
 
 #[derive(Debug, Clone)]
+#[expect(clippy::large_enum_variant)]
 pub enum ConnectorA31Leaf {
     InvalidateProof((usize, Option<Script>)),
     DisproveChain(Option<(wots256::Signature, wots32::Signature, [u8; 80])>),
@@ -150,11 +152,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             }
             ConnectorA31Leaf::InvalidateProof((disprove_script_index, _)) => {
                 let partial_disprove_scripts = &self.db.get_partial_disprove_scripts().await;
-                let public_keys = self
-                    .db
-                    .get_wots_public_keys(todo!(), deposit_txid)
-                    .await
-                    .groth16;
+                let public_keys = self.db.get_wots_public_keys(0, deposit_txid).await.groth16;
                 let disprove_scripts =
                     g16::generate_disprove_scripts(public_keys, partial_disprove_scripts);
                 disprove_scripts[disprove_script_index].clone()
@@ -185,6 +183,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
     }
 
     async fn generate_taproot_address(&self, deposit_txid: Txid) -> (Address, TaprootSpendInfo) {
+        trace!(action = "generating disprove chain and invalidate public data leaves");
         let mut scripts = vec![
             self.generate_tapleaf(ConnectorA31Leaf::DisproveChain(None), deposit_txid)
                 .await,
@@ -194,8 +193,10 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             )
             .await,
         ];
+        trace!(event = "generated disprove chain and invalidate public data leaves");
 
         const TOTAL_SCRIPTS: usize = NUM_PKS_A160 + NUM_PKS_A256;
+        trace!(action = "generating invalidate proof leaves", %TOTAL_SCRIPTS);
         let mut invalidate_proof_tapleaves = Vec::with_capacity(TOTAL_SCRIPTS);
         for i in 0..TOTAL_SCRIPTS {
             invalidate_proof_tapleaves.push(
@@ -203,9 +204,11 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                     .await,
             );
         }
+        trace!(event = "generated invalidate proof leaves");
 
         scripts.extend(invalidate_proof_tapleaves.into_iter());
 
+        trace!(action = "create taproot address");
         create_taproot_addr(&self.network, SpendPath::ScriptSpend { scripts: &scripts })
             .expect("should be able to create taproot address")
     }

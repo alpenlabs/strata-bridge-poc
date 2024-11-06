@@ -28,7 +28,7 @@ pub const OPERATOR_STAKE: Amount = Amount::from_int_btc(2);
 pub const OPERATOR_FEE: Amount = Amount::from_int_btc(2);
 
 /// Magic bytes to add to the metadata output in transactions to help identify them.
-pub const MAGIC_BYTES: &[u8; 6] = b"strata";
+pub const MAGIC_BYTES: &[u8; 11] = b"alpenstrata";
 
 lazy_static::lazy_static! {
     /// This is an unspendable pubkey.

@@ -3,6 +3,7 @@ use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
 use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::scripts::prelude::*;
+use tracing::trace;
 
 use super::{
     constants::{NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX2},
@@ -43,9 +44,16 @@ impl PostAssertTx {
         });
         let tx_ins = create_tx_ins(utxos);
 
+        trace!(event = "created tx ins", count = tx_ins.len());
+
         let connector_a31_script = connector_a31
             .generate_locking_script(data.deposit_txid)
             .await;
+        trace!(
+            event = "generated a31 locking script",
+            size = connector_a31_script.len()
+        );
+
         let mut scripts_and_amounts = [
             (
                 connector_a30.generate_locking_script(),
@@ -61,6 +69,7 @@ impl PostAssertTx {
         scripts_and_amounts[0].1 = net_stake;
 
         let tx_outs = create_tx_outs(scripts_and_amounts);
+        trace!(event = "created tx outs", count = tx_outs.len());
 
         let tx = create_tx(tx_ins, tx_outs);
 
@@ -74,6 +83,7 @@ impl PostAssertTx {
                 value: assert_data_output_script.minimal_non_dust(),
             })
             .collect::<Vec<TxOut>>();
+        trace!(event = "created prevouts", count = prevouts.len());
 
         for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts.clone()) {
             input.witness_utxo = Some(utxo);
