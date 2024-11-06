@@ -1,5 +1,9 @@
 use bitcoin::{hex::DisplayHex, ScriptBuf, Transaction, Txid};
-use bitvm::{groth16::g16, signatures::wots::SignatureImpl, treepp::*};
+use bitvm::{
+    groth16::g16,
+    signatures::wots::{wots256, wots32, SignatureImpl},
+    treepp::*,
+};
 use rand::RngCore;
 use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
 use strata_bridge_primitives::{
@@ -86,67 +90,11 @@ impl Verifier {
                 claim_tx,
                 assert_data_txs,
             } => {
-                // parse claim tx
-                let claim_witness_script = script!().push_script(ScriptBuf::from_bytes(
-                    claim_tx
-                        .input
-                        .first()
-                        .unwrap()
-                        .witness
-                        .to_vec()
-                        .first()
-                        .unwrap()
-                        .clone(),
-                ));
-                let (superblock_period_start_ts, bridge_out_txid) =
-                    parse_claim_witness(claim_witness_script);
+                let (superblock_period_start_ts, bridge_out_txid) = self.parse_claim_tx(&claim_tx);
 
-                // parse assert data txs
-                let (witness160, mut witness256): (Vec<Vec<Script>>, Vec<Script>) = assert_data_txs
-                    [..NUM_ASSERT_DATA_TX1]
-                    .iter()
-                    .map(|tx| {
-                        let witness_scripts = tx
-                            .input
-                            .iter()
-                            .map(|txin| {
-                                script!().push_script(ScriptBuf::from_bytes(
-                                    txin.witness.to_vec()[0].clone(),
-                                ))
-                            })
-                            .collect::<Vec<_>>();
-                        let witness_scripts = witness_scripts.split_at(10);
-                        (witness_scripts.0.to_vec(), witness_scripts.1[0].clone())
-                    })
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .unzip();
+                let (superblock_hash, groth16) = self.parse_assert_txs(&assert_data_txs);
 
-                let mut witness160 = witness160.into_iter().flatten().collect::<Vec<_>>();
-
-                let residuals = assert_data_txs[NUM_ASSERT_DATA_TX1]
-                    .input
-                    .iter()
-                    .map(|txin| {
-                        script!()
-                            .push_script(ScriptBuf::from_bytes(txin.witness.to_vec()[0].clone()))
-                    })
-                    .collect::<Vec<_>>();
-
-                witness160.extend(residuals[..2].to_vec());
-
-                witness256.push(residuals[3].clone());
-
-                let assert_sigs = parse_assertion_witnesses(
-                    witness256.try_into().unwrap(),
-                    None,
-                    witness160.try_into().unwrap(),
-                    Some(residuals[2].clone()),
-                );
-
-                let (superblock_hash, groth16) = (assert_sigs);
-
-                let mut signatures = Signatures {
+                let signatures = Signatures {
                     bridge_out_txid,
                     superblock_hash,
                     superblock_period_start_ts,
@@ -161,7 +109,8 @@ impl Verifier {
                 let connector_leaf = {
                     // 1. public input hash validation
                     let public_inputs = (
-                        deposit_txid,
+                        // TODO: uncomment this after the proof statement starts including
+                        // deposit_txid deposit_txid,
                         superblock_hash.parse(),
                         bridge_out_txid.parse(),
                         superblock_period_start_ts,
@@ -212,5 +161,67 @@ impl Verifier {
                 }
             }
         }
+    }
+
+    // parse claim tx
+    fn parse_claim_tx(&self, claim_tx: &Transaction) -> (wots32::Signature, wots256::Signature) {
+        let claim_witness_script = script!().push_script(ScriptBuf::from_bytes(
+            claim_tx
+                .input
+                .first()
+                .unwrap()
+                .witness
+                .to_vec()
+                .first()
+                .unwrap()
+                .clone(),
+        ));
+        parse_claim_witness(claim_witness_script)
+    }
+
+    // parse assert data txs
+    fn parse_assert_txs(
+        &self,
+        assert_data_txs: &[Transaction],
+    ) -> (wots256::Signature, g16::Signatures) {
+        let (witness160, mut witness256): (Vec<Vec<Script>>, Vec<Script>) = assert_data_txs
+            [..NUM_ASSERT_DATA_TX1]
+            .iter()
+            .map(|tx| {
+                let witness_scripts = tx
+                    .input
+                    .iter()
+                    .map(|txin| {
+                        script!()
+                            .push_script(ScriptBuf::from_bytes(txin.witness.to_vec()[0].clone()))
+                    })
+                    .collect::<Vec<_>>();
+                let witness_scripts = witness_scripts.split_at(10);
+                (witness_scripts.0.to_vec(), witness_scripts.1[0].clone())
+            })
+            .collect::<Vec<_>>()
+            .into_iter()
+            .unzip();
+
+        let mut witness160 = witness160.into_iter().flatten().collect::<Vec<_>>();
+
+        let residuals = assert_data_txs[NUM_ASSERT_DATA_TX1]
+            .input
+            .iter()
+            .map(|txin| {
+                script!().push_script(ScriptBuf::from_bytes(txin.witness.to_vec()[0].clone()))
+            })
+            .collect::<Vec<_>>();
+
+        witness160.extend(residuals[..2].to_vec());
+
+        witness256.push(residuals[3].clone());
+
+        parse_assertion_witnesses(
+            witness256.try_into().unwrap(),
+            None,
+            witness160.try_into().unwrap(),
+            Some(residuals[2].clone()),
+        )
     }
 }
