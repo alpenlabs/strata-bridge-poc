@@ -1,4 +1,5 @@
 use bitcoin::{OutPoint, Psbt, Transaction, TxOut, Txid};
+use bitvm::signatures::wots::wots256;
 use serde::{Deserialize, Serialize};
 use strata_bridge_primitives::{
     params::{
@@ -11,9 +12,9 @@ use strata_bridge_primitives::{
 };
 
 use super::constants::{
-    NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
-    NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A160_PK2,
-    NUM_ASSERT_DATA_TX2_A256_PK7,
+    NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11,
+    NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11,
+    NUM_ASSERT_DATA_TX2_A160_PK2, NUM_ASSERT_DATA_TX2_A256_PK7, NUM_INPUTS_PER_ASSERT_DATA_TX,
 };
 use crate::connectors::prelude::*;
 
@@ -25,25 +26,25 @@ pub struct AssertDataTxInput {
 }
 
 #[derive(Debug, Clone)]
-pub struct AssertDataTxBatch<const N: usize, const N_INPUTS_PER_TX: usize>([Psbt; N]);
+pub struct AssertDataTxBatch([Psbt; NUM_ASSERT_DATA_TX]);
 
-impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS_PER_TX> {
+impl AssertDataTxBatch {
     pub fn new(input: AssertDataTxInput, connector_a2: ConnectorS) -> Self {
-        let mut psbts: Vec<Psbt> = Vec::with_capacity(N);
+        let mut psbts: Vec<Psbt> = Vec::with_capacity(NUM_ASSERT_DATA_TX);
 
-        for i in 0..N {
-            let starting_index = i * N_INPUTS_PER_TX + 1; // +1 to account for the stake output from
-                                                          // `pre-assert` tx
+        for i in 0..NUM_ASSERT_DATA_TX {
+            let starting_index = i * NUM_INPUTS_PER_ASSERT_DATA_TX + 1; // +1 to account for the stake output from
+                                                                        // `pre-assert` tx
 
             // in the last iteration, there will be less than `N_INPUTS_PER_TX` utxos.
-            let mut utxos: Vec<OutPoint> = Vec::with_capacity(N_INPUTS_PER_TX);
-            let mut prevouts: Vec<TxOut> = Vec::with_capacity(N_INPUTS_PER_TX);
+            let mut utxos: Vec<OutPoint> = Vec::with_capacity(NUM_INPUTS_PER_ASSERT_DATA_TX);
+            let mut prevouts: Vec<TxOut> = Vec::with_capacity(NUM_INPUTS_PER_ASSERT_DATA_TX);
             for (vout, txout) in input
                 .pre_assert_txouts
                 .iter()
                 .enumerate()
                 .skip(starting_index)
-                .take(N_INPUTS_PER_TX)
+                .take(NUM_INPUTS_PER_ASSERT_DATA_TX)
             {
                 utxos.push(OutPoint {
                     txid: input.pre_assert_txid,
@@ -74,7 +75,7 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
         Self(psbts.try_into().expect("should have exactly N elements"))
     }
 
-    pub fn psbts(&self) -> &[Psbt; N] {
+    pub fn psbts(&self) -> &[Psbt; NUM_ASSERT_DATA_TX] {
         &self.0
     }
 
@@ -87,10 +88,10 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
     }
 
     pub const fn num_txs_in_batch(&self) -> usize {
-        N
+        NUM_ASSERT_DATA_TX
     }
 
-    pub fn compute_txids(&self) -> [Txid; N] {
+    pub fn compute_txids(&self) -> [Txid; NUM_ASSERT_DATA_TX] {
         self.0
             .iter()
             .map(|psbt| psbt.unsigned_tx.compute_txid())
@@ -101,35 +102,26 @@ impl<const N: usize, const N_INPUTS_PER_TX: usize> AssertDataTxBatch<N, N_INPUTS
 
     pub fn finalize(
         mut self,
-        // FIXME: replace hard-coded values when const-generics become stable
-        connector_a160_factory: ConnectorA160Factory<11, 574>,
-        connector_a256_factory: ConnectorA256Factory<7, 42>,
+        connector_a160_factory: ConnectorA160Factory<NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160>,
+        connector_a256_factory: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256>,
         msk: &str,
         signatures: wots::Signatures,
-    ) -> [Transaction; N] {
-        // compile time checks to bind with consts manually
-        // remove when const-generics become stable
-        const _: [(); NUM_PKS_A160] = [(); 574];
-        const _: [(); NUM_PKS_A256] = [(); 42];
-        const _: [(); NUM_PKS_A160_PER_CONNECTOR] = [(); 11];
-        const _: [(); NUM_PKS_A256_PER_CONNECTOR] = [(); 7];
-
+    ) -> [Transaction; NUM_ASSERT_DATA_TX] {
         let (connector160_batch, connector160_remainder): (
-            Vec<ConnectorA160<11>>,
-            ConnectorA160<2>,
+            Vec<ConnectorA160<NUM_PKS_A160_PER_CONNECTOR>>,
+            ConnectorA160<NUM_PKS_A160_RESIDUAL>,
         ) = connector_a160_factory.create_connectors();
 
         let (connector256_batch, connector256_remainder): (
-            Vec<ConnectorA256<7>>,
-            ConnectorA256<0>,
+            Vec<ConnectorA256<NUM_PKS_A256_PER_CONNECTOR>>,
+            ConnectorA256<NUM_PKS_A256_RESIDUAL>,
         ) = connector_a256_factory.create_connectors();
 
-        let signatures_256: [[([u8; 20], u8); 67]; NUM_PKS_A256] =
-            std::array::from_fn(|i| match i {
-                0 => signatures.superblock_hash,
-                1 => signatures.groth16.0[0],
-                _ => signatures.groth16.1[i - 2],
-            });
+        let signatures_256: [wots256::Signature; NUM_PKS_A256] = std::array::from_fn(|i| match i {
+            0 => signatures.superblock_hash,
+            1 => signatures.groth16.0[0],
+            _ => signatures.groth16.1[i - 2],
+        });
 
         let mut value_offset = 0;
         for psbt_index in 0..NUM_ASSERT_DATA_TX1 {

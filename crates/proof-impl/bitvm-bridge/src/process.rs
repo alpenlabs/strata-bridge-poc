@@ -1,10 +1,14 @@
 #![allow(unused)]
-use bitcoin::{hashes::Hash, BlockHash, Txid};
+use bitcoin::{block::Header, hashes::Hash, BlockHash, Txid};
 use strata_primitives::{buf::Buf32, params::RollupParams};
-use strata_state::{batch::BatchCheckpoint, bridge_state::DepositState, chain_state::ChainState};
-use strata_zkvm::Proof;
+use strata_state::{
+    batch::BatchCheckpoint,
+    bridge_state::DepositState,
+    chain_state::ChainState,
+    l1::{BtcParams, HeaderVerificationState},
+};
 
-use crate::{primitives::mock_txid, BridgeProofPublicParams};
+use crate::BridgeProofPublicParams;
 
 pub fn process_bridge_proof() -> BridgeProofPublicParams {
     // TODO:
@@ -35,6 +39,17 @@ pub fn process_bridge_proof() -> BridgeProofPublicParams {
     let super_block_hash =
         BlockHash::from_slice(&[0u8; 32]).expect("Failed to create Block hash from bytes");
     let withdrawal_txnid = Txid::from_slice(&[0u8; 32]).expect("Failed to create Txid from bytes");
+
+    // Assert that the first byte of each hash is `0`
+    assert_eq!(
+        super_block_hash[0], 0,
+        "super_block_hash does not start with 0"
+    );
+    assert_eq!(
+        withdrawal_txnid[0], 0,
+        "withdrawal_txnid does not start with 0"
+    );
+
     let timestamp: u32 = 0;
 
     (super_block_hash, withdrawal_txnid, timestamp)
@@ -72,7 +87,6 @@ pub fn process_ckp(
     let public_params = batch_checkpoint.proof_output();
     let public_params_raw = borsh::to_vec(&public_params).unwrap();
     let proof = batch_checkpoint.proof();
-    verify_sp1_groth16(&public_params_raw, proof, rollup_params);
 
     let (l2_idx, l2_id) = (
         public_params.batch_info.l2_range.1,
@@ -80,11 +94,4 @@ pub fn process_ckp(
     );
 
     (l2_idx, l2_id)
-}
-
-fn verify_sp1_groth16(public_params: &Vec<u8>, proof: &Proof, rollup_params: &RollupParams) {
-    let _ = rollup_params;
-    let _ = proof;
-    let _ = public_params;
-    todo!()
 }

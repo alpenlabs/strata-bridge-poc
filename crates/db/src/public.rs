@@ -36,6 +36,11 @@ pub struct PublicDb {
 
     // signature cache per txid and input index per operator
     signatures: Arc<RwLock<OperatorIdxToTxInputSigMap>>,
+
+    // reverse mapping
+    claim_txid_to_operator_index_and_deposit_txid: Arc<RwLock<HashMap<Txid, (OperatorIdx, Txid)>>>,
+    post_assert_txid_to_operator_index_and_deposit_txid:
+        Arc<RwLock<HashMap<Txid, (OperatorIdx, Txid)>>>,
 }
 
 impl Default for PublicDb {
@@ -94,6 +99,8 @@ impl Default for PublicDb {
             wots_public_keys: Default::default(),
             wots_signatures: Default::default(),
             signatures: Default::default(),
+            claim_txid_to_operator_index_and_deposit_txid: Default::default(),
+            post_assert_txid_to_operator_index_and_deposit_txid: Default::default(),
         }
     }
 }
@@ -136,6 +143,22 @@ impl PublicDb {
 
     pub async fn get_musig_pubkey_table(&self) -> BTreeMap<OperatorIdx, PublicKey> {
         self.musig_pubkey_table.read().await.clone()
+    }
+
+    pub async fn get_claim(&self, claim_txid: Txid) -> Option<(OperatorIdx, Txid)> {
+        let claims = self
+            .claim_txid_to_operator_index_and_deposit_txid
+            .read()
+            .await;
+        claims.get(&claim_txid).copied()
+    }
+
+    pub async fn get_post_assert(&self, post_assert_txid: Txid) -> Option<(OperatorIdx, Txid)> {
+        let post_asserts = self
+            .post_assert_txid_to_operator_index_and_deposit_txid
+            .read()
+            .await;
+        post_asserts.get(&post_assert_txid).copied()
     }
 }
 
