@@ -2,6 +2,11 @@
 
 use snark_bn254_verifier::Groth16Verifier;
 use sp1_core_machine::io::SP1PublicValues;
+use strata_primitives::{
+    buf::Buf32,
+    l1::{BitcoinAmount, XOnlyPk},
+};
+use strata_state::{bridge_state::DepositState, chain_state::ChainState};
 use strata_zkvm::Proof;
 use substrate_bn::Fr;
 
@@ -31,4 +36,10 @@ pub fn verify_groth16(proof: &Proof, vkey_hash: &[u8], committed_values_raw: &[u
         &[vkey_hash_fr, committed_values_digest_fr],
     )
     .unwrap()
+}
+
+
+#[cfg(test)]
+mod test {
+
 }
