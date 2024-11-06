@@ -26,10 +26,7 @@ pub struct AssertChainData {
 #[derive(Debug, Clone)]
 pub struct AssertChain {
     pub pre_assert: PreAssertTx,
-    pub assert_data: AssertDataTxBatch<
-        { NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2 },
-        { NUM_ASSERT_DATA_TX1_A160_PK11 + NUM_ASSERT_DATA_TX1_A256_PK7 },
-    >,
+    pub assert_data: AssertDataTxBatch,
     pub post_assert: PostAssertTx,
 }
 
@@ -67,10 +64,7 @@ impl AssertChain {
                 .collect::<Vec<TxOut>>(),
         };
 
-        let assert_data: AssertDataTxBatch<
-            { NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2 },
-            { NUM_ASSERT_DATA_TX1_A160_PK11 + NUM_ASSERT_DATA_TX1_A256_PK7 },
-        > = AssertDataTxBatch::new(assert_data_input, connector_s);
+        let assert_data = AssertDataTxBatch::new(assert_data_input, connector_s);
 
         let assert_data_txids = assert_data.compute_txids().to_vec();
         trace!(event = "created assert_data tx batch", ?assert_data_txids, %operator_idx);

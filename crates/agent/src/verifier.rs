@@ -8,9 +8,9 @@ use rand::RngCore;
 use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
 use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext},
+    helpers::hash_to_bn254_fq,
     scripts::{
         parse_witness::{parse_assertion_witnesses, parse_claim_witness},
-        prelude::hash_to_bn254_fq,
         wots::{bridge_poc_verification_key, Signatures},
     },
     types::OperatorIdx,
@@ -83,6 +83,14 @@ impl Verifier {
                 claim_tx,
             } => {
                 println!("No challenging yet!");
+                let (superblock_period_start_ts, bridge_out_txid) = self.parse_claim_tx(&claim_tx);
+
+                // get bridge_out_tx from bitcoin canonical chain
+                // verify that the latest checkpoint state in the rollup has a withdrawal request
+                // that
+                // 1. matches the operator_id inscribed in the first OP_RETURN UTXO.
+                // 2. matches the recipient address in second P2TR UTXO.
+                // If these checks fail, the settle the challenge transaction (anyone can pay)
             }
             VerifierDuty::VerifyAssertions {
                 operator_idx,

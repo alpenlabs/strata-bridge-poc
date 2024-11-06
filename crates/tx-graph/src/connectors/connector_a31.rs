@@ -59,66 +59,41 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             groth16: ([public_inputs_hash_public_key], _, _),
         } = self.db.get_wots_public_keys(0, deposit_txid).await;
 
-        fn extract_superblock_ts_from_header() -> Script {
-            script! {
-                for i in 0..4 { { 80 - 12 + 2 * i } OP_PICK }
-                for _ in 1..4 {  { NMUL(1 << 8) } OP_ADD }
-            }
-        }
-
-        fn add_bincode_padding_bytes32() -> Script {
-            script! {
-                for b in [0; 7] { {b} } 32
-            }
-        }
-
-        fn hash_to_bn254_fq() -> Script {
-            script! {
-                for i in 1..=3 {
-                    { 1 << (8 - i) }
-                    OP_2DUP
-                    OP_GREATERTHAN
-                    OP_IF OP_SUB
-                    OP_ELSE OP_DROP
-                    OP_ENDIF
-                }
-            }
-        }
-
         match tapleaf {
             ConnectorA31Leaf::DisproveSuperblockCommitment(_) => {
                 script! {
-                // committed superblock hash
-                { wots256::compact::checksig_verify(superblock_hash_public_key) }
-                { sb_hash_from_nibbles() } { H256::toaltstack() }
+                    // committed superblock hash
+                    { wots256::compact::checksig_verify(superblock_hash_public_key) }
+                    { sb_hash_from_nibbles() } { H256::toaltstack() }
 
-                // committed superblock period start timestamp
-                { wots32::compact::checksig_verify(superblock_period_start_ts_public_key) }
-                { ts_from_nibbles() } OP_TOALTSTACK
+                    // committed superblock period start timestamp
+                    { wots32::compact::checksig_verify(superblock_period_start_ts_public_key) }
+                    { ts_from_nibbles() } OP_TOALTSTACK
 
-                // extract superblock timestamp from header
-                extract_superblock_ts_from_header
+                    // extract superblock timestamp from header
+                    extract_superblock_ts_from_header
 
-                // assert: 0 < sbv.ts - sb_start_ts < superblock_period
-                OP_FROMALTSTACK
-                OP_SUB
-                OP_DUP
-                0 OP_GREATERTHAN OP_VERIFY
-                { SUPERBLOCK_PERIOD } OP_LESSTHAN OP_VERIFY
+                    // assert: 0 < sbv.ts - sb_start_ts < superblock_period
+                    OP_FROMALTSTACK
+                    OP_SUB
+                    OP_DUP
+                    0 OP_GREATERTHAN OP_VERIFY
+                    { SUPERBLOCK_PERIOD } OP_LESSTHAN OP_VERIFY
 
-                // sbv.hash()
-                { sha256(80) }
-                { sha256(32) }
-                { sb_hash_from_bytes() }
+                    // sbv.hash()
+                    { sha256(80) }
+                    { sha256(32) }
+                    { sb_hash_from_bytes() }
 
-                { H256::fromaltstack() }
+                    { H256::fromaltstack() }
 
-                // assert sb.hash < committed_sb_hash
-                { H256::lessthan(1, 0) } OP_VERIFY
+                    // assert sb.hash < committed_sb_hash
+                    { H256::lessthan(1, 0) } OP_VERIFY
 
-                OP_TRUE
+                    OP_TRUE
                 }
             }
+
             ConnectorA31Leaf::DisprovePublicInputsCommitment(_) => {
                 script! {
                     { wots256::checksig_verify(superblock_hash_public_key) }

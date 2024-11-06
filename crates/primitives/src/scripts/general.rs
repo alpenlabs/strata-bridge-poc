@@ -5,9 +5,9 @@ use bitcoin::{
     transaction, Amount, OutPoint, ScriptBuf, Transaction, TxIn, TxOut, Witness,
 };
 use bitcoin_script::script;
+use bitvm::{pseudo::NMUL, treepp::*};
 use musig2::KeyAggContext;
 use secp256k1::{PublicKey, XOnlyPublicKey};
-use sha2::{Digest, Sha256};
 
 use crate::params::prelude::MAGIC_BYTES;
 
@@ -127,10 +127,28 @@ pub fn create_tx_outs(
         .collect()
 }
 
-pub fn hash_to_bn254_fq(data: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(data);
-    let mut hash: [u8; 32] = hasher.finalize().into();
-    hash[0] &= 0b00011111; // mask 3 most significant bits
-    hash
+pub fn extract_superblock_ts_from_header() -> Script {
+    script! {
+        for i in 0..4 { { 80 - 12 + 2 * i } OP_PICK }
+        for _ in 1..4 {  { NMUL(1 << 8) } OP_ADD }
+    }
+}
+
+pub fn add_bincode_padding_bytes32() -> Script {
+    script! {
+        for b in [0; 7] { {b} } 32
+    }
+}
+
+pub fn hash_to_bn254_fq() -> Script {
+    script! {
+        for i in 1..=3 {
+            { 1 << (8 - i) }
+            OP_2DUP
+            OP_GREATERTHAN
+            OP_IF OP_SUB
+            OP_ELSE OP_DROP
+            OP_ENDIF
+        }
+    }
 }
