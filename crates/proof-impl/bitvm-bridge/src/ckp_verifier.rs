@@ -38,8 +38,5 @@ pub fn verify_groth16(proof: &Proof, vkey_hash: &[u8], committed_values_raw: &[u
     .unwrap()
 }
 
-
 #[cfg(test)]
-mod test {
-
-}
+mod test {}
