@@ -197,3 +197,4 @@ run:
 		--btc-pass rpcpassword \
 		--duty-interval 10 \
 		--xpriv-file .secrets/xprivs.bin
+

@@ -6,7 +6,7 @@ use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
 use super::{
     constants::{
         NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
-        NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A256_PK7,
+        NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A256_PK7,
     },
     covenant_tx::CovenantTx,
 };
@@ -47,7 +47,7 @@ impl PreAssertTx {
             ConnectorA160<NUM_PKS_A160_RESIDUAL>,
         ) = connector_a160.create_connectors();
 
-        let (connector256_batch, connector256_remainder): (
+        let (connector256_batch, _connector256_remainder): (
             Vec<ConnectorA256<NUM_PKS_A256_PER_CONNECTOR>>,
             ConnectorA256<NUM_PKS_A256_RESIDUAL>,
         ) = connector_a256.create_connectors();
