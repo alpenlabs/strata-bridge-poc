@@ -17,11 +17,11 @@ use crate::bitcoin::primitives::WithdrwalInfo;
 /// Verifies the checkpoint proof and extracts withdrawal and batch information from the chain
 /// state.
 pub fn verify_checkpoint_and_extract_info(
-    check_point_block: Block,
-    chain_state: ChainState,
+    check_point_block: &Block,
+    chain_state: &ChainState,
 ) -> (WithdrwalInfo, BatchInfo) {
     let ckp = extract_batch_checkpoint(&check_point_block);
-    let (operator_pk, user_withdrawl_info, ckp_state_root) = extract_chain_state_info(chain_state);
+    let (operator_pk, user_withdrawl_info, ckp_state_root) = extract_chain_state_info(&chain_state);
 
     assert_eq!(*ckp.batch_info().final_l2_state_hash(), ckp_state_root);
 
@@ -68,7 +68,7 @@ fn retrieve_batch_checkpoint(
 
 /// Parses the chain state to extract the operator's public key, withdrawal information, and the
 /// chain state root.
-fn extract_chain_state_info(chain_state: ChainState) -> (Buf32, (XOnlyPk, BitcoinAmount), Buf32) {
+fn extract_chain_state_info(chain_state: &ChainState) -> (Buf32, (XOnlyPk, BitcoinAmount), Buf32) {
     let operator_table = chain_state.operator_table();
     let deposit_table = chain_state.deposits_table();
 
@@ -113,7 +113,7 @@ mod test {
         let btc_client = get_bitcoin_client();
         let block = btc_client.get_block_at(block_num).await.unwrap();
 
-        verify_checkpoint_and_extract_info(block, chain_state);
+        verify_checkpoint_and_extract_info(&block, &chain_state);
     }
 
     #[tokio::test]
@@ -128,6 +128,6 @@ mod test {
     #[test]
     fn test_extract_chain_state_info() {
         let chain_state = get_chain_state();
-        let _infos = extract_chain_state_info(chain_state);
+        let _infos = extract_chain_state_info(&chain_state);
     }
 }
