@@ -5,7 +5,8 @@ version = "0.1.0"
 
 [dependencies]
 bitcoin = { workspace = true }
-bitvm = { git = "https://github.com/alpenlabs/BitVM.git", branch = "bridge-poc", default-features = false }
+bitcoin-script = { workspace = true }
+bitcoin-scriptexec = { workspace = true }
 borsh.workspace = true
 serde = { workspace = true, features = ["derive"] }
 strata-primitives.workspace = true
