@@ -1,10 +1,7 @@
 use bitcoin::Txid;
 use musig2::{AggNonce, PartialSignature, PubNonce};
-use strata_bridge_primitives::types::{OperatorIdx, TxSigningData};
-use strata_bridge_tx_graph::{
-    peg_out_graph::PegOutGraphInput,
-    transactions::prelude::{DisproveTx, PayoutTx, PostAssertTx, PreAssertTx},
-};
+use strata_bridge_primitives::types::OperatorIdx;
+use strata_bridge_tx_graph::peg_out_graph::PegOutGraphInput;
 
 #[derive(Debug, Clone)]
 pub enum DepositSignal {
@@ -37,30 +34,72 @@ pub enum WatcherSignal {
 
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
-pub enum CovenantSignal {
+pub enum CovenantNonceSignal {
     /// Sent by operators to signers.
-    CovenantRequest {
-        details: Request,
+    Request {
+        details: CovenantNonceRequest,
+
+        // metadata
         sender_id: OperatorIdx,
     },
 
     /// Sent by signers to operators.
-    CovenantRequestFulfilled {
-        details: RequestFulfilled,
+    RequestFulfilled {
+        details: CovenantNonceRequestFulfilled,
+
+        // metadata
         sender_id: OperatorIdx,
         destination_id: OperatorIdx,
     },
 }
 
-/// Request for signatures in the covenant
+#[derive(Debug, Clone)]
+pub struct CovenantNonceRequest {
+    pub peg_out_graph_input: PegOutGraphInput, // single field struct created for consistency
+}
+
+#[derive(Debug, Clone)]
+pub struct CovenantNonceRequestFulfilled {
+    pub pre_assert: PubNonce,
+    pub post_assert: PubNonce,
+    pub disprove: PubNonce,
+    pub payout_0: PubNonce, // requires key-spend key aggregation
+    pub payout_1: PubNonce, // requires script-spend key aggregation
+}
+
 #[derive(Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
-pub enum Request {
-    Nonce(PegOutGraphInput),
-    Signature {
-        agg_nonces: AggNonces,
-        peg_out_graph_input: PegOutGraphInput,
+pub enum CovenantSignatureSignal {
+    /// Sent by operators to signers.
+    Request {
+        details: CovenantSigRequest,
+
+        // metadata
+        sender_id: OperatorIdx,
     },
+
+    /// Sent by signers to operators.
+    RequestFulfilled {
+        details: CovenantSigRequestFulfilled,
+
+        // metadata
+        sender_id: OperatorIdx,
+        destination_id: OperatorIdx,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct CovenantSigRequest {
+    pub peg_out_graph_input: PegOutGraphInput,
+    pub agg_nonces: AggNonces,
+}
+
+#[derive(Debug, Clone)]
+pub struct CovenantSigRequestFulfilled {
+    pub pre_assert: Vec<PartialSignature>,
+    pub post_assert: Vec<PartialSignature>, // for each of the inputs
+    pub disprove: Vec<PartialSignature>,
+    pub payout: Vec<PartialSignature>,
 }
 
 #[derive(Debug, Clone)]
@@ -70,36 +109,4 @@ pub struct AggNonces {
     pub disprove: AggNonce,
     pub payout_0: AggNonce,
     pub payout_1: AggNonce,
-}
-
-#[derive(Debug, Clone)]
-#[allow(clippy::large_enum_variant)]
-pub enum RequestFulfilled {
-    Nonce {
-        pre_assert: PubNonce,
-        post_assert: PubNonce,
-        disprove: PubNonce,
-        payout_0: PubNonce, // requires key-spend key aggregation
-        payout_1: PubNonce, // requires script-spend key aggregation
-    },
-
-    Signature {
-        pre_assert: Vec<PartialSignature>,
-        post_assert: Vec<PartialSignature>, // for each of the inputs
-        disprove: Vec<PartialSignature>,
-        payout: Vec<PartialSignature>,
-    },
-}
-
-#[derive(Debug, Clone)]
-pub enum TxWithCovenant {
-    PreAssert(PreAssertTx),
-
-    PostAssert(PostAssertTx),
-
-    Disprove(DisproveTx),
-
-    Payout(PayoutTx),
-
-    Deposit(TxSigningData),
 }

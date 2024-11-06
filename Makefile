@@ -186,7 +186,7 @@ pr: lint sec rustdocs test-doc test-unit test-functional ## Runs lints (without 
 
 .PHONY: run
 run:
-	RUST_LOG=trace,soketto=error,strata_bridge_tx_graph=warn,strata_bridge_btcio=warn,strata_bridge_agent=debug,hyper_util=error,jsonrpsee=error \
+	RUST_LOG=trace,soketto=error,strata_bridge_db=warn,strata_bridge_tx_graph=warn,strata_bridge_btcio=warn,strata_bridge_agent=debug,hyper_util=error,jsonrpsee=error \
 		cargo r \
 		--bin strata-bridge \
 		--profile "$(PROFILE)" \
