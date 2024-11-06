@@ -34,7 +34,7 @@ use strata_bridge_tx_graph::{
     transactions::prelude::*,
 };
 use tokio::sync::broadcast;
-use tracing::{error, info, warn};
+use tracing::{error, info, trace, warn};
 
 use crate::{
     base::Agent,
@@ -141,13 +141,13 @@ impl Operator {
             .expect("should be able to create build context");
         let deposit_txid = deposit_tx.psbt.unsigned_tx.compute_txid();
 
-        info!(action = "generating wots public keys", operator_idx = %own_index, deposit_txid = %deposit_txid);
+        info!(action = "generating wots public keys", %deposit_txid, %own_index);
         let public_keys = generate_wots_public_keys(&self.msk, deposit_txid);
         self.public_db
             .set_wots_public_keys(self.build_context.own_index(), deposit_txid, &public_keys)
             .await;
 
-        info!(action = "generating kickoff", operator_idx = %own_index, deposit_txid = %deposit_txid);
+        info!(action = "generating kickoff", %deposit_txid, %own_index);
         let reserved_outpoints = self.db.selected_outpoints().await;
         let (change_address, funding_input, total_amount, funding_utxo) = self
             .agent
@@ -161,7 +161,7 @@ impl Operator {
         let funding_utxos = vec![funding_utxo];
         let change_amt = total_amount - OPERATOR_STAKE - MIN_RELAY_FEE;
 
-        info!(action = "composing pegout graph input", operator_idx = %own_index, deposit_txid = %deposit_txid);
+        info!(action = "composing pegout graph input", %deposit_txid, %own_index);
         let peg_out_graph_input = PegOutGraphInput {
             network: self.build_context.network(),
             deposit_amount: BRIDGE_DENOMINATION,
@@ -175,7 +175,7 @@ impl Operator {
             },
         };
 
-        info!(action = "adding kickoff info to db", operator_idx = %self.build_context.own_index(), deposit_txid = %deposit_txid);
+        info!(action = "adding kickoff info to db", %deposit_txid, %own_index);
         self.db
             .add_kickoff_info(
                 deposit_txid,
@@ -188,7 +188,7 @@ impl Operator {
             )
             .await;
 
-        info!(action = "composing pegout graph connectors", operator_idx = %own_index, deposit_txid = %deposit_txid);
+        info!(action = "composing pegout graph connectors", %deposit_txid, %own_index);
         let peg_out_graph_connectors = PegOutGraphConnectors::new(
             self.public_db.clone(),
             &self.build_context,
@@ -197,7 +197,7 @@ impl Operator {
         )
         .await;
 
-        info!(action = "generating pegout graph", operator_idx = %own_index, deposit_txid = %deposit_txid);
+        info!(action = "generating pegout graph", %deposit_txid, %own_index);
         let peg_out_graph = PegOutGraph::generate(
             peg_out_graph_input.clone(),
             deposit_txid,
@@ -207,7 +207,7 @@ impl Operator {
         .await;
 
         // 2. Aggregate nonces for peg out graph txs that require covenant.
-        info!(action = "aggregating nonces for emulated covenant", %own_index, %deposit_txid);
+        info!(action = "aggregating nonces for emulated covenant", %deposit_txid, %own_index);
         self.aggregate_covenant_nonces(
             deposit_txid,
             peg_out_graph_input.clone(),
@@ -216,16 +216,18 @@ impl Operator {
         .await;
 
         // 3. Aggregate signatures for peg out graph txs that require covenant.
-        info!(action = "aggregating signatures for emulated covenant", operator_idx = %own_index, %deposit_txid);
+        info!(action = "aggregating signatures for emulated covenant", %deposit_txid, %own_index);
         self.aggregate_covenant_signatures(deposit_txid, peg_out_graph_input, peg_out_graph)
             .await;
 
         // 4. Collect nonces and signatures for deposit tx.
+        info!(action = "aggregating nonces for deposit sweeping", %deposit_txid, %own_index);
         let agg_nonce = self
             .aggregate_nonces(deposit_tx.clone())
             .await
             .expect("nonce aggregation must complete");
 
+        info!(action = "aggregating signatures for deposit sweeping", %deposit_txid, %own_index);
         let signed_deposit_tx = self
             .aggregate_signatures(agg_nonce, &mut deposit_tx)
             .await
@@ -274,6 +276,8 @@ impl Operator {
         self_peg_out_graph_input: PegOutGraphInput,
         self_peg_out_graph: PegOutGraph,
     ) {
+        let own_index = self.build_context.own_index();
+
         // 1. Prepare txs
         let PegOutGraph {
             kickoff_tx: _,
@@ -289,7 +293,7 @@ impl Operator {
         } = assert_chain;
 
         // 2. Generate own nonces
-        info!(action = "generating nonce for this operator", operator_idx = %self.build_context.own_index(), deposit_txid = %deposit_txid);
+        info!(action = "generating nonce for this operator", %deposit_txid, %own_index);
         self.generate_covenant_nonces(
             pre_assert.clone(),
             post_assert.clone(),
@@ -300,7 +304,7 @@ impl Operator {
         .await;
 
         // 3. Broadcast nonce request
-        info!(action = "broadcasting this operator's nonce", operator_idx = %self.build_context.own_index(), deposit_txid = %deposit_txid);
+        info!(action = "broadcasting this operator's nonce", %deposit_txid, %own_index);
         self.covenant_signal_sender
             .send(CovenantSignal::CovenantRequest {
                 details: Request::Nonce(self_peg_out_graph_input),
@@ -336,18 +340,27 @@ impl Operator {
 
         // As all these calls lock on the same `HashMap`, there is no point in making these
         // concurrent.
+        trace!(action = "creating secnonce and pubnonce for pre-assert tx", %operator_index);
         let pre_assert_pubnonce = self
             .generate_nonces(operator_index, &key_agg_ctx, 0, &pre_assert)
             .await;
+
+        trace!(action = "creating secnonce and pubnonce for post-assert tx", %operator_index);
         let post_assert_pubnonce = self
             .generate_nonces(operator_index, &key_agg_ctx_keypath, 0, &post_assert)
             .await;
+
+        trace!(action = "creating secnonce and pubnonce for payout tx output 0", %operator_index);
         let payout_pubnonce_0 = self
             .generate_nonces(operator_index, &key_agg_ctx_keypath, 0, &payout_tx)
             .await;
+
+        trace!(action = "creating secnonce and pubnonce for payout tx output 1", %operator_index);
         let payout_pubnonce_1 = self
             .generate_nonces(operator_index, &key_agg_ctx, 1, &payout_tx)
             .await;
+
+        trace!(action = "creating secnonce and pubnonce for disprove tx", %operator_index);
         let disprove_pubnonce = self
             .generate_nonces(operator_index, &key_agg_ctx, 0, &disprove_tx)
             .await;
@@ -374,7 +387,7 @@ impl Operator {
         let mut requests_served = HashSet::new();
         requests_served.insert(own_index);
 
-        let mut self_requests_fulfilled = true;
+        let mut self_requests_fulfilled = false;
 
         let num_signers = self.build_context.pubkey_table().0.len();
 
@@ -386,16 +399,15 @@ impl Operator {
 
             match msg {
                 CovenantSignal::CovenantRequest { details, sender_id } => {
-                    info!(event = "received covenant request", operator_idx = %self.build_context.own_index(), %deposit_txid, %sender_id, %own_index);
-
                     if sender_id == self.build_context.own_index() {
+                        info!(event = "self request ignored", %deposit_txid, %sender_id, %own_index);
                         // ignore own request
                         continue;
                     }
 
                     // fulfill request
                     if let Request::Nonce(peg_out_graph_input) = details {
-                        info!(event = "received covenant request for nonce", operator_idx = %own_index, %deposit_txid, %sender_id);
+                        info!(event = "received covenant request for nonce", %deposit_txid, %sender_id, %own_index);
                         let connectors = PegOutGraphConnectors::new(
                             self.public_db.clone(),
                             &self.build_context,
@@ -422,7 +434,7 @@ impl Operator {
                             post_assert,
                         } = assert_chain;
 
-                        info!(action = "fulfilling covenant request", operator_idx = %own_index, %deposit_txid, %sender_id);
+                        info!(action = "fulfilling covenant request for nonce", %deposit_txid, %sender_id, %own_index);
                         let request_fulfilled = self
                             .generate_covenant_nonces(
                                 pre_assert,
@@ -433,7 +445,7 @@ impl Operator {
                             )
                             .await;
 
-                        info!(action = "sending covenant request fulfillment signal", operator_idx = %own_index, %deposit_txid, %sender_id);
+                        info!(action = "sending covenant request fulfillment signal for nonce", %deposit_txid, %sender_id, %own_index);
                         self.covenant_signal_sender
                             .send(CovenantSignal::CovenantRequestFulfilled {
                                 details: request_fulfilled,
@@ -443,8 +455,15 @@ impl Operator {
                             .expect("should be able to send through the covenant signal sender");
 
                         requests_served.insert(sender_id);
+
+                        if requests_served.len() == num_signers {
+                            info!(event = "all nonces requests served", %deposit_txid, %own_index);
+                        }
                     } else {
-                        // ignore signature request in this function
+                        warn!(
+                            %own_index, %sender_id,
+                            "should not be receiving signature request in listener for signatures",
+                        );
                     }
                 }
                 CovenantSignal::CovenantRequestFulfilled {
@@ -452,9 +471,9 @@ impl Operator {
                     sender_id,
                     destination_id,
                 } => {
-                    info!(event = "received covenant fulfillment data", operator_idx = %own_index, %deposit_txid, %sender_id, %destination_id);
+                    info!(event = "received covenant fulfillment data for nonce", %deposit_txid, %sender_id, %destination_id, %own_index);
 
-                    if destination_id != self.build_context.own_index() {
+                    if destination_id != own_index {
                         // ignore messages meant for others
                         continue;
                     }
@@ -467,7 +486,7 @@ impl Operator {
                         payout_1,
                     } = details
                     {
-                        info!(event = "received covenant fulfillment data for nonce", operator_idx = %own_index, %deposit_txid, %sender_id);
+                        info!(event = "received covenant fulfillment data for nonce", %deposit_txid, %sender_id, %own_index);
 
                         let txid_input_index_and_nonce = [
                             (pre_assert_txid, 0, pre_assert),
@@ -477,17 +496,28 @@ impl Operator {
                             (payout_txid, 1, payout_1),
                         ];
 
+                        let mut all_done = true;
                         for (txid, input_index, nonce) in txid_input_index_and_nonce {
-                            self.db.add_pubnonce(txid, 0, sender_id, nonce).await;
+                            self.db
+                                .add_pubnonce(txid, input_index, sender_id, nonce)
+                                .await;
 
-                            self_requests_fulfilled = self
-                                .db
-                                .collected_pubnonces(txid, input_index)
-                                .await
-                                .is_some_and(|v| v.len() == num_signers);
+                            all_done = all_done
+                                && self
+                                    .db
+                                    .collected_pubnonces(txid, input_index)
+                                    .await
+                                    .is_some_and(|v| v.len() == num_signers);
+                        }
+
+                        self_requests_fulfilled = all_done;
+                        if self_requests_fulfilled {
+                            info!(event = "nonce requests fulfilled", %own_index);
                         }
                     } else {
-                        // ignore signatures in this function
+                        warn!(
+                        %own_index, %sender_id,
+                        "should not be receiving signature request fulfillment data in listener for signatures");
                     };
                 }
             }
@@ -517,7 +547,7 @@ impl Operator {
         } = assert_chain;
 
         // 2. Generate agg nonces
-        info!(action = "getting aggregated nonces", operator_idx = %own_index, deposit_txid = %deposit_txid);
+        info!(action = "getting aggregated nonces", %deposit_txid, %own_index);
         let pre_assert_agg_nonce = self
             .get_aggregated_nonce(pre_assert.compute_txid(), 0)
             .await
@@ -548,7 +578,7 @@ impl Operator {
         };
 
         // 3. Generate own signatures
-        info!(action = "generating signature for this operator", operator_idx = %own_index, deposit_txid = %deposit_txid);
+        info!(action = "generating signature for this operator",  deposit_txid = %deposit_txid, %own_index);
         self.generate_covenant_signatures(
             agg_nonces.clone(),
             own_index,
@@ -560,7 +590,7 @@ impl Operator {
         .await;
 
         // 3. Broadcast signature request
-        info!(action = "broadcasting this operator's signature", operator_idx = %own_index, deposit_txid = %deposit_txid);
+        info!(action = "broadcasting this operator's signature", %deposit_txid, %own_index);
         self.covenant_signal_sender
             .send(CovenantSignal::CovenantRequest {
                 details: Request::Signature {
@@ -572,7 +602,7 @@ impl Operator {
             .expect("should be able to send covenant signal");
 
         // 4. Listen for requests and fulfillment data from others.
-        info!(action = "listening for signature requests and fulfillments", operator_idx = %own_index, deposit_txid = %deposit_txid);
+        info!(action = "listening for signature requests and fulfillments",  deposit_txid = %deposit_txid, %own_index );
         self.gather_and_fulfill_signatures(
             deposit_txid,
             pre_assert.compute_txid(),
@@ -638,6 +668,7 @@ impl Operator {
             .expect("should be able to create key agg ctx");
 
         let all_inputs = pre_assert.witnesses().len();
+        trace!(action = "signing pre-assert tx partially", %operator_index);
         let pre_assert_partial_sigs = self
             .sign_partial(
                 &key_agg_ctx,
@@ -650,6 +681,7 @@ impl Operator {
             )
             .await;
 
+        trace!(action = "signing post-assert tx partially", %operator_index);
         let all_inputs = post_assert.witnesses().len();
         let post_assert_partial_sigs = self
             .sign_partial(
@@ -663,6 +695,7 @@ impl Operator {
             )
             .await;
 
+        trace!(action = "signing payout tx partially", %operator_index);
         let payout_partial_sigs = self
             .sign_partial(
                 &key_agg_ctx,
@@ -675,6 +708,7 @@ impl Operator {
             )
             .await;
 
+        trace!(action = "signing disprove tx partially", %operator_index);
         let all_inputs = disprove_tx.witnesses().len();
         let disprove_partial_sigs = self
             .sign_partial(
@@ -709,22 +743,21 @@ impl Operator {
         let mut requests_served = HashSet::new();
         requests_served.insert(own_index);
 
-        let mut self_requests_fulfilled = true;
+        let mut self_requests_fulfilled = false;
 
         let num_signers = self.build_context.pubkey_table().0.len();
 
         while let Ok(msg) = self.covenant_signal_receiver.recv().await {
             if self_requests_fulfilled && requests_served.len() == num_signers {
-                info!(event = "all nonce requests fulfilled and served", operator_idx = %own_index, %deposit_txid, requests_served = %requests_served.len());
+                info!(event = "all signature requests fulfilled and served", %deposit_txid, requests_served = %requests_served.len(), %own_index);
+
                 return;
             }
 
             match msg {
                 CovenantSignal::CovenantRequest { details, sender_id } => {
-                    info!(event = "received covenant request", operator_idx = %self.build_context.own_index(), %deposit_txid, %sender_id, %own_index);
-
-                    if sender_id == self.build_context.own_index() {
-                        // ignore own request
+                    if sender_id == own_index {
+                        info!(event = "ignored self request for signatures", %deposit_txid, %own_index);
                         continue;
                     }
 
@@ -734,7 +767,7 @@ impl Operator {
                         peg_out_graph_input,
                     } = details
                     {
-                        info!(event = "received covenant request for signature", operator_idx = %own_index, %deposit_txid, %sender_id);
+                        info!(event = "received covenant request for signatures", %deposit_txid, %sender_id, %own_index);
                         let connectors = PegOutGraphConnectors::new(
                             self.public_db.clone(),
                             &self.build_context,
@@ -761,7 +794,7 @@ impl Operator {
                             post_assert,
                         } = assert_chain;
 
-                        info!(action = "fulfilling covenant request", operator_idx = %own_index, %deposit_txid, %sender_id);
+                        info!(action = "fulfilling covenant request for signatures", %deposit_txid, %sender_id, %own_index );
                         let request_fulfilled = self
                             .generate_covenant_signatures(
                                 agg_nonces,
@@ -773,7 +806,7 @@ impl Operator {
                             )
                             .await;
 
-                        info!(action = "sending covenant request fulfillment signal", operator_idx = %own_index, %deposit_txid, %sender_id);
+                        info!(action = "sending covenant request fulfillment signal for signatures", %deposit_txid, destination_id = %sender_id, %own_index);
                         self.covenant_signal_sender
                             .send(CovenantSignal::CovenantRequestFulfilled {
                                 details: request_fulfilled,
@@ -783,8 +816,14 @@ impl Operator {
                             .expect("should be able to send through the covenant signal sender");
 
                         requests_served.insert(sender_id);
+
+                        if requests_served.len() == num_signers {
+                            info!(event = "all nonces requests served", %deposit_txid, %own_index);
+                        }
                     } else {
-                        // ignore nonce request in this function
+                        warn!(
+                        %own_index, %sender_id,
+                        "should not be receiving nonce request in listener for signatures");
                     }
                 }
                 CovenantSignal::CovenantRequestFulfilled {
@@ -792,9 +831,7 @@ impl Operator {
                     sender_id,
                     destination_id,
                 } => {
-                    info!(event = "received covenant fulfillment data", operator_idx = %own_index, %deposit_txid, %sender_id, %destination_id);
-
-                    if destination_id != self.build_context.own_index() {
+                    if destination_id != own_index {
                         // ignore messages meant for others
                         continue;
                     }
@@ -806,7 +843,7 @@ impl Operator {
                         payout,
                     } = details
                     {
-                        info!(event = "received covenant fulfillment data for signatures", operator_idx = %own_index, %deposit_txid, %sender_id);
+                        info!(event = "received covenant fulfillment data for signature", %deposit_txid, %sender_id, %own_index );
 
                         let txid_and_signatures = [
                             (pre_assert_txid, pre_assert),
@@ -815,6 +852,7 @@ impl Operator {
                             (payout_txid, payout),
                         ];
 
+                        let mut all_done = true;
                         for (txid, signatures) in txid_and_signatures {
                             for (input_index, partial_sig) in signatures.into_iter().enumerate() {
                                 self.db
@@ -826,15 +864,23 @@ impl Operator {
                                     )
                                     .await;
 
-                                self_requests_fulfilled = self
-                                    .db
-                                    .collected_signatures_per_msg(txid, input_index as u32)
-                                    .await
-                                    .is_some_and(|v| v.1.len() == num_signers);
+                                all_done = all_done
+                                    && self
+                                        .db
+                                        .collected_signatures_per_msg(txid, input_index as u32)
+                                        .await
+                                        .is_some_and(|v| v.1.len() == num_signers);
                             }
                         }
+
+                        self_requests_fulfilled = all_done;
+                        if self_requests_fulfilled {
+                            info!(event = "all signature requests fulfilled", %own_index);
+                        }
                     } else {
-                        // ignore nonces in this function
+                        warn!(
+                        %own_index, %sender_id,
+                        "should not be receiving nonce request fulfillment data in listener for signatures");
                     };
                 }
             }
@@ -860,7 +906,7 @@ impl Operator {
             .add_pubnonce(txid, 0, own_index, pubnonce.clone())
             .await;
 
-        info!(action = "broadcasting one's own nonce for deposit sweeping", deposit_txid=%txid, operator_idx=%own_index);
+        info!(action = "broadcasting one's own nonce for deposit sweeping", deposit_txid=%txid, %own_index);
         self.deposit_signal_sender
             .send(DepositSignal::Nonce {
                 txid,
@@ -1042,14 +1088,12 @@ impl Operator {
         let secnonce = self.agent.generate_sec_nonce(&txid, key_agg_ctx);
         let pubnonce = secnonce.public_nonce();
 
-        let own_index = self.build_context.own_index();
-
-        if own_index == operator_idx {
-            self.db.add_secnonce(txid, input_index, secnonce).await;
-            self.db
-                .add_pubnonce(txid, input_index, operator_idx, pubnonce.clone())
-                .await;
-        }
+        // add the secnonce and pubnonce to db even for txid from others as it is required for
+        // partial signing later.
+        self.db.add_secnonce(txid, input_index, secnonce).await;
+        self.db
+            .add_pubnonce(txid, input_index, operator_idx, pubnonce.clone())
+            .await;
 
         pubnonce
     }
@@ -1123,12 +1167,18 @@ impl Operator {
             .expect("should be able to create a message hash");
             let message = message.as_ref();
 
-            let secnonce = self
-                .db
-                // can use the same secnonce
-                .secnonce(txid, 0)
-                .await
-                .expect("secnonce should exist");
+            let secnonce = if let Some(secnonce) = self.db.secnonce(txid, input_index as u32).await
+            {
+                secnonce
+            } else {
+                // use the first secnonce if the given input_index does not exist
+                // this is the case for post_assert inputs (but not for payout)
+                self.db
+                    .secnonce(txid, 0)
+                    .await
+                    .expect("first secnonce should exist")
+            };
+
             let seckey = self.agent.secret_key();
 
             let agg_ctx = if matches!(witness, TaprootWitness::Key) {
