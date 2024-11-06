@@ -138,6 +138,10 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                     for _ in 0..32 { OP_FROMALTSTACK } add_bincode_padding_bytes32
                     for _ in 0..32 { OP_FROMALTSTACK } add_bincode_padding_bytes32
 
+                    // // deposit_txid (public_input_0 to stark proof)
+                    // for &b in deposit_txid.as_byte_array().iter().rev() { { b } }
+                    // add_bincode_padding_bytes32
+
                     { sha256(84) }
                     hash_to_bn254_fq
 
