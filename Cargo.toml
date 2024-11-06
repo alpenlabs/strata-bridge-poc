@@ -1,6 +1,7 @@
 [workspace]
 members = [
   "crates/proof-impl/bitvm-bridge",
+  "crates/proof-impl/prover-manager",
   "crates/tx-graph",
   "bridge-proofs",
 
@@ -23,6 +24,7 @@ strata-primitives = { git = "https://github.com/alpenlabs/strata.git", branch = 
 strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
 strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "releases/0.1.0" }
+strata-bridge-guest-builder = { path = "bridge-proofs" }
 
 
 anyhow = "1.0.86"

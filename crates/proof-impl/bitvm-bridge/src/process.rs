@@ -4,9 +4,9 @@ use strata_primitives::{buf::Buf32, params::RollupParams};
 use strata_state::{batch::BatchCheckpoint, bridge_state::DepositState, chain_state::ChainState};
 use strata_zkvm::Proof;
 
-use crate::{primitives::mock_txid, BridgeProofPublicParams};
+use crate::{parse_claim_witness, primitives::mock_txid, BridgeProofPublicParams, ParsedSig};
 
-pub fn process_bridge_proof() -> BridgeProofPublicParams {
+pub fn process_bridge_proof(ser_data: Vec<u8>) -> Vec<u8> {
     // TODO:
     // Assume the inputs and process on it
     // (Ckp <- bid, bidx)
@@ -32,12 +32,14 @@ pub fn process_bridge_proof() -> BridgeProofPublicParams {
     // start := block where ckp proof is there
     // endblock := block where ckp proof + N blocks; N = 2016
 
-    let super_block_hash =
-        BlockHash::from_slice(&[0u8; 32]).expect("Failed to create Block hash from bytes");
-    let withdrawal_txnid = Txid::from_slice(&[0u8; 32]).expect("Failed to create Txid from bytes");
-    let timestamp: u32 = 0;
+    // let super_block_hash =
+    //     BlockHash::from_slice(&[0u8; 32]).expect("Failed to create Block hash from bytes");
+    // let withdrawal_txnid = Txid::from_slice(&[0u8; 32]).expect("Failed to create Txid from
+    // bytes"); let timestamp: u32 = 0;
 
-    (super_block_hash, withdrawal_txnid, timestamp)
+    // (super_block_hash, withdrawal_txnid, timestamp)
+
+    borsh::to_vec(&parse_claim_witness(ser_data)).unwrap()
 }
 
 pub fn assert_deposit_state(
