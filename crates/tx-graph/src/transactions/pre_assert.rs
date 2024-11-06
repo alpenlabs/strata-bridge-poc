@@ -6,7 +6,7 @@ use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
 use super::{
     constants::{
         NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
-        NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11,
+        NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A256_PK7,
     },
     covenant_tx::CovenantTx,
 };
@@ -102,30 +102,35 @@ impl PreAssertTx {
             );
         }
 
-        for _ in 0..NUM_ASSERT_DATA_TX2 {
-            scripts_and_amounts.extend(
-                connector160_batch
-                    .iter()
-                    .by_ref()
-                    .take(NUM_ASSERT_DATA_TX2_A160_PK11)
-                    .map(|conn| {
-                        let script = conn.create_locking_script();
-                        let amount = script.minimal_non_dust();
+        scripts_and_amounts.extend(
+            connector160_batch
+                .iter()
+                .by_ref()
+                .take(NUM_ASSERT_DATA_TX2_A160_PK11)
+                .map(|conn| {
+                    let script = conn.create_locking_script();
+                    let amount = script.minimal_non_dust();
 
-                        (script, amount)
-                    }),
-            );
-        }
+                    (script, amount)
+                }),
+        );
 
         let connector160_remainder_script = connector160_remainder.create_locking_script();
         let connector160_remainder_amt = connector160_remainder_script.minimal_non_dust();
-
         scripts_and_amounts.push((connector160_remainder_script, connector160_remainder_amt));
 
-        let connector256_remainder_script = connector256_remainder.create_locking_script();
-        let connector256_remainder_amt = connector256_remainder_script.minimal_non_dust();
+        scripts_and_amounts.extend(
+            connector256_batch
+                .iter()
+                .by_ref()
+                .take(NUM_ASSERT_DATA_TX2_A256_PK7)
+                .map(|conn| {
+                    let script = conn.create_locking_script();
+                    let amount = script.minimal_non_dust();
 
-        scripts_and_amounts.push((connector256_remainder_script, connector256_remainder_amt));
+                    (script, amount)
+                }),
+        );
 
         let total_assertion_amount = scripts_and_amounts.iter().map(|(_, amt)| *amt).sum();
         let net_stake = OPERATOR_STAKE - total_assertion_amount - MIN_RELAY_FEE;

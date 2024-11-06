@@ -7,6 +7,7 @@ use bitcoin::{
 use bitcoin_script::script;
 use musig2::KeyAggContext;
 use secp256k1::{PublicKey, XOnlyPublicKey};
+use sha2::{Digest, Sha256};
 
 use crate::params::prelude::MAGIC_BYTES;
 
@@ -124,4 +125,12 @@ pub fn create_tx_outs(
             value,
         })
         .collect()
+}
+
+pub fn hash_to_bn254_fq(data: &[u8]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    hasher.update(data);
+    let mut hash: [u8; 32] = hasher.finalize().into();
+    hash[0] &= 0b00011111; // mask 3 most significant bits
+    hash
 }

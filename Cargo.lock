@@ -1910,7 +1910,7 @@ dependencies = [
 [[package]]
 name = "bitvm"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/BitVM.git?branch=bridge-poc#53fbc0be04ab657977f96712beb7b839239a99f4"
+source = "git+https://github.com/alpenlabs/BitVM.git?branch=bridge-poc#4bb9dfc17609c7a40728ad94325c24a2b5eaf778"
 dependencies = [
  "alloy",
  "ark-bn254",
@@ -5198,7 +5198,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -8236,6 +8236,7 @@ name = "strata-bridge-agent"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "bitcoin 0.31.0",
  "bitcoin-script 0.3.0",
  "bitcoin-scriptexec",
