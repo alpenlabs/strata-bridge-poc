@@ -1,19 +1,22 @@
 use std::{
     collections::{BTreeMap, HashMap},
+    fs,
     sync::Arc,
 };
 
 use async_trait::async_trait;
-use bitcoin::Txid;
-use bitcoin_script::Script;
-use bitvm::groth16::g16::{self};
+use bitcoin::{ScriptBuf, Txid};
+use bitvm::{
+    groth16::g16::{self, N_TAPLEAVES},
+    treepp::{script, Script},
+};
 use secp256k1::{schnorr::Signature, PublicKey};
 use strata_bridge_primitives::scripts::wots::{self, bridge_poc_verification_key};
 use tokio::sync::RwLock;
 use tracing::{info, trace};
 
 use super::operator::OperatorIdx;
-use crate::connector_db::ConnectorDb;
+use crate::{connector_db::ConnectorDb, constants::VK_SCRIPTS_FILE};
 
 pub type TxInputToSignatureMap = HashMap<(Txid, u32), Signature>;
 pub type OperatorIdxToTxInputSigMap = HashMap<OperatorIdx, TxInputToSignatureMap>;
@@ -37,11 +40,53 @@ pub struct PublicDb {
 
 impl Default for PublicDb {
     fn default() -> Self {
-        info!(
-            action = "compiling verifier scripts, this will take time...",
-            estimated_time = "3 mins"
-        );
-        let verifier_scripts = g16::compile_verifier(bridge_poc_verification_key());
+        let verifier_scripts: [Script; N_TAPLEAVES] = if fs::exists(VK_SCRIPTS_FILE)
+            .expect("should be able to check for existence of verifier scripts file")
+        {
+            info!(
+                action = "loading verifier script from file cache...this will take some time",
+                estimated_time = "3 mins"
+            );
+
+            let contents: Vec<u8> = fs::read(VK_SCRIPTS_FILE)
+                .expect("should be able to read verifier scripts from file");
+            let deserialized: Vec<Vec<u8>> = bincode::deserialize(&contents)
+                .expect("should be able to deserialize verifier scripts from file");
+
+            let verifier_scripts = deserialized
+                .iter()
+                .map(|de| script!().push_script(ScriptBuf::from_bytes(de.to_vec())))
+                .collect::<Vec<Script>>();
+
+            let num_scripts = verifier_scripts.len();
+            info!(event = "loaded verifier scripts", %num_scripts);
+
+            verifier_scripts.try_into().unwrap_or_else(|_| {
+                panic!("number of scripts should be: {N_TAPLEAVES} not {num_scripts}",)
+            })
+        } else {
+            info!(
+                action = "compiling verifier scripts, this will take time...",
+                estimated_time = "3 mins"
+            );
+
+            let verifier_scripts = g16::compile_verifier(bridge_poc_verification_key());
+
+            let serialized: Vec<Vec<u8>> = verifier_scripts
+                .clone()
+                .into_iter()
+                .map(|s| s.compile().to_bytes())
+                .collect();
+
+            let serialized: Vec<u8> = bincode::serialize(&serialized)
+                .expect("should be able to serialize verifier scripts");
+
+            info!(action = "caching verifier scripts for later", cache_file=%VK_SCRIPTS_FILE);
+            fs::write(VK_SCRIPTS_FILE, serialized)
+                .expect("should be able to write verifier scripts to file");
+
+            verifier_scripts
+        };
 
         Self {
             verifier_scripts: Arc::new(RwLock::new(verifier_scripts)),
