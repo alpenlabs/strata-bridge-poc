@@ -3,11 +3,11 @@ use strata_btcio::{
     reader::query::get_verification_state,
     rpc::{traits::Reader, BitcoinClient},
 };
-use strata_primitives::l1::OutputRef;
+use strata_primitives::{buf::Buf32, l1::OutputRef};
 use strata_state::{
     block::L2Block,
     chain_state::ChainState,
-    l1::{get_btc_params, HeaderVerificationState},
+    l1::{compute_block_hash, get_btc_params, HeaderVerificationState},
 };
 
 pub fn get_bitcoin_client() -> BitcoinClient {
@@ -112,4 +112,22 @@ pub async fn get_header_verification_data(
     }
 
     (block_hvs, headers)
+}
+
+pub async fn get_checkpoint_data() {}
+
+async fn get_block_header(height: u64, client: &BitcoinClient) -> Header {
+    client.get_block_at(height).await.unwrap().header
+}
+
+async fn get_block_header_hash(height: u64, client: &BitcoinClient) -> Buf32 {
+    compute_block_hash(&get_block_header(height, client).await)
+}
+
+pub async fn get_block_headers_hash(heights: Vec<u64>, client: &BitcoinClient) -> Vec<Buf32> {
+    let mut header_hashes: Vec<Buf32> = Vec::new();
+    for block_num in heights {
+        header_hashes.push(get_block_header_hash(block_num, client).await);
+    }
+    header_hashes
 }
