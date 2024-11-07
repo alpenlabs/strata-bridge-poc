@@ -36,13 +36,14 @@ mod test {
         let public_value: BridgeProofPublicParams = sp1_proof.clone().public_values.read();
         println!("got the public param {:?}", public_value);
 
+        let obtained_bytes = bincode::serialize(&public_value).unwrap();
+        let expected_bytes = sp1_proof.public_values.as_slice();
+        // println!("Commited values {:?}", commited_values);
+        // println!("Ex values {:?}", expected);
+        assert_eq!(obtained_bytes, expected_bytes);
+
         let vkey_str = sp1_vkey.bytes32();
         let commited_values = sp1_proof.public_values.as_slice();
-
-        println!("Commited values {:?}", commited_values);
-        let expected = bincode::serialize(&([0u8; 32], [0u8; 32], 0u32)).unwrap();
-        println!("Ex values {:?}", expected);
-
         verify_proof(raw_groth16_proof, vkey_str, commited_values).unwrap();
     }
 }

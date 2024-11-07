@@ -8,51 +8,11 @@ use strata_state::{
     l1::{BtcParams, HeaderVerificationState},
 };
 
-use crate::BridgeProofPublicParams;
+use crate::{primitives::get_bridge_proof_public_params, BridgeProofPublicParams};
 
 pub fn process_bridge_proof() -> BridgeProofPublicParams {
-    // TODO:
-    // Assume the inputs and process on it
-    // (Ckp <- bid, bidx)
-    // (ProcessDeposit <- bid, bidx)
-    // (ClaimTxn <- bid, bidx)
-
-    // TODO:
-    // On checkpoint
-    // Verify the sp1 proof and recover the checkpoint params
-    // L1BlockId
-    // L2BlockId
-
-    // TODO:
-    // Read L2 chain
-    // From the L2 state verify the inclusion of the deposit and assignee on that state
-    // Verify the settlement of that Withdrawal request on the chain
-    // Add the assumptions
-
-    // TODO:
-    // Verify the inclusion of claim txn
-    // Add assumptions
-    // L1 segment
-    // start := block where ckp proof is there
     // endblock := block where ckp proof + N blocks; N = 2016
-
-    let super_block_hash =
-        BlockHash::from_slice(&[0u8; 32]).expect("Failed to create Block hash from bytes");
-    let withdrawal_txnid = Txid::from_slice(&[0u8; 32]).expect("Failed to create Txid from bytes");
-
-    // Assert that the first byte of each hash is `0`
-    assert_eq!(
-        super_block_hash[0], 0,
-        "super_block_hash does not start with 0"
-    );
-    assert_eq!(
-        withdrawal_txnid[0], 0,
-        "withdrawal_txnid does not start with 0"
-    );
-
-    let timestamp: u32 = 0;
-
-    (super_block_hash, withdrawal_txnid, timestamp)
+    get_bridge_proof_public_params()
 }
 
 pub fn assert_deposit_state(
