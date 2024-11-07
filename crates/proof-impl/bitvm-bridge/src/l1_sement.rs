@@ -21,7 +21,7 @@ use crate::bitcoin::{
 
 pub fn process_blocks(
     checkpoint: (Block, ChainState, OutputRef),
-    payment: Block,
+    payment_txn_block: Block,
     claim_txn_block: Block,
     headers: &[Header],
     start_header: HeaderVerificationState,
@@ -29,30 +29,26 @@ pub fn process_blocks(
 ) {
     let (ckp_withdrawl_info, batch_info) =
         verify_checkpoint_and_extract_info(&checkpoint.0, &checkpoint.1, &checkpoint.2);
-    let operator_withdrawl_info = get_payment_txn(&payment);
-    let claim_txn = get_claim_txn(&claim_txn_block);
 
-    // TODO: Match the info from `ckp_withdrawl_info` & `operator_withdrawl_info`
+    // TODO: Actual parsing of the payment txn
+    // TODO: Match the info from `ckp_withdrawl_info` & `payment_txn_info`
+    let payment_txn_info = get_payment_txn(&payment_txn_block);
+
+    // TODO: Actual parsing of the payment txn
+    // TODO: assert ts_block_header.timestamp == claim_txn_info.ts
     // TODO: Link the `operator_withdrawl_info` and `claim_txn`
-
-    // TODO: Find the super block
-    // ts <- claim_txn (B4 time := ts)
-    // ckp < payment < B4
-    // asseert B4.time == ts
-    // super_block = min_block(B4 + 2016)
-    // Maybe pass the closure
+    let claim_txn_info = get_claim_txn(&claim_txn_block);
 
     // Ensure the block we scan falls inside the L1 fragment
     let params = get_btc_params();
     let header_inclusions = [
         compute_block_hash(&checkpoint.0.header),
-        compute_block_hash(&payment.header),
+        compute_block_hash(&payment_txn_block.header),
         compute_block_hash(&claim_txn_block.header),
     ];
 
     let ts_block_hash = compute_block_hash(&ts_block_header);
-
-    verify_l1_chain(
+    let super_block_hash = verify_l1_chain(
         &start_header,
         headers,
         &params,

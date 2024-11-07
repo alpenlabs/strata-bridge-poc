@@ -33,8 +33,9 @@ pub fn verify_l1_chain(
 
         // Search for the super block
         if ts_block_found && super_block.as_ref() > state.last_verified_block_hash.as_ref() {
-            println!("{:?} > {:?}", super_block, state.last_verified_block_hash);
             super_block = Buf32(state.last_verified_block_hash.as_ref().into());
+
+            // TODO: After super block is found assert `N=2016` blocks are there
         }
     }
 
