@@ -1,7 +1,4 @@
-use bitcoin::{
-    absolute::LockTime, transaction::Version, OutPoint, Psbt, Transaction, TxIn, TxOut, Txid,
-    Witness,
-};
+use bitcoin::{OutPoint, Psbt, Transaction, TxOut, Txid};
 use bitvm::signatures::wots::wots256;
 use serde::{Deserialize, Serialize};
 use strata_bridge_primitives::{
@@ -16,8 +13,8 @@ use strata_bridge_primitives::{
 
 use super::constants::{
     NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11,
-    NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX2_A160_PK11,
-    NUM_ASSERT_DATA_TX2_A160_PK2, NUM_ASSERT_DATA_TX2_A256_PK7, NUM_INPUTS_PER_ASSERT_DATA_TX,
+    NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A160_PK2,
+    NUM_ASSERT_DATA_TX2_A256_PK7, NUM_INPUTS_PER_ASSERT_DATA_TX,
 };
 use crate::connectors::prelude::*;
 
@@ -115,7 +112,7 @@ impl AssertDataTxBatch {
             ConnectorA160<NUM_PKS_A160_RESIDUAL>,
         ) = connector_a160_factory.create_connectors();
 
-        let (connector256_batch, connector256_remainder): (
+        let (connector256_batch, _connector256_remainder): (
             Vec<ConnectorA256<NUM_PKS_A256_PER_CONNECTOR>>,
             ConnectorA256<NUM_PKS_A256_RESIDUAL>,
         ) = connector_a256_factory.create_connectors();
@@ -220,35 +217,34 @@ impl AssertDataTxBatch {
             "number of inputs in the second psbt must match"
         );
 
-        // let res = self
-        //     .0
-        //     .into_iter()
-        //     .map(|psbt| {
-        //         // Transaction { input: psbt.inputs }
-        //         psbt.extract_tx()
-        //             .expect("should be able to extract signed tx")
-        //     })
-        //     .collect::<Vec<_>>()
-        //     .try_into()
-        //     .unwrap();
-
         self.0
             .into_iter()
-            .map(|psbt| Transaction {
-                version: Version::TWO,
-                lock_time: LockTime::ZERO,
-                output: vec![],
-                input: psbt
-                    .inputs
-                    .iter()
-                    .map(|input| TxIn {
-                        witness: input.final_script_witness.clone().unwrap(),
-                        ..Default::default()
-                    })
-                    .collect(),
+            .map(|psbt| {
+                psbt.extract_tx()
+                    .expect("should be able to extract signed tx")
             })
             .collect::<Vec<_>>()
             .try_into()
             .unwrap()
+
+        // FOR TEST
+        // self.0
+        //     .into_iter()
+        //     .map(|psbt| Transaction {
+        //         version: Version::TWO,
+        //         lock_time: LockTime::ZERO,
+        //         output: vec![],
+        //         input: psbt
+        //             .inputs
+        //             .iter()
+        //             .map(|input| TxIn {
+        //                 witness: input.final_script_witness.clone().unwrap(),
+        //                 ..Default::default()
+        //             })
+        //             .collect(),
+        //     })
+        //     .collect::<Vec<_>>()
+        //     .try_into()
+        //     .unwrap()
     }
 }

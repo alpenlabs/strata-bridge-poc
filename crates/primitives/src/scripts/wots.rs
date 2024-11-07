@@ -162,7 +162,6 @@ pub mod mock {
         vk
     }
 
-    #[expect(unused)]
     pub fn get_proof_and_public_inputs() -> (g16::Proof, g16::PublicInputs) {
         pub const PROOF_BYTES: [u8; 256] = [
             6, 71, 147, 246, 51, 1, 231, 159, 239, 5, 46, 114, 116, 30, 13, 149, 247, 149, 106,
@@ -233,7 +232,6 @@ pub mod _mock {
         vk
     }
 
-    #[expect(unused)]
     pub fn get_proof_and_public_inputs() -> (g16::Proof, g16::PublicInputs) {
         const PROOF_BYTES: [u8; 256] = [
             3, 19, 181, 171, 106, 36, 254, 91, 176, 187, 23, 155, 242, 49, 77, 18, 29, 61, 133,

@@ -265,10 +265,10 @@ provers/sp1/proofs/
 .secrets/
 
 # log files
-*.log
+*.log*
 
 # verifier scripts
-*.scripts
+*.scripts*
 
 # backup files
 *.bak

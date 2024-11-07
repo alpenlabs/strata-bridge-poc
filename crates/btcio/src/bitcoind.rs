@@ -336,7 +336,11 @@ impl Broadcaster for BitcoinClient {
         let txstr = serialize_hex(tx);
         trace!(txstr = %txstr, "Sending raw transaction");
         match self
-            .call::<Txid>("sendrawtransaction", &[to_value(txstr)?])
+            .call::<Txid>(
+                "sendrawtransaction",
+                // raw tx hex, maxfeerate, maxburnamount
+                &[to_value(txstr)?, to_value("0.10")?, to_value("0.1")?],
+            )
             .await
         {
             Ok(txid) => {

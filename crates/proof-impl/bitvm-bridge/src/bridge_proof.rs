@@ -63,7 +63,6 @@ pub fn process_bridge_proof(input: BridgeProofInput) -> BridgeProofPublicParams 
 
 #[cfg(test)]
 mod test {
-    use bincode;
     use prover_test_utils::{get_bitcoin_client, get_chain_state, get_header_verification_data};
     use strata_btcio::rpc::traits::Reader;
 

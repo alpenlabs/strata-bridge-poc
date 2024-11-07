@@ -144,7 +144,7 @@ mod tests {
 
         let message: (_, [_; 32]) = (0x12345678u32, std::array::from_fn(|i| i as u8));
 
-        let signatures = (
+        let _signatures = (
             wots32::get_signature(msk, &message.0.to_le_bytes()),
             wots256::get_signature(msk, &message.1),
         );
@@ -160,7 +160,7 @@ mod tests {
         fn parse_wots32_sig(digits: [u8; 10]) -> u32 {
             let mut bytes = std::array::from_fn(|i| (digits[2 * i] << 4) + digits[2 * i + 1]);
             bytes.reverse();
-            u32::from_le_bytes(bytes.try_into().unwrap())
+            u32::from_le_bytes(bytes)
         }
 
         fn parse_wots256_sig(digits: [u8; 67]) -> [u8; 32] {

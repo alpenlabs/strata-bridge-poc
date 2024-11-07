@@ -19,7 +19,6 @@ pub fn verify_proof(proof: Proof, vkey: String, comitted_values: &[u8]) -> anyho
 
 #[cfg(test)]
 mod test {
-    use bitcoin::{hashes::Hash, BlockHash, Txid};
     use sp1_sdk::{HashableKey, SP1ProofWithPublicValues, SP1VerifyingKey};
     use strata_proofimpl_bitvm_bridge::BridgeProofPublicParams;
 
@@ -64,8 +63,9 @@ mod test {
         // 0, 0, 0, 0, 0, ];
 
         let public_inputs: BridgeProofPublicParams = (
-            BlockHash::from_byte_array(std::array::from_fn(|i| i as u8)),
-            Txid::from_byte_array(std::array::from_fn(|i| 2 * i as u8)),
+            std::array::from_fn(|i| i as u8),
+            std::array::from_fn(|i| 2 * i as u8),
+            std::array::from_fn(|i| 3 * i as u8),
             0x12345678,
         );
 

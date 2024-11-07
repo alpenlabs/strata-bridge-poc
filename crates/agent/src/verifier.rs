@@ -1,13 +1,11 @@
-use bitcoin::{hashes::Hash, hex::DisplayHex, ScriptBuf, Transaction, Txid};
+use bitcoin::{hashes::Hash, ScriptBuf, Transaction, Txid};
 use bitvm::{
     groth16::g16,
     signatures::wots::{wots256, wots32, SignatureImpl},
     treepp::*,
 };
-use rand::RngCore;
 use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
 use strata_bridge_primitives::{
-    build_context::{BuildContext, TxBuildContext},
     helpers::hash_to_bn254_fq,
     scripts::{
         parse_witness::{parse_assertion_witnesses, parse_claim_witness},
@@ -20,9 +18,7 @@ use strata_bridge_tx_graph::{
     transactions::constants::{NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX2},
 };
 use tokio::sync::broadcast;
-use tracing::info;
-
-use crate::base::Agent;
+use tracing::warn;
 
 #[derive(Clone, Debug)]
 #[expect(clippy::large_enum_variant)]
@@ -64,7 +60,7 @@ impl Verifier {
         }
     }
 
-    pub async fn start(&mut self, duty_receiver: &mut broadcast::Receiver<VerifierDuty>) {
+    pub async fn start(&mut self, _duty_receiver: &mut broadcast::Receiver<VerifierDuty>) {
         // info!(action = "starting operator", operator_idx=%self.build_context.own_index());
 
         // while let Ok(bridge_duty) = duty_receiver.recv().await {
@@ -75,11 +71,11 @@ impl Verifier {
     pub async fn process_duty(&mut self, duty: VerifierDuty) {
         match duty {
             VerifierDuty::VerifyClaim {
-                operator_id,
-                deposit_txid,
+                operator_id: _,
+                deposit_txid: _,
                 claim_tx,
             } => {
-                println!("No challenging yet!");
+                warn!("No challenging yet!");
                 let (_superblock_period_start_ts, _bridge_out_txid) =
                     self.parse_claim_tx(&claim_tx);
 
@@ -175,19 +171,19 @@ impl Verifier {
                             (locking_script, witness_script)
                         }
                         ConnectorA31Leaf::DisproveSuperblockCommitment(Some((
-                            superblock_hash,
-                            superblock_period_start_ts,
-                            serialized_superblock_header,
+                            _superblock_hash,
+                            _superblock_period_start_ts,
+                            _serialized_superblock_header,
                         ))) => {
                             unimplemented!("superblock disprover not implemented yet");
                         }
                         ConnectorA31Leaf::DisprovePublicInputsCommitment(
-                            deposit_txid,
+                            _deposit_txid,
                             Some((
-                                superblock_hash,
-                                bridge_out_txid,
-                                superblock_period_start_ts,
-                                public_inputs_hash,
+                                _superblock_hash,
+                                _bridge_out_txid,
+                                _superblock_period_start_ts,
+                                _public_inputs_hash,
                             )),
                         ) => {
                             println!("disprove public inputs hash");
@@ -286,20 +282,18 @@ impl Verifier {
 #[cfg(test)]
 mod tests {
     use bitcoin::{
-        absolute::LockTime, hashes::Hash, opcodes::all::OP_EQUALVERIFY, transaction::Version,
-        Amount, OutPoint, ScriptBuf, Sequence, TxIn, TxOut, Txid, Witness, XOnlyPublicKey,
+        absolute::LockTime, hashes::Hash, transaction::Version, Amount, OutPoint, ScriptBuf,
+        Sequence, TxIn, TxOut, Txid, Witness, XOnlyPublicKey,
     };
     use bitvm::{
         groth16::g16,
-        pseudo::NMUL,
         signatures::wots::{wots256, wots32, SignatureImpl},
         treepp::*,
     };
     use secp256k1::{Keypair, Secp256k1};
     use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
     use strata_bridge_primitives::scripts::wots::{
-        bridge_poc_verification_key, generate_wots_public_keys, generate_wots_signatures, mock,
-        Assertions, Signatures,
+        generate_wots_public_keys, generate_wots_signatures, mock, Assertions, Signatures,
     };
     use strata_bridge_tx_graph::{
         connectors::{

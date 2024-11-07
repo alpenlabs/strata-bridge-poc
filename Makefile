@@ -199,5 +199,6 @@ run:
 		--btc-pass rpcpassword \
 		--fault-tolerance 0 \
 		--duty-interval 60 \
-		--xpriv-file .secrets/xprivs.bin | tee run.log.$(TIMESTAMP) 2>&1
+		--num-threads 5 \
+		--xpriv-file .secrets/xprivs.bin 2>&1 | tee run.log.$(TIMESTAMP)
 

@@ -13,6 +13,7 @@ use bitcoin::{
     taproot::{ControlBlock, LeafVersion, TaprootBuilder, TaprootSpendInfo},
     Address, Network, ScriptBuf, TapLeafHash, TapSighashType, Transaction, TxOut, Witness,
 };
+use bitvm::treepp::*;
 use secp256k1::Message;
 
 // use secp256k1::SECP256K1;
@@ -149,6 +150,14 @@ fn build_taptree(
         Address::p2tr(SECP256K1, internal_key, merkle_root, network),
         spend_info,
     ))
+}
+
+pub fn taproot_witness_signatures(script: Script) -> Vec<Vec<u8>> {
+    let result = execute_script(script);
+
+    (0..result.final_stack.len())
+        .map(|index| result.final_stack.get(index))
+        .collect::<Vec<_>>()
 }
 
 pub fn finalize_input<D>(input: &mut Input, witnesses: impl IntoIterator<Item = D>)

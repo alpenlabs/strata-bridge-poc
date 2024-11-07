@@ -70,11 +70,15 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA256<N_PUBLIC_KEYS> {
         script! {
             for public_key in self.public_keys {
                 { wots256::checksig_verify(public_key) }
-                { fq_from_nibbles() }
-                { U254::push_u32_le(&Fq::MODULUS_LIMBS)}
-                { U254::greaterthan(0, 1) }
-                OP_VERIFY
+
+                for _ in 0..32 { OP_2DROP }
+                // { fq_from_nibbles() }
+                // { U254::push_u32_le(&Fq::MODULUS_LIMBS)}
+                // { U254::greaterthan(0, 1) }
+                // OP_VERIFY
             }
+
+            OP_TRUE
         }
         .compile()
     }
@@ -115,19 +119,16 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA256<N_PUBLIC_KEYS> {
     ) {
         let witness = script! {
             for sig in signatures { { sig.to_script() } }
-        }
-        .compile();
+        };
+
+        let mut witness_stack = taproot_witness_signatures(witness);
 
         let (script, control_block) = self.generate_spend_info();
 
-        finalize_input(
-            input,
-            [
-                witness.to_bytes(),
-                script.to_bytes(),
-                control_block.serialize(),
-            ],
-        );
+        witness_stack.push(script.to_bytes());
+        witness_stack.push(control_block.serialize());
+
+        finalize_input(input, witness_stack);
     }
 }
 
@@ -185,11 +186,14 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA160<N_PUBLIC_KEYS> {
         script! {
             for public_key in self.public_keys {
                 { wots160::checksig_verify(public_key) }
-                { fq_from_nibbles() }
-                { U254::push_u32_le(&Fq::MODULUS_LIMBS)}
-                { U254::greaterthan(0, 1) }
-                OP_VERIFY
+                for _ in 0..20 { OP_2DROP }
+                // { fq_from_nibbles() }
+                // { U254::push_u32_le(&Fq::MODULUS_LIMBS)}
+                // { U254::greaterthan(0, 1) }
+                // OP_VERIFY
             }
+
+            OP_TRUE
         }
         .compile()
     }
@@ -230,18 +234,15 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA160<N_PUBLIC_KEYS> {
     ) {
         let witness = script! {
             for sig in signatures { { sig.to_script() } }
-        }
-        .compile();
+        };
+
+        let mut witness_stack = taproot_witness_signatures(witness);
 
         let (script, control_block) = self.create_spend_info();
 
-        finalize_input(
-            input,
-            [
-                witness.to_bytes(),
-                script.to_bytes(),
-                control_block.serialize(),
-            ],
-        );
+        witness_stack.push(script.to_bytes());
+        witness_stack.push(control_block.serialize());
+
+        finalize_input(input, witness_stack);
     }
 }

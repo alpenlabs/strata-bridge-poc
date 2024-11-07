@@ -20,7 +20,7 @@ pub const MIN_RELAY_FEE: Amount = Amount::from_sat(5000);
 /// So, it requires extra fees. Here, we set it to 4 times the normal.
 pub const ASSERT_DATA_FEE: Amount = Amount::from_sat(4 * 1000);
 
-pub const OPERATOR_STAKE: Amount = Amount::from_int_btc(2);
+pub const OPERATOR_STAKE: Amount = Amount::from_int_btc(5);
 
 /// The fee charged by the operator to process a withdrawal.
 ///
