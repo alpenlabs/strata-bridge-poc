@@ -17,6 +17,7 @@ strata-tx-parser = { git = "https://github.com/alpenlabs/strata.git", branch = "
 strata-proofimpl-btc-blockspace = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
 
 [dev-dependencies]
+bincode.workspace = true
 tokio.workspace = true
 tower = { version = "0.4.13", features = ["util"] }
 strata-btcio = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }

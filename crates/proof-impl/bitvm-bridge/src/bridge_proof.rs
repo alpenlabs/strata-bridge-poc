@@ -63,6 +63,7 @@ pub fn process_bridge_proof(input: BridgeProofInput) -> BridgeProofPublicParams 
 
 #[cfg(test)]
 mod test {
+    use bincode;
     use prover_test_utils::{get_bitcoin_client, get_chain_state, get_header_verification_data};
     use strata_btcio::rpc::traits::Reader;
 
@@ -114,6 +115,8 @@ mod test {
             headers,
             start_header_state,
         };
+
+        // let bincoded_res = borsh::to_vec(&process_blocks_input).unwrap();
 
         // Process the blocks
         let res = process_bridge_proof(process_blocks_input);

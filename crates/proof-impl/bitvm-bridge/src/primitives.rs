@@ -1,4 +1,5 @@
 use bitcoin::{block::Header, Block};
+use borsh::{BorshDeserialize, BorshSerialize};
 use strata_primitives::l1::OutputRef;
 use strata_state::{chain_state::ChainState, l1::HeaderVerificationState};
 
@@ -11,6 +12,13 @@ use strata_state::{chain_state::ChainState, l1::HeaderVerificationState};
 /// - `super_block_hash`: The Super Block Hash.
 /// - `timestamp`: The timestamp of the TS block.
 pub type BridgeProofPublicParams = ([u8; 32], [u8; 32], [u8; 32], u32);
+
+#[derive(BorshSerialize, BorshDeserialize)]
+pub struct MyData {
+    // pub block: HeaderVerificationState,
+    // pub chain_state: ChainState,
+    // pub out_ref: OutputRef,
+}
 
 pub struct CheckpointInput {
     pub block: Block,
