@@ -1,47 +1,16 @@
 #![allow(unused)]
-use bitcoin::{block::Header, Block, Txid};
-use strata_primitives::{
-    buf::Buf32,
-    l1::{BitcoinAmount, OutputRef, XOnlyPk},
-};
-use strata_proofimpl_btc_blockspace::block::{check_merkle_root, check_witness_commitment};
-use strata_state::{
-    batch::{BatchCheckpoint, BatchInfo},
-    bridge_state::DepositState,
-    chain_state::ChainState,
-    l1::{compute_block_hash, get_btc_params, BtcParams, HeaderVerificationState},
-    tx::ProtocolOperation,
-};
-use strata_tx_parser::filter::{filter_relevant_txs, TxFilterRule};
+use strata_state::l1::{compute_block_hash, get_btc_params};
 
-use crate::bitcoin::{
-    checkpoint::verify_checkpoint_and_extract_info, claim_txn::get_claim_txn,
-    header_chain::verify_l1_chain, payment_txn::get_payment_txn, primitives::WithdrwalInfo,
+use crate::{
+    bitcoin::{
+        checkpoint::verify_checkpoint_and_extract_info, claim_txn::get_claim_txn,
+        header_chain::verify_l1_chain, payment_txn::get_payment_txn,
+    },
+    primitives::{BridgeProofPublicParams, CheckpointInput},
+    BridgeProofInput,
 };
 
-pub struct ProcessBlockOutput {
-    deposit_utxo: Txid,
-    withdrawl_txn: Txid,
-    super_block_hash: Buf32,
-    ts: u32,
-}
-
-pub struct CheckpointInput {
-    block: Block,
-    chain_state: ChainState,
-    out_ref: OutputRef,
-}
-
-pub struct ProcessBlocksInput {
-    checkpoint_input: CheckpointInput,
-    payment_txn_block: Block,
-    claim_txn_block: Block,
-    ts_block_header: Header,
-    headers: Vec<Header>,
-    start_header_state: HeaderVerificationState,
-}
-
-pub fn process_blocks(input: ProcessBlocksInput) -> ProcessBlockOutput {
+pub fn process_bridge_proof(input: BridgeProofInput) -> BridgeProofPublicParams {
     let CheckpointInput {
         block: ckp_block,
         chain_state,
@@ -77,23 +46,27 @@ pub fn process_blocks(input: ProcessBlocksInput) -> ProcessBlockOutput {
         header_inclusions.to_vec(),
     );
 
-    ProcessBlockOutput {
-        deposit_utxo: out_ref.outpoint().txid,
-        withdrawl_txn: claim_txn_info.1,
-        super_block_hash,
-        ts: input.ts_block_header.time,
-    }
+    /// BridgeProofPublicParams
+    /// Contains:
+    ///
+    /// - `0`: The Deposit UTXO.
+    /// - `1`: The Payment Transaction.
+    /// - `2`: The Super Block Hash.
+    /// - `3`: The timestamp of the TS block.
+    (
+        *out_ref.outpoint().txid.as_ref(),
+        *claim_txn_info.1.as_ref(),
+        *super_block_hash.as_ref(),
+        input.ts_block_header.time,
+    )
 }
 
 #[cfg(test)]
 mod test {
-    use bitcoin::block::Header;
     use prover_test_utils::{get_bitcoin_client, get_chain_state, get_header_verification_data};
-    use strata_btcio::rpc::{traits::Reader, BitcoinClient};
-    use strata_primitives::buf::Buf32;
-    use strata_state::l1::compute_block_hash;
+    use strata_btcio::rpc::traits::Reader;
 
-    use crate::l1_sement::{process_blocks, CheckpointInput, ProcessBlocksInput};
+    use crate::bridge_proof::{process_bridge_proof, BridgeProofInput, CheckpointInput};
 
     #[tokio::test]
     async fn test_process_blocks() {
@@ -133,7 +106,7 @@ mod test {
         };
 
         // Prepare process_blocks input
-        let process_blocks_input = ProcessBlocksInput {
+        let process_blocks_input = BridgeProofInput {
             checkpoint_input,
             payment_txn_block,
             claim_txn_block,
@@ -143,6 +116,6 @@ mod test {
         };
 
         // Process the blocks
-        let res = process_blocks(process_blocks_input);
+        let res = process_bridge_proof(process_blocks_input);
     }
 }

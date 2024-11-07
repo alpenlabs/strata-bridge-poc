@@ -1,3 +1,4 @@
+#![allow(unused)]
 use bitcoin::block::Header;
 use strata_primitives::buf::Buf32;
 use strata_state::l1::{BtcParams, HeaderVerificationState};
@@ -47,7 +48,9 @@ pub fn verify_l1_chain(
 
 #[cfg(test)]
 mod test {
-    use prover_test_utils::{get_bitcoin_client, get_header_verification_data};
+    use prover_test_utils::{
+        get_bitcoin_client, get_block_headers_hash, get_header_verification_data,
+    };
     use strata_btcio::rpc::traits::Reader;
     use strata_state::l1::{compute_block_hash, get_btc_params};
 
@@ -65,29 +68,11 @@ mod test {
 
         let params = get_btc_params();
 
-        let headers_inclusions = vec![
-            compute_block_hash(
-                &btc_client
-                    .get_block_at(start_block + 1)
-                    .await
-                    .unwrap()
-                    .header,
-            ),
-            compute_block_hash(
-                &btc_client
-                    .get_block_at(start_block + 3)
-                    .await
-                    .unwrap()
-                    .header,
-            ),
-            compute_block_hash(
-                &btc_client
-                    .get_block_at(start_block + 6)
-                    .await
-                    .unwrap()
-                    .header,
-            ),
-        ];
+        let headers_inclusions = get_block_headers_hash(
+            vec![start_block + 1, start_block + 3, start_block + 6],
+            &btc_client,
+        )
+        .await;
 
         let ts_block_hash = compute_block_hash(
             &btc_client
