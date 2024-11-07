@@ -23,6 +23,8 @@ pub struct BridgeProofInput {
     pub checkpoint_input: CheckpointInput,
     pub payment_txn_block: Block,
     pub claim_txn_block: Block,
+    pub payment_txn_idx: u32,
+    pub claim_txn_idx: u32,
     pub ts_block_header: Header,
     pub headers: Vec<Header>,
     pub start_header_state: HeaderVerificationState,
