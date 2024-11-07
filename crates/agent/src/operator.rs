@@ -131,8 +131,8 @@ impl Operator {
                 Err(RecvError::Lagged(skipped_messages)) => {
                     warn!(action = "processing last available duty", event = "duty executor lagging behind, please adjust '--duty-interval' arg", %skipped_messages);
                 }
-                Err(error) => {
-                    error!(msg = "error receiving duties", ?error);
+                Err(err) => {
+                    error!(msg = "error receiving duties", ?err);
 
                     panic!("duty sender closed unexpectedly");
                 }
@@ -237,6 +237,7 @@ impl Operator {
             deposit_txid,
             peg_out_graph_connectors,
             own_index,
+            &self.public_db,
         )
         .await;
 
@@ -451,6 +452,7 @@ impl Operator {
                         deposit_txid,
                         connectors,
                         sender_id,
+                        &self.public_db,
                     )
                     .await;
                     let AssertChain {
@@ -818,6 +820,7 @@ impl Operator {
                         deposit_txid,
                         connectors,
                         sender_id,
+                        &self.public_db,
                     )
                     .await;
                     let AssertChain {
@@ -1381,6 +1384,7 @@ impl Operator {
             deposit_txid,
             connectors.clone(),
             own_index,
+            &self.public_db,
         )
         .await;
 

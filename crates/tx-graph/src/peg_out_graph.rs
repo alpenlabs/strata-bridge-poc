@@ -10,7 +10,7 @@ use strata_bridge_primitives::{
     scripts::wots,
     types::OperatorIdx,
 };
-use tracing::debug;
+use tracing::{debug, info};
 
 use crate::{connectors::prelude::*, transactions::prelude::*};
 
@@ -44,6 +44,7 @@ impl PegOutGraph {
         deposit_txid: Txid,
         connectors: PegOutGraphConnectors<Db>,
         operator_idx: OperatorIdx,
+        db: &Db,
     ) -> Self {
         let kickoff_tx = KickOffTx::new(
             input.kickoff_data,
@@ -69,6 +70,10 @@ impl PegOutGraph {
         let claim_txid = claim_tx.compute_txid();
         debug!(event = "created claim tx", %operator_idx, %claim_txid);
 
+        info!(action = "registering claim txid for bitcoin watcher", %claim_txid, own_index = %operator_idx);
+        db.register_claim_txid(claim_txid, operator_idx, deposit_txid)
+            .await;
+
         let assert_chain_data = AssertChainData {
             pre_assert_data: PreAssertData {
                 claim_txid,
@@ -93,6 +98,10 @@ impl PegOutGraph {
         let post_assert_out_stake = assert_chain.post_assert.remaining_stake();
 
         debug!(event = "created assert chain", %operator_idx, %post_assert_txid);
+
+        info!(action = "registering post assert txid for bitcoin watcher", %post_assert_txid, own_index = %operator_idx);
+        db.register_claim_txid(claim_txid, operator_idx, deposit_txid)
+            .await;
 
         let payout_data = PayoutData {
             post_assert_txid,

@@ -5,14 +5,16 @@ use std::sync::Arc;
 use bitcoin::Address;
 use jsonrpsee::ws_client::WsClientBuilder;
 use rand::{rngs::OsRng, Rng};
-use secp256k1::SECP256K1;
+use secp256k1::{Keypair, SECP256K1};
 use strata_bridge_agent::{
     base::Agent,
+    bitcoin_watcher::BitcoinWatcher,
     duty_watcher::{DutyWatcher, DutyWatcherConfig},
     operator::Operator,
     signal::{CovenantNonceSignal, CovenantSignatureSignal, DepositSignal},
+    verifier::{Verifier, VerifierDuty},
 };
-use strata_bridge_btcio::traits::Reader;
+use strata_bridge_btcio::{traits::Reader, BitcoinClient};
 use strata_bridge_db::{operator::OperatorDb, public::PublicDb};
 use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext},
@@ -25,7 +27,10 @@ use tracing::{debug, error, info};
 
 use crate::{
     cli::Cli,
-    constants::{COVENANT_QUEUE_MULTIPLIER, DEPOSIT_QUEUE_MULTIPLIER, DUTY_QUEUE_SIZE},
+    constants::{
+        COVENANT_QUEUE_MULTIPLIER, DEPOSIT_QUEUE_MULTIPLIER, DUTY_QUEUE_SIZE,
+        VERIFIER_DUTY_QUEUE_SIZE,
+    },
     rpc_server::{self, BridgeRpc},
     xpriv::get_keypairs_and_load_xpriv,
 };
@@ -52,7 +57,13 @@ pub(crate) async fn bootstrap(args: Cli) {
 
     let (duty_sender, _duty_receiver) = broadcast::channel::<BridgeDuty>(DUTY_QUEUE_SIZE);
 
-    let operators = generate_operator_set(&args, pubkey_table).await;
+    // initialize public database
+    let public_db = PublicDb::default();
+    debug!(event = "initialized public db");
+
+    public_db.set_musig_pubkey_table(&pubkey_table.0).await;
+
+    let operators = generate_operator_set(&args, pubkey_table, public_db.clone()).await;
 
     let mut tasks = JoinSet::new();
 
@@ -72,27 +83,28 @@ pub(crate) async fn bootstrap(args: Cli) {
         });
     }
 
-    // TODO: spawn verifier
-    {
-        // Event::Claim:
-        //     Validate(Claim):
-        //         - bridge_out_txid included in bitcoin chain
-        //         - bridge_out_tx pays to the user address the specified amount in the withdrawal
-        //           request (inside rollup state)
-        //         - checkpoint_tx.timestamp < bridge_out_tx.timestamp < claim_tx.timestamp
-        //     If invalid: make a challenge by spending PayoutOptimistic connector.
+    // spawn verifier and bitcoin watcher
+    let (notification_sender, mut notification_receiver) =
+        broadcast::channel::<VerifierDuty>(VERIFIER_DUTY_QUEUE_SIZE);
 
-        // Event:Assert:
-        //     Validate(Assert):
-        //         - extract signatures from assert utxo witnesses
-        //         - verify assertions and get disprove script
-        //             - check if there is a better superblock than operator.sb_hash() in period Ts
-        //               < verifier.sb_timestamp < Ts + 2w -> run superblock_invalidation_tapscript
-        //             - check if the hash of the public inputs does not match the committed
-        //               public_inputs_hash -> run public_inputs_hash_invalidation_tapscript
-        //             - check if the groth16 proof is valid -> run one of the many disprove scripts
-        //         - execute disprove txn
-    }
+    let bitcoin_rpc_client = BitcoinClient::new(&args.btc_url, &args.btc_user, &args.btc_pass)
+        .expect("should be ablet o create bitcoin client");
+    let bitcoin_watcher = BitcoinWatcher::new(
+        public_db.clone(),
+        Arc::new(bitcoin_rpc_client),
+        args.duty_interval,
+    );
+
+    let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
+    let agent = Agent::new(keypair, &args.btc_url, &args.btc_user, &args.btc_pass);
+
+    let mut verifier = Verifier::new(public_db.clone(), agent);
+
+    tasks.spawn(async move {
+        verifier.start(&mut notification_receiver).await;
+    });
+
+    tasks.spawn(async move { bitcoin_watcher.start(notification_sender).await });
 
     // spawn rpc server
     let bridge_rpc = BridgeRpc::new();
@@ -111,13 +123,11 @@ pub(crate) async fn bootstrap(args: Cli) {
     tasks.join_all().await;
 }
 
-pub async fn generate_operator_set(args: &Cli, pubkey_table: PublickeyTable) -> Vec<Operator> {
-    // initialize public database
-    let public_db = PublicDb::default();
-    debug!(event = "initialized public db");
-
-    public_db.set_musig_pubkey_table(&pubkey_table.0).await;
-
+pub async fn generate_operator_set(
+    args: &Cli,
+    pubkey_table: PublickeyTable,
+    public_db: PublicDb,
+) -> Vec<Operator> {
     let operator_indexes_and_keypairs =
         get_keypairs_and_load_xpriv(&args.xpriv_file, &pubkey_table);
 
@@ -142,7 +152,7 @@ pub async fn generate_operator_set(args: &Cli, pubkey_table: PublickeyTable) -> 
     let mut faulty_idxs = Vec::new();
     let mut operator_set: Vec<Operator> = Vec::with_capacity(num_operators);
     for (operator_idx, keypair) in operator_indexes_and_keypairs {
-        let agent = Agent::new(keypair, &args.btc_url, &args.btc_user, &args.btc_pass).await;
+        let agent = Agent::new(keypair, &args.btc_url, &args.btc_user, &args.btc_pass);
 
         let network = agent
             .client

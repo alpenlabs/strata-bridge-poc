@@ -144,22 +144,6 @@ impl PublicDb {
     pub async fn get_musig_pubkey_table(&self) -> BTreeMap<OperatorIdx, PublicKey> {
         self.musig_pubkey_table.read().await.clone()
     }
-
-    pub async fn get_claim(&self, claim_txid: Txid) -> Option<(OperatorIdx, Txid)> {
-        let claims = self
-            .claim_txid_to_operator_index_and_deposit_txid
-            .read()
-            .await;
-        claims.get(&claim_txid).copied()
-    }
-
-    pub async fn get_post_assert(&self, post_assert_txid: Txid) -> Option<(OperatorIdx, Txid)> {
-        let post_asserts = self
-            .post_assert_txid_to_operator_index_and_deposit_txid
-            .read()
-            .await;
-        post_asserts.get(&post_assert_txid).copied()
-    }
 }
 
 #[async_trait]
@@ -248,5 +232,51 @@ impl ConnectorDb for PublicDb {
             .unwrap_or_else(|| {
                 panic!("txid: {txid} must have a signature in the database");
             })
+    }
+
+    async fn register_claim_txid(
+        &self,
+        claim_txid: Txid,
+        operator_idx: OperatorIdx,
+        deposit_txid: Txid,
+    ) {
+        self.claim_txid_to_operator_index_and_deposit_txid
+            .write()
+            .await
+            .insert(claim_txid, (operator_idx, deposit_txid));
+    }
+
+    async fn get_operator_and_deposit_for_claim(
+        &self,
+        claim_txid: &Txid,
+    ) -> Option<(OperatorIdx, Txid)> {
+        self.claim_txid_to_operator_index_and_deposit_txid
+            .read()
+            .await
+            .get(claim_txid)
+            .copied()
+    }
+
+    async fn register_post_assert_txid(
+        &self,
+        post_assert_txid: Txid,
+        operator_idx: OperatorIdx,
+        deposit_txid: Txid,
+    ) {
+        self.post_assert_txid_to_operator_index_and_deposit_txid
+            .write()
+            .await
+            .insert(post_assert_txid, (operator_idx, deposit_txid));
+    }
+
+    async fn get_operator_and_deposit_for_post_assert(
+        &self,
+        post_assert_txid: &Txid,
+    ) -> Option<(OperatorIdx, Txid)> {
+        self.claim_txid_to_operator_index_and_deposit_txid
+            .read()
+            .await
+            .get(post_assert_txid)
+            .copied()
     }
 }

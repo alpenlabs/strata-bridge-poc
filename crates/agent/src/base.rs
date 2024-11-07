@@ -23,7 +23,7 @@ pub struct Agent {
 }
 
 impl Agent {
-    pub async fn new(keypair: Keypair, btc_url: &str, btc_user: &str, btc_pass: &str) -> Self {
+    pub fn new(keypair: Keypair, btc_url: &str, btc_user: &str, btc_pass: &str) -> Self {
         let client = BitcoinClient::new(btc_url, btc_user, btc_pass)
             .expect("should be able to create bitcoin client");
         let client = Arc::new(client);

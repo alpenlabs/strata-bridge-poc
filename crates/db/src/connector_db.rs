@@ -34,4 +34,28 @@ pub trait ConnectorDb: Clone + Debug + Send + Sync {
         txid: Txid,
         input_index: u32,
     ) -> Signature;
+
+    async fn register_claim_txid(
+        &self,
+        claim_txid: Txid,
+        operator_idx: OperatorIdx,
+        deposit_txid: Txid,
+    );
+
+    async fn get_operator_and_deposit_for_claim(
+        &self,
+        claim_txid: &Txid,
+    ) -> Option<(OperatorIdx, Txid)>;
+
+    async fn register_post_assert_txid(
+        &self,
+        post_assert_txid: Txid,
+        operator_idx: OperatorIdx,
+        deposit_txid: Txid,
+    );
+
+    async fn get_operator_and_deposit_for_post_assert(
+        &self,
+        post_assert_txid: &Txid,
+    ) -> Option<(OperatorIdx, Txid)>;
 }

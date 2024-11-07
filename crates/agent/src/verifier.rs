@@ -17,8 +17,10 @@ use strata_bridge_tx_graph::{
     connectors::prelude::ConnectorA31Leaf,
     transactions::constants::{NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX2},
 };
-use tokio::sync::broadcast;
-use tracing::warn;
+use tokio::sync::broadcast::{self, error::RecvError};
+use tracing::{debug, error, info, warn};
+
+use crate::base::Agent;
 
 #[derive(Clone, Debug)]
 #[expect(clippy::large_enum_variant)]
@@ -42,30 +44,35 @@ pub type VerifierIdx = u32;
 
 #[derive(Debug)]
 pub struct Verifier {
-    // pub agent: Agent,
-
-    // build_context: TxBuildContext,
+    pub agent: Agent, // required for broadcasting tx
     public_db: PublicDb,
 }
 
 impl Verifier {
     #[allow(clippy::too_many_arguments)]
-    pub async fn new(
-        /* agent: Agent, build_context: TxBuildContext, */ public_db: PublicDb,
-    ) -> Self {
-        Self {
-            // agent,
-            // build_context,
-            public_db,
-        }
+    pub fn new(public_db: PublicDb, agent: Agent) -> Self {
+        Self { public_db, agent }
     }
 
-    pub async fn start(&mut self, _duty_receiver: &mut broadcast::Receiver<VerifierDuty>) {
-        // info!(action = "starting operator", operator_idx=%self.build_context.own_index());
+    pub async fn start(&mut self, duty_receiver: &mut broadcast::Receiver<VerifierDuty>) {
+        info!(action = "starting verifier");
 
-        // while let Ok(bridge_duty) = duty_receiver.recv().await {
-        //     self.process_duty(bridge_duty).await;
-        // }
+        loop {
+            match duty_receiver.recv().await {
+                Ok(verifier_duty) => {
+                    debug!(event = "received duty", ?verifier_duty);
+                    self.process_duty(verifier_duty).await;
+                }
+                Err(RecvError::Lagged(skipped_messages)) => {
+                    warn!(action = "processing last available duty", event = "duty executor lagging behind, please adjust '--duty-interval' arg", %skipped_messages);
+                }
+                Err(err) => {
+                    error!(msg = "error receiving duties", ?err);
+
+                    panic!("verifier duty sender closed unexpectedly");
+                }
+            }
+        }
     }
 
     pub async fn process_duty(&mut self, duty: VerifierDuty) {
@@ -290,7 +297,7 @@ mod tests {
         signatures::wots::{wots256, wots32, SignatureImpl},
         treepp::*,
     };
-    use secp256k1::{Keypair, Secp256k1};
+    use secp256k1::{Keypair, Secp256k1, SECP256K1};
     use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
     use strata_bridge_primitives::scripts::wots::{
         generate_wots_public_keys, generate_wots_signatures, mock, Assertions, Signatures,
@@ -308,7 +315,7 @@ mod tests {
     };
 
     use super::Verifier;
-    use crate::verifier::VerifierDuty;
+    use crate::{base::Agent, verifier::VerifierDuty};
 
     fn mock_x_only_public_key() -> XOnlyPublicKey {
         let secp = Secp256k1::new();
@@ -2878,7 +2885,10 @@ mod tests {
         )
         .await;
 
-        let mut verifier = Verifier::new(db.clone()).await;
+        let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
+        let agent = Agent::new(keypair, "", "", "");
+
+        let mut verifier = Verifier::new(db.clone(), agent);
 
         println!("generating assertions");
         // let assertions = {
@@ -2953,7 +2963,10 @@ mod tests {
         )
         .await;
 
-        let mut verifier = Verifier::new(db.clone()).await;
+        let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
+        let agent = Agent::new(keypair, "", "", "");
+
+        let mut verifier = Verifier::new(db.clone(), agent);
 
         fn invalidate_groth16_assertions(assertions: &mut Assertions, i: usize, j: u8) {
             match i {
