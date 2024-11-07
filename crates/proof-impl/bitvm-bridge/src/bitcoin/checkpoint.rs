@@ -12,7 +12,10 @@ use strata_state::{
 };
 use strata_tx_parser::filter::{filter_relevant_txs, TxFilterRule};
 
-use crate::bitcoin::primitives::WithdrwalInfo;
+use crate::{
+    bitcoin::primitives::WithdrwalInfo,
+    ckp_verifier::{verify_groth16, STRATA_CKP_VERIFICATION_KEY},
+};
 
 /// Verifies the checkpoint proof and extracts withdrawal and batch information from the chain
 /// state.
@@ -39,17 +42,29 @@ fn extract_batch_checkpoint(block: &Block) -> BatchCheckpoint {
     assert!(check_witness_commitment(block));
 
     let tx_filters = [TxFilterRule::RollupInscription("alpenstrata".to_string())];
-    let batch_info = retrieve_batch_checkpoint(block, tx_filters.to_vec())
+    let batch_checkpoint = retrieve_batch_checkpoint(block, tx_filters.to_vec())
         .expect("Batch info not found in the block");
 
-    let proof = batch_info.proof();
+    let proof = batch_checkpoint.proof();
+
+    // TODO: assert proof is not empty
+    // Only use this for dev mode
     if proof.is_empty() {
         println!("Accepting with the emptry proof")
     } else {
         // TODO: Verify the checkpoint proof
+        let public_params_raw = borsh::to_vec(&batch_checkpoint.proof_output()).unwrap();
+        assert!(
+            verify_groth16(
+                proof,
+                STRATA_CKP_VERIFICATION_KEY.as_ref(),
+                &public_params_raw
+            ),
+            "Checkpoint proof verification fiiled"
+        )
     }
 
-    batch_info
+    batch_checkpoint
 }
 
 /// Retrieves the `BatchCheckpoint` from a block using specified transaction filter rules.

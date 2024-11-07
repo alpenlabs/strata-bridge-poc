@@ -14,6 +14,9 @@ use substrate_bn::Fr;
 // This is same for all the SP1 programs that uses v2.0.0
 const GROTH16_VK_BYTES: &[u8] = include_bytes!("../artifacts/groth16_vk.bin");
 
+pub const STRATA_CKP_VERIFICATION_KEY: &str =
+    "0x005027dda93318eb6bb85acd3a924f9d6d63006672ed2ff14c87352acf538993";
+
 /// Verifies the Groth16 proof posted on chain
 ///
 /// Note: SP1Verifier::verify_groth16 is not directly used because it depends on `sp1-sdk` which
@@ -38,8 +41,5 @@ pub fn verify_groth16(proof: &Proof, vkey_hash: &[u8], committed_values_raw: &[u
     .unwrap()
 }
 
-
 #[cfg(test)]
-mod test {
-
-}
+mod test {}
