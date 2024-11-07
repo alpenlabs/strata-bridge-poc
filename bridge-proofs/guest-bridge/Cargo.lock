@@ -1295,6 +1295,7 @@ dependencies = [
 name = "guest-bridge"
 version = "0.1.0"
 dependencies = [
+ "borsh",
  "sp1-zkvm",
  "strata-proofimpl-bitvm-bridge",
 ]

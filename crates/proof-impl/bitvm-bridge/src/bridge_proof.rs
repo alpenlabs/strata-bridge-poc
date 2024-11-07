@@ -1,5 +1,8 @@
 #![allow(unused)]
-use strata_state::l1::{compute_block_hash, get_btc_params};
+use strata_state::{
+    chain_state::ChainState,
+    l1::{compute_block_hash, get_btc_params},
+};
 
 use crate::{
     bitcoin::{
@@ -10,10 +13,12 @@ use crate::{
     BridgeProofInput,
 };
 
-pub fn process_bridge_proof(input: BridgeProofInput) -> BridgeProofPublicParams {
+pub fn process_bridge_proof(
+    input: BridgeProofInput,
+    chain_state: ChainState,
+) -> BridgeProofPublicParams {
     let CheckpointInput {
         block: ckp_block,
-        chain_state,
         out_ref,
     } = input.checkpoint_input;
 
@@ -34,6 +39,7 @@ pub fn process_bridge_proof(input: BridgeProofInput) -> BridgeProofPublicParams 
     let header_inclusions = [
         compute_block_hash(&ckp_block.header),
         compute_block_hash(&input.payment_txn_block.header),
+        compute_block_hash(&input.ts_block_header),
         compute_block_hash(&input.claim_txn_block.header),
     ];
 
@@ -63,24 +69,44 @@ pub fn process_bridge_proof(input: BridgeProofInput) -> BridgeProofPublicParams 
 
 #[cfg(test)]
 mod test {
-    use bincode;
+    use std::{fs::File, io::Write};
+
     use prover_test_utils::{get_bitcoin_client, get_chain_state, get_header_verification_data};
     use strata_btcio::rpc::traits::Reader;
+    use strata_state::chain_state::ChainState;
 
     use crate::bridge_proof::{process_bridge_proof, BridgeProofInput, CheckpointInput};
+
+    fn save_prover_input(
+        process_blocks_input: &BridgeProofInput,
+        chain_state: &ChainState,
+        bridge_proof_path: &str,
+        chain_state_path: &str,
+    ) {
+        let bridge_proof_ip_ser = bincode::serialize(process_blocks_input).unwrap();
+        let chain_state_ser = borsh::to_vec(chain_state).unwrap();
+
+        // Write serialized ChainState to file
+        let mut chain_state_file = File::create(chain_state_path).unwrap();
+        chain_state_file.write_all(&chain_state_ser).unwrap();
+
+        // Write serialized Bridge proof input to file
+        let mut bridge_proof_file = File::create(bridge_proof_path).unwrap();
+        bridge_proof_file.write_all(&bridge_proof_ip_ser).unwrap();
+    }
 
     #[tokio::test]
     async fn test_process_blocks() {
         // Block numbers for the test
         let genesis_block: u64 = 0;
-        let ckp_block_num: u64 = 509;
+        let ckp_block_num: u64 = 787;
         let start_block_num: u64 = ckp_block_num - 1;
-        let end_block_num = 513;
+        let end_block_num = 811;
 
         // Transaction block numbers
-        let payment_txn_block_num: u64 = 510;
-        let ts_block_num: u64 = 511;
-        let claim_txn_block_num: u64 = 512;
+        let payment_txn_block_num: u64 = 790;
+        let ts_block_num: u64 = 793;
+        let claim_txn_block_num: u64 = 799;
 
         // Retrieve header verification data
         let (start_header_state, headers) =
@@ -102,7 +128,6 @@ mod test {
         let (chain_state, out_ref) = get_chain_state();
         let checkpoint_input = CheckpointInput {
             block: ckp_block,
-            chain_state,
             out_ref,
         };
 
@@ -116,9 +141,17 @@ mod test {
             start_header_state,
         };
 
-        // let bincoded_res = borsh::to_vec(&process_blocks_input).unwrap();
+        // Save file paths
+        let bridge_proof_path = "inputs/process_blocks_input.bin";
+        let chain_state_path = "inputs/chain_state.bin";
+        save_prover_input(
+            &process_blocks_input,
+            &chain_state,
+            bridge_proof_path,
+            chain_state_path,
+        );
 
         // Process the blocks
-        let res = process_bridge_proof(process_blocks_input);
+        let res = process_bridge_proof(process_blocks_input, chain_state);
     }
 }

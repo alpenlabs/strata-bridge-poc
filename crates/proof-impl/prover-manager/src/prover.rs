@@ -1,11 +1,18 @@
 use anyhow::Context;
 use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1VerifyingKey};
 use strata_bridge_guest_builder::GUEST_BRIDGE_ELF;
+use strata_proofimpl_bitvm_bridge::BridgeProofInput;
 use strata_sp1_adapter::SP1ProofInputBuilder;
+use strata_state::chain_state::ChainState;
 use strata_zkvm::{Proof, ZKVMInputBuilder};
 
-pub fn make_proof() -> anyhow::Result<(SP1ProofWithPublicValues, SP1VerifyingKey, Proof)> {
+pub fn make_proof(
+    proof_input: BridgeProofInput,
+    chain_state: ChainState,
+) -> anyhow::Result<(SP1ProofWithPublicValues, SP1VerifyingKey, Proof)> {
     let mut input_builder = SP1ProofInputBuilder::new();
+    input_builder.write(&proof_input).unwrap();
+    input_builder.write_borsh(&chain_state).unwrap();
     let input = input_builder.build()?;
 
     let prover_client = ProverClient::new();
@@ -37,13 +44,22 @@ mod test {
         io::{self, Write},
     };
 
+    use strata_proofimpl_bitvm_bridge::BridgeProofInput;
+    use strata_state::chain_state::ChainState;
+
     use super::*;
 
     #[test]
     fn test_proof_generation_and_save() {
-        let proof_res = make_proof().unwrap();
+        let proof_input_raw = include_bytes!("../../bitvm-bridge/inputs/process_blocks_input.bin");
+        let chain_state_raw = include_bytes!("../../bitvm-bridge/inputs/chain_state.bin");
+
+        let proof_input: BridgeProofInput = bincode::deserialize(proof_input_raw).unwrap();
+        let chain_state: ChainState = borsh::from_slice(chain_state_raw).unwrap();
+
+        let proof_res = make_proof(proof_input, chain_state).unwrap();
         let proof_res = bincode::serialize(&proof_res).unwrap();
-        save_to_bin_file(proof_res, "proof.bin").unwrap();
+        save_to_bin_file(proof_res, "proof_data/proof.bin").unwrap();
     }
 
     fn save_to_bin_file(data: Vec<u8>, file_path: &str) -> io::Result<()> {

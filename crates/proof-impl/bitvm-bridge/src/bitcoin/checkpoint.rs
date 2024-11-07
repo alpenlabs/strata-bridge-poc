@@ -38,7 +38,7 @@ fn extract_batch_checkpoint(block: &Block) -> BatchCheckpoint {
     assert!(check_merkle_root(block));
     assert!(check_witness_commitment(block));
 
-    let tx_filters = [TxFilterRule::RollupInscription("strata".to_string())];
+    let tx_filters = [TxFilterRule::RollupInscription("alpenstrata".to_string())];
     let batch_info = retrieve_batch_checkpoint(block, tx_filters.to_vec())
         .expect("Batch info not found in the block");
 
@@ -116,7 +116,7 @@ mod test {
     #[tokio::test]
     async fn test_verify_checkpoint_and_extract_info() {
         let (chain_state, output_ref) = get_chain_state();
-        let block_num: u64 = 509;
+        let block_num: u64 = 787;
         let btc_client = get_bitcoin_client();
         let block = btc_client.get_block_at(block_num).await.unwrap();
 
@@ -125,11 +125,12 @@ mod test {
 
     #[tokio::test]
     async fn test_retrieve_batch_checkpoint() {
-        let block_num: u64 = 509;
+        let block_num: u64 = 787;
         let btc_client = get_bitcoin_client();
         let block = btc_client.get_block_at(block_num).await.unwrap();
 
         let _batch_checkpoint = extract_batch_checkpoint(&block);
+        println!("{:?}", _batch_checkpoint);
     }
 
     #[test]
