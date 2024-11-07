@@ -12,7 +12,7 @@ use super::{
     prelude::secret_key_for_public_inputs_hash,
 };
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PublicKeys {
     pub bridge_out_txid: wots256::PublicKey,
     pub superblock_hash: wots256::PublicKey,
@@ -20,7 +20,7 @@ pub struct PublicKeys {
     pub groth16: g16::PublicKeys,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Signatures {
     pub bridge_out_txid: wots256::Signature,
     pub superblock_hash: wots256::Signature,
@@ -28,7 +28,7 @@ pub struct Signatures {
     pub groth16: g16::Signatures,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Assertions {
     pub bridge_out_txid: [u8; 32],
     pub superblock_hash: [u8; 32],
@@ -112,7 +112,7 @@ pub fn generate_wots_signatures(
     }
 }
 
-mod mock {
+pub mod mock {
     use ark_bn254::{Bn254, Fr};
     use ark_ec::CurveGroup;
     use ark_ff::{Field, PrimeField};
@@ -171,10 +171,9 @@ mod mock {
         ];
 
         let proof = sp1g16::load_groth16_proof_from_bytes(&PROOF_BYTES);
-        let public_inputs = [
-            // Fr::from_be_bytes_mod_order(&VKEY_HASH),
-            Fr::from_be_bytes_mod_order(&sp1g16::hash_bn254_be_bytes(&PUBLIC_INPUT_BYTES)),
-        ];
+        let public_inputs = [Fr::from_be_bytes_mod_order(&sp1g16::hash_bn254_be_bytes(
+            &PUBLIC_INPUT_BYTES,
+        ))];
 
         (proof, public_inputs)
     }
@@ -391,7 +390,7 @@ mod tests {
         }
     }
 
-    fn get_mock_assertions() -> Assertions {
+    pub fn get_mock_assertions() -> Assertions {
         Assertions {
             bridge_out_txid: [0u8; 32],
             superblock_hash: [0u8; 32],
