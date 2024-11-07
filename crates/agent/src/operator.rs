@@ -956,7 +956,7 @@ impl Operator {
             })
             .expect("should be able to send deposit pubnonce");
 
-        info!(action = "listenting for nonces for deposit sweeping", deposit_txid=%txid, %own_index);
+        info!(action = "listening for nonces for deposit sweeping", deposit_txid=%txid, %own_index);
 
         let expected_nonce_count = self.build_context.pubkey_table().0.len();
         while let Ok(deposit_signal) = self.deposit_signal_receiver.recv().await {

@@ -44,7 +44,7 @@ fn extract_batch_checkpoint(block: &Block) -> BatchCheckpoint {
 
     let proof = batch_info.proof();
     if proof.is_empty() {
-        println!("Accepting with the emptry proof")
+        println!("Accepting with the empty proof")
     } else {
         // TODO: Verify the checkpoint proof
     }

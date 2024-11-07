@@ -88,7 +88,7 @@ pub(crate) async fn bootstrap(args: Cli) {
         broadcast::channel::<VerifierDuty>(VERIFIER_DUTY_QUEUE_SIZE);
 
     let bitcoin_rpc_client = BitcoinClient::new(&args.btc_url, &args.btc_user, &args.btc_pass)
-        .expect("should be ablet o create bitcoin client");
+        .expect("should be able to create bitcoin client");
     let bitcoin_watcher = BitcoinWatcher::new(
         public_db.clone(),
         Arc::new(bitcoin_rpc_client),

@@ -39,7 +39,7 @@ mod test {
 
         let obtained_bytes = bincode::serialize(&public_value).unwrap();
         let expected_bytes = sp1_proof.public_values.as_slice();
-        println!("Commited values {:?}", obtained_bytes);
+        println!("Committed values {:?}", obtained_bytes);
         println!("\n**\n");
         println!("Ex values {:?}", expected_bytes);
         println!("\n**\n");

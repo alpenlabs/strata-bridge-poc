@@ -64,7 +64,7 @@ impl BitcoinWatcher {
                     debug!(action = "dispatching disprove duty for verifier", post_assert_txid=%txid);
                     notifier
                         .send(duty)
-                        .expect("should be ablet o send disprove duty to the verifier");
+                        .expect("should be able to send disprove duty to the verifier");
                 }
             }
 
