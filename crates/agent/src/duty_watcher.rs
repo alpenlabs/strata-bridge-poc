@@ -3,7 +3,7 @@ use std::{sync::Arc, time::Duration};
 use strata_bridge_primitives::duties::{BridgeDuties, BridgeDuty};
 use strata_rpc::StrataApiClient;
 use tokio::sync::broadcast;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 
 #[derive(Debug, Clone)]
 pub struct DutyWatcherConfig {
@@ -46,6 +46,7 @@ impl<StrataClient: StrataApiClient + Send + Sync> DutyWatcher<StrataClient> {
                     info!(event = "fetched duties", %start_index, %stop_index, %num_duties);
 
                     for duty in duties {
+                        debug!(action = "dispatching duty", ?duty);
                         duty_sender.send(duty).expect("should be able to send duty");
                     }
 

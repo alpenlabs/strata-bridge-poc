@@ -1,4 +1,5 @@
 use bitcoin::{
+    hashes::Hash,
     psbt::Input,
     taproot::{ControlBlock, LeafVersion},
     Address, Network, ScriptBuf, Txid,
@@ -13,6 +14,7 @@ use strata_bridge_primitives::{
     scripts::{prelude::*, wots},
     types::OperatorIdx,
 };
+use tracing::{trace, warn};
 
 #[derive(Debug, Clone)]
 pub struct ConnectorK<Db: ConnectorDb> {
@@ -58,8 +60,9 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
 
             // bridge_out_tx_id
             { wots256::checksig_verify(bridge_out_txid_public_key) }
-            OP_DUP OP_NOT OP_VERIFY // assert the most significant nibble is zero
             for _ in 0..32 { OP_2DROP }
+
+            OP_TRUE
         }
         .compile()
     }
@@ -92,32 +95,41 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
         (script, control_block)
     }
 
-    pub async fn create_tx_input(
+    // NOTE: this fn cannot be made async because `bitvm::ExecuteInfo` is neither `Sync` nor `Send`.
+    #[expect(clippy::too_many_arguments)]
+    pub fn create_tx_input(
         &self,
         input: &mut Input,
-        deposit_txid: Txid,
         msk: &str,
         bridge_out_txid: Txid, // starts with 0x0..
         superblock_period_start_ts: u32,
+        deposit_txid: Txid,
+        script: ScriptBuf,
+        control_block: ControlBlock,
     ) {
-        // 1. Create an array of witness data (`[Vec<u8>]`) `n_of_n_sig` and bitcommitments.
-        // 2. Call taproot::finalize_input() to create the signed psbt input.
-        // unimplemented!("call the bitvm impl to generate witness data for bitcommitments");
+        warn!(%msk, "msk value for connector_k input");
+        let deposit_msk = get_deposit_master_secret_key(msk, deposit_txid);
+
         let witness = script! {
-            { wots256::sign(&secret_key_for_bridge_out_txid(msk), bridge_out_txid.as_ref()) }
-            // pad ts bytes
-            { wots256::sign(&secret_key_for_superblock_period_start_ts(msk), &superblock_period_start_ts.to_le_bytes()) }
-        }.compile();
+            { wots256::sign(&secret_key_for_bridge_out_txid(&deposit_msk), &bridge_out_txid.to_byte_array()) }
 
-        let (script, control_block) = self.generate_spend_info(deposit_txid).await;
+            { wots32::sign(&secret_key_for_superblock_period_start_ts(&deposit_msk), &superblock_period_start_ts.to_le_bytes()) }
+        };
 
-        finalize_input(
-            input,
-            [
-                witness.to_bytes(),
-                script.to_bytes(),
-                control_block.serialize(),
-            ],
-        );
+        let result = execute_script(witness.clone());
+        let mut witness_stack = (0..result.final_stack.len())
+            .map(|index| result.final_stack.get(index))
+            .collect::<Vec<_>>();
+
+        warn!(event = "created witness sig", ?witness_stack);
+
+        trace!(kind = "kickoff-claim connector witness", ?witness);
+
+        trace!(kind = "kickoff-claim connector script", ?script);
+
+        witness_stack.push(script.to_bytes());
+        witness_stack.push(control_block.serialize());
+
+        finalize_input(input, witness_stack);
     }
 }

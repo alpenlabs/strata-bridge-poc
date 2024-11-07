@@ -13,7 +13,7 @@ pub const BRIDGE_DENOMINATION: Amount = Amount::from_int_btc(10);
 /// outputs. Setting this to a very high value may alleviate the need for an `anyone_can_pay`
 /// output. In its current configuration of `10`, the total transaction fee for withdrawal
 /// transaction computes to ~5.5 sats/vB (run integration tests with `RUST_LOG=warn` to verify).
-pub const MIN_RELAY_FEE: Amount = Amount::from_sat(1000);
+pub const MIN_RELAY_FEE: Amount = Amount::from_sat(5000);
 
 /// The assert data tx is almost as big as the standardness limit allows.
 ///

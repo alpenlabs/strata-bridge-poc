@@ -87,15 +87,17 @@ impl ClaimTx {
         bridge_out_txid: Txid,
         superblock_period_start_ts: u32,
     ) -> Transaction {
-        connector_k
-            .create_tx_input(
-                &mut self.psbt.inputs[0],
-                deposit_txid,
-                msk,
-                bridge_out_txid,
-                superblock_period_start_ts,
-            )
-            .await;
+        let (script, control_block) = connector_k.generate_spend_info(deposit_txid).await;
+
+        connector_k.create_tx_input(
+            &mut self.psbt.inputs[0],
+            msk,
+            bridge_out_txid,
+            superblock_period_start_ts,
+            deposit_txid,
+            script,
+            control_block,
+        );
 
         self.psbt
             .extract_tx()

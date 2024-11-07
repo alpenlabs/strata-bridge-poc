@@ -5,9 +5,12 @@ use bitcoin::{
     consensus,
     hashes::Hash,
     hex::DisplayHex,
+    opcodes::all::OP_PUSHNUM_1,
     sighash::{Prevouts, SighashCache},
     TapSighashType, Transaction, TxOut, Txid,
 };
+use bitcoin_script::script;
+use bitvm::execute_script;
 use musig2::{
     aggregate_partial_signatures, sign_partial, AggNonce, KeyAggContext, PartialSignature, PubNonce,
 };
@@ -28,7 +31,8 @@ use strata_bridge_primitives::{
         tx::OPERATOR_FEE,
     },
     scripts::{
-        taproot::{create_message_hash, finalize_input, TaprootWitness},
+        prelude::{create_tx, create_tx_ins, create_tx_outs},
+        taproot::{create_message_hash, create_taproot_addr, finalize_input, TaprootWitness},
         wots::generate_wots_public_keys,
     },
     types::TxSigningData,
@@ -38,7 +42,7 @@ use strata_bridge_tx_graph::{
     peg_out_graph::{PegOutGraph, PegOutGraphConnectors, PegOutGraphInput},
     transactions::{bridge_out::BridgeOut, prelude::*},
 };
-use tokio::sync::broadcast;
+use tokio::sync::broadcast::{self, error::RecvError};
 use tracing::{debug, error, info, trace, warn};
 
 use crate::{
@@ -93,10 +97,12 @@ impl Operator {
         covenant_sig_sender: broadcast::Sender<CovenantSignatureSignal>,
         covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
     ) -> Self {
-        let mut msk_bytes: [u8; 32] = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut msk_bytes);
+        // let mut msk_bytes: [u8; 32] = [0u8; 32];
+        // rand::thread_rng().fill_bytes(&mut msk_bytes);
 
-        let msk = msk_bytes.to_lower_hex_string();
+        // let msk = msk_bytes.to_lower_hex_string();
+
+        let msk = "helloworld".to_string();
 
         Self {
             agent,
@@ -119,30 +125,47 @@ impl Operator {
     }
 
     pub async fn start(&mut self, duty_receiver: &mut broadcast::Receiver<BridgeDuty>) {
-        info!(action = "starting operator", operator_idx=%self.build_context.own_index());
+        let own_index = self.build_context.own_index();
+        info!(action = "starting operator", %own_index);
 
-        while let Ok(bridge_duty) = duty_receiver.recv().await {
-            self.process_duty(bridge_duty).await;
+        self.test().await;
+
+        loop {
+            match duty_receiver.recv().await {
+                Ok(bridge_duty) => {
+                    debug!(event = "received duty", ?bridge_duty, %own_index);
+                    self.process_duty(bridge_duty).await;
+                }
+                Err(RecvError::Lagged(skipped_messages)) => {
+                    warn!(action = "processing last available duty", event = "duty executor lagging behind, please adjust '--duty-interval' arg", %skipped_messages);
+                }
+                Err(error) => {
+                    error!(msg = "error receiving duties", ?error);
+
+                    panic!("duty sender closed unexpectedly");
+                }
+            }
         }
     }
 
     pub async fn process_duty(&mut self, duty: BridgeDuty) {
+        let own_index = self.build_context.own_index();
+
         match duty {
             BridgeDuty::SignDeposit(deposit_info) => {
                 let txid = deposit_info.deposit_request_outpoint().txid;
-                info!(event = "received deposit", operator_idx = %self.build_context.own_index(), drt_txid = %txid);
+                info!(event = "received deposit", %own_index, drt_txid = %txid);
 
                 self.handle_deposit(deposit_info).await;
             }
             BridgeDuty::FulfillWithdrawal(cooperative_withdrawal_info) => {
                 let txid = cooperative_withdrawal_info.deposit_outpoint().txid;
                 let assignee_id = cooperative_withdrawal_info.assigned_operator_idx();
-                let own_index = self.build_context.own_index();
 
                 info!(event = "received withdrawal", dt_txid = %txid, assignee = %assignee_id, %own_index);
 
                 if assignee_id != own_index {
-                    warn!(action = "ignoring withdrawal duty unassigned to this operator", %own_index);
+                    warn!(action = "ignoring withdrawal duty unassigned to this operator", %assignee_id, %own_index);
                     return;
                 }
 
@@ -1432,6 +1455,9 @@ impl Operator {
             )
             .await;
 
+        let raw_claim_tx: String = consensus::encode::serialize_hex(&claim_tx_with_commitment);
+        debug!(event = "finalized claim tx", %deposit_txid, ?claim_tx_with_commitment, %raw_claim_tx, %own_index);
+
         let claim_txid = self
             .agent
             .client
@@ -1513,4 +1539,69 @@ impl Operator {
         // 4. publish assert chain
         // 5. try to settle reimbursement tx after wait time
     }
+
+    async fn test(&self) {
+        return;
+        let locking_script = script! {
+            0
+            OP_EQUALVERIFY
+        };
+
+        let witness_script = script! {
+            0
+        };
+
+        let witness_args = vec![execute_script(witness_script).final_stack.get(0)];
+
+        let mut witness_stack = vec![witness_args];
+
+        let (address, spend_info) = create_taproot_addr(
+            &self.build_context.network(),
+            strata_bridge_primitives::scripts::taproot::SpendPath::ScriptSpend {
+                scripts: &[locking_script.compile()],
+            },
+        )
+        .unwrap();
+
+        let script_pubkey = address.script_pubkey();
+        let amount = BRIDGE_DENOMINATION;
+
+        let (change_address, outpoint, total_amount, txout) = self
+            .agent
+            .select_utxo(amount * 4, HashSet::new())
+            .await
+            .unwrap();
+
+        let tx_ins = create_tx_ins([outpoint]);
+        let change_amount = total_amount - amount - MIN_RELAY_FEE * 300;
+
+        debug!(%total_amount, %amount, %change_amount);
+        let tx_outs = create_tx_outs([
+            (script_pubkey, amount),
+            (change_address.script_pubkey(), change_amount),
+        ]);
+
+        let tx = create_tx(tx_ins, tx_outs);
+
+        let funded_tx = self
+            .agent
+            .client
+            .sign_raw_transaction_with_wallet(&tx)
+            .await
+            .unwrap();
+
+        let funded_tx: Transaction = consensus::encode::deserialize_hex(&funded_tx.hex).unwrap();
+        self.agent
+            .client
+            .send_raw_transaction(&funded_tx)
+            .await
+            .unwrap();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // use super::*;
+
+    // #[tokio::test]
 }

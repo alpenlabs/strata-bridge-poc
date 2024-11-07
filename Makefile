@@ -2,6 +2,7 @@
 .DEFAULT_GOAL := help
 
 GIT_TAG ?= $(shell git describe --tags --abbrev=0)
+TIMESTAMP ?= $(shell date +%s)
 
 BUILD_PATH = "target"
 
@@ -191,11 +192,12 @@ run:
 		--bin strata-bridge \
 		--profile "$(PROFILE)" \
 		-- \
+		--rpc-port 4782 \
 		--strata-url ws://localhost:8432 \
 		--btc-url http://localhost:18443 \
 		--btc-user rpcuser \
 		--btc-pass rpcpassword \
 		--fault-tolerance 0 \
-		--duty-interval 10 \
-		--xpriv-file .secrets/xprivs.bin
+		--duty-interval 60 \
+		--xpriv-file .secrets/xprivs.bin | tee run.log.$(TIMESTAMP) 2>&1
 
