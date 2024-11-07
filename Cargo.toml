@@ -25,6 +25,7 @@ resolver = "2"
 
 [workspace.dependencies]
 # deps in this workspace
+prover-test-utils = { path = "crates/proof-impl/test-utils" }
 strata-bridge-agent = { path = "crates/agent" }
 strata-bridge-btcio = { path = "crates/btcio" }
 strata-bridge-db = { path = "crates/db" }
@@ -34,7 +35,6 @@ strata-bridge-rpc = { path = "crates/rpc/bridge" }
 strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
 strata-rpc = { path = "crates/rpc/strata" }
-prover-test-utils = { path = "crates/proof-impl/test-utils" }
 strata-test-utils = { path = "crates/test-utils" }
 
 # deps from original strata repo

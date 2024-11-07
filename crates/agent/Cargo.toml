@@ -21,6 +21,7 @@ strata-bridge-tx-builder.workspace = true
 strata-state.workspace = true
 
 anyhow.workspace = true
+bincode.workspace = true
 bitcoin = { workspace = true, features = ["rand-std"] }
 bitcoin-script = { workspace = true }
 bitcoin-scriptexec = { workspace = true }
@@ -36,4 +37,3 @@ serde_json.workspace = true
 sha2.workspace = true
 tokio.workspace = true
 tracing.workspace = true
-bincode.workspace = true
