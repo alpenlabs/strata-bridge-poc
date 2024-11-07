@@ -114,3 +114,38 @@ pub fn sb_hash_from_bytes() -> Script {
         for i in 1..H256::N_LIMBS { { i } OP_ROLL }
     }
 }
+
+pub fn flip_byte_nibbles() -> Script {
+    script! {
+        for i in 1..=4 {
+            { 1 << (8 - i) }
+            OP_2DUP
+            OP_GREATERTHAN
+            OP_IF OP_SUB { 1 << (4 - i) }
+            OP_ELSE OP_DROP 0
+            OP_ENDIF
+            OP_TOALTSTACK
+        }
+        { NMUL(1 << 4) }
+        for _ in 0..4 { OP_FROMALTSTACK OP_ADD }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bitvm::treepp::*;
+
+    use super::*;
+
+    #[test]
+    fn test_flip_byts_nibbles() {
+        let script = script! {
+            { 0xf9 }
+            flip_byte_nibbles
+            { 0x9f }
+            OP_EQUAL
+        };
+        let res = execute_script(script);
+        assert!(res.success);
+    }
+}

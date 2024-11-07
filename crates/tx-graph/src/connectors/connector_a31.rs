@@ -1,4 +1,5 @@
 use bitcoin::{
+    hashes::Hash,
     psbt::Input,
     taproot::{ControlBlock, LeafVersion, TaprootSpendInfo},
     Address, Network, ScriptBuf, Txid,
@@ -33,6 +34,7 @@ pub enum ConnectorA31Leaf {
     DisproveProof((Script, Option<Script>)),
     DisproveSuperblockCommitment(Option<(wots256::Signature, wots32::Signature, [u8; 80])>),
     DisprovePublicInputsCommitment(
+        Txid,
         Option<(
             wots256::Signature,
             wots256::Signature,
@@ -42,24 +44,15 @@ pub enum ConnectorA31Leaf {
     ),
 }
 
-impl<DB: ConnectorDb> ConnectorA31<DB> {
-    pub fn new(network: Network, db: DB) -> Self {
-        Self { network, db }
-    }
-
-    pub async fn generate_tapleaf(
-        &self,
-        tapleaf: ConnectorA31Leaf,
-        deposit_txid: Txid,
-    ) -> ScriptBuf {
+impl ConnectorA31Leaf {
+    pub fn generate_locking_script(self, public_keys: wots::PublicKeys) -> Script {
         let wots::PublicKeys {
             bridge_out_txid: bridge_out_txid_public_key,
             superblock_hash: superblock_hash_public_key,
             superblock_period_start_ts: superblock_period_start_ts_public_key,
             groth16: ([public_inputs_hash_public_key], _, _),
-        } = self.db.get_wots_public_keys(0, deposit_txid).await;
-
-        match tapleaf {
+        } = public_keys;
+        match self {
             ConnectorA31Leaf::DisproveSuperblockCommitment(_) => {
                 script! {
                     // committed superblock hash
@@ -94,35 +87,36 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
                 }
             }
 
-            ConnectorA31Leaf::DisprovePublicInputsCommitment(_) => {
+            ConnectorA31Leaf::DisprovePublicInputsCommitment(deposit_txid, _) => {
                 script! {
-                    { wots256::checksig_verify(superblock_hash_public_key) }
+                    { wots256::compact::checksig_verify(superblock_hash_public_key) }
                     for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
 
-                    { wots256::checksig_verify(bridge_out_txid_public_key) }
+                    { wots256::compact::checksig_verify(bridge_out_txid_public_key) }
                     for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
 
-                    { wots32::checksig_verify(superblock_period_start_ts_public_key) }
+                    { wots32::compact::checksig_verify(superblock_period_start_ts_public_key) }
                     for _ in 0..4 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
 
-                    { wots256::checksig_verify(public_inputs_hash_public_key) }
-                    for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
+                    { wots256::compact::checksig_verify(public_inputs_hash_public_key) }
+                    for _ in 0..32 { { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK } // TODO: add OP_SWAP after fixing groth16 witnernitz issue
+
 
                     for _ in 0..32 { OP_FROMALTSTACK }
                     for _ in 0..4 { OP_FROMALTSTACK }
-                    for _ in 0..32 { OP_FROMALTSTACK } add_bincode_padding_bytes32
-                    for _ in 0..32 { OP_FROMALTSTACK } add_bincode_padding_bytes32
+                    for _ in 0..32 { OP_FROMALTSTACK } // add_bincode_padding_bytes32
+                    for _ in 0..32 { OP_FROMALTSTACK } // add_bincode_padding_bytes32
 
-                    // // deposit_txid (public_input_0 to stark proof)
-                    // for &b in deposit_txid.as_byte_array().iter().rev() { { b } }
-                    // add_bincode_padding_bytes32
 
-                    { sha256(84) }
+                    for &b in deposit_txid.to_byte_array().iter().rev() { { b } } // add_bincode_padding_bytes32
+
+                    { sha256(3 * 32 + 4) }
                     hash_to_bn254_fq
 
                     // verify that hashes don't match
                     for i in (1..32).rev() {
-                        {i + 1} OP_ROLL OP_EQUAL OP_TOALTSTACK
+                        {i + 1} OP_ROLL
+                        OP_EQUAL OP_TOALTSTACK
                     }
                     OP_EQUAL
                     for _ in 1..32 { OP_FROMALTSTACK OP_BOOLAND }
@@ -131,7 +125,55 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             }
             ConnectorA31Leaf::DisproveProof((disprove_script, _)) => disprove_script,
         }
-        .compile()
+    }
+
+    pub fn generate_witness_script(self) -> Script {
+        match self {
+            ConnectorA31Leaf::DisproveSuperblockCommitment(Some((
+                sig_superblock_hash,
+                sig_superblock_period_start_ts,
+                raw_superblock_header_bytes,
+            ))) => {
+                script! {
+                    { raw_superblock_header_bytes.to_vec() }
+                    { sig_superblock_period_start_ts.to_compact_script() }
+                    { sig_superblock_hash.to_compact_script() }
+                }
+            }
+            ConnectorA31Leaf::DisprovePublicInputsCommitment(
+                _,
+                Some((
+                    sig_superblock_hash,
+                    sig_bridge_out_txid,
+                    sig_superblock_period_start_ts,
+                    sig_public_inputs_hash,
+                )),
+            ) => {
+                script! {
+                    { sig_public_inputs_hash.to_compact_script() }
+                    { sig_superblock_period_start_ts.to_compact_script() }
+                    { sig_bridge_out_txid.to_compact_script() }
+                    { sig_superblock_hash.to_compact_script() }
+                }
+            }
+            ConnectorA31Leaf::DisproveProof((_, Some(witness_script))) => witness_script,
+            _ => panic!("no data provided to finalize input"),
+        }
+    }
+}
+
+impl<DB: ConnectorDb> ConnectorA31<DB> {
+    pub fn new(network: Network, db: DB) -> Self {
+        Self { network, db }
+    }
+
+    pub async fn generate_tapleaf(
+        &self,
+        tapleaf: ConnectorA31Leaf,
+        deposit_txid: Txid,
+    ) -> ScriptBuf {
+        let public_keys = self.db.get_wots_public_keys(0, deposit_txid).await;
+        tapleaf.generate_locking_script(public_keys).compile()
     }
 
     pub async fn generate_locking_script(
@@ -206,7 +248,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             )
             .await,
             self.generate_tapleaf(
-                ConnectorA31Leaf::DisprovePublicInputsCommitment(None),
+                ConnectorA31Leaf::DisprovePublicInputsCommitment(deposit_txid, None),
                 deposit_txid,
             )
             .await,
@@ -245,34 +287,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             .generate_spend_info(tapleaf.clone(), deposit_txid, operator_idx)
             .await;
 
-        let witness_script = match tapleaf {
-            ConnectorA31Leaf::DisproveSuperblockCommitment(Some((
-                sig_superblock_hash,
-                sig_superblock_period_start_ts,
-                raw_superblock_header_bytes,
-            ))) => {
-                script! {
-                    { raw_superblock_header_bytes.to_vec() }
-                    { sig_superblock_period_start_ts.to_compact_script() }
-                    { sig_superblock_hash.to_compact_script() }
-                }
-            }
-            ConnectorA31Leaf::DisprovePublicInputsCommitment(Some((
-                sig_superblock_hash,
-                sig_bridge_out_txid,
-                sig_superblock_period_start_ts,
-                sig_public_inputs_hash,
-            ))) => {
-                script! {
-                    { sig_public_inputs_hash.to_compact_script() }
-                    { sig_superblock_period_start_ts.to_compact_script() }
-                    { sig_bridge_out_txid.to_compact_script() }
-                    { sig_superblock_hash.to_compact_script() }
-                }
-            }
-            ConnectorA31Leaf::DisproveProof((_, Some(witness_script))) => witness_script,
-            _ => panic!("no data provided to finalize input"),
-        };
+        let witness_script = tapleaf.generate_witness_script();
 
         finalize_input(
             input,

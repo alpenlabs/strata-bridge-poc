@@ -155,22 +155,43 @@ mod tests {
         };
 
         let witness_bytes = witness_script.compile().to_bytes();
+        println!("{:?}", witness_bytes);
 
-        let parsed_signatures: Vec<([u8; 20], u8)> = witness_bytes
-            .chunks_exact(1 + 20 + 1)
-            .map(|chunk| {
-                assert!(chunk[0] == 20);
-                (
-                    chunk[1..=20].try_into().unwrap(),
-                    if chunk[21] == 0 { 0 } else { chunk[21] - 0x50 },
-                )
-            })
-            .collect();
+        fn parse_wots32_sig(digits: [u8; 10]) -> u32 {
+            let mut bytes = std::array::from_fn(|i| (digits[2 * i] << 4) + digits[2 * i + 1]);
+            bytes.reverse();
+            u32::from_le_bytes(bytes.try_into().unwrap())
+        }
 
-        let (w32, w256) = parsed_signatures.split_at(10);
-        let parsed_signatures: (wots32::Signature, wots256::Signature) =
-            (w32.try_into().unwrap(), w256.try_into().unwrap());
+        fn parse_wots256_sig(digits: [u8; 67]) -> [u8; 32] {
+            let mut bytes = std::array::from_fn(|i| (digits[2 * i] << 4) + digits[2 * i + 1]);
+            bytes.reverse();
+            bytes
+        }
 
-        assert_eq!(signatures, parsed_signatures);
+        fn parse_claim_witness_bytes(data: &[u8]) -> (u32, [u8; 32]) {
+            let digits = data
+                .to_vec()
+                .chunks_exact(1 + 20 + 1)
+                .map(|chunk| {
+                    assert!(chunk[0] == 20);
+                    if chunk[21] == 0 {
+                        0
+                    } else {
+                        chunk[21] - 0x50
+                    }
+                })
+                .collect::<Vec<_>>();
+            let (superblock_period_start_ts_digits, bridge_out_txid_digits) = digits.split_at(10);
+
+            let bridge_out_txid = parse_wots256_sig(bridge_out_txid_digits.try_into().unwrap());
+            let superblock_period_start_ts =
+                parse_wots32_sig(superblock_period_start_ts_digits.try_into().unwrap());
+            (superblock_period_start_ts, bridge_out_txid)
+        }
+
+        let parsed_message = parse_claim_witness_bytes(&witness_bytes);
+        println!("{:?}", parsed_message);
+        assert_eq!(message, parsed_message);
     }
 }

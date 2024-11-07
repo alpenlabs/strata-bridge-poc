@@ -1,4 +1,7 @@
-use bitcoin::{OutPoint, Psbt, Transaction, TxOut, Txid};
+use bitcoin::{
+    absolute::LockTime, transaction::Version, OutPoint, Psbt, Transaction, TxIn, TxOut, Txid,
+    Witness,
+};
 use bitvm::signatures::wots::wots256;
 use serde::{Deserialize, Serialize};
 use strata_bridge_primitives::{
@@ -123,7 +126,6 @@ impl AssertDataTxBatch {
             _ => signatures.groth16.1[i - 2],
         });
 
-        let mut value_offset = 0;
         for psbt_index in 0..NUM_ASSERT_DATA_TX1 {
             connector160_batch
                 .iter()
@@ -131,16 +133,15 @@ impl AssertDataTxBatch {
                 .take(NUM_ASSERT_DATA_TX1_A160_PK11)
                 .enumerate()
                 .for_each(|(input_index, conn)| {
+                    let range_start = (NUM_ASSERT_DATA_TX1_A160_PK11 * psbt_index + input_index)
+                        * NUM_PKS_A160_PER_CONNECTOR;
                     conn.create_tx_input(
                         &mut self.0[psbt_index].inputs[input_index],
                         msk,
-                        signatures.groth16.2
-                            [value_offset..value_offset + NUM_PKS_A160_PER_CONNECTOR]
+                        signatures.groth16.2[range_start..range_start + NUM_PKS_A160_PER_CONNECTOR]
                             .try_into()
                             .unwrap(),
                     );
-
-                    value_offset += NUM_PKS_A160_PER_CONNECTOR;
                 });
 
             let input_offset = NUM_ASSERT_DATA_TX1_A160_PK11;
@@ -150,70 +151,101 @@ impl AssertDataTxBatch {
                 .take(NUM_ASSERT_DATA_TX1_A256_PK7)
                 .enumerate()
                 .for_each(|(input_index, conn)| {
+                    let range_start = (NUM_ASSERT_DATA_TX1_A256_PK7 * psbt_index + input_index)
+                        * NUM_PKS_A256_PER_CONNECTOR;
                     conn.create_tx_input(
                         &mut self.0[psbt_index].inputs[input_index + input_offset],
                         msk,
-                        signatures_256[value_offset..value_offset + NUM_PKS_A256_PER_CONNECTOR]
+                        signatures_256[range_start..range_start + NUM_PKS_A256_PER_CONNECTOR]
                             .try_into()
                             .unwrap(),
                     );
-
-                    value_offset += NUM_PKS_A256_PER_CONNECTOR;
                 });
         }
 
-        for psbt_index in NUM_ASSERT_DATA_TX1..NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2 {
-            connector160_batch
-                .iter()
-                .by_ref()
-                .take(NUM_ASSERT_DATA_TX2_A160_PK11)
-                .enumerate()
-                .for_each(|(input_index, conn)| {
-                    conn.create_tx_input(
-                        &mut self.0[psbt_index].inputs[input_index],
-                        msk,
-                        signatures.groth16.2
-                            [value_offset..value_offset + NUM_PKS_A160_PER_CONNECTOR]
-                            .try_into()
-                            .unwrap(),
-                    );
+        let psbt_index = NUM_ASSERT_DATA_TX1;
 
-                    value_offset += NUM_PKS_A160_PER_CONNECTOR;
-                });
+        connector160_batch
+            .iter()
+            .by_ref()
+            .take(NUM_ASSERT_DATA_TX2_A160_PK11)
+            .enumerate()
+            .for_each(|(input_index, conn)| {
+                let range_start = (NUM_ASSERT_DATA_TX1_A160_PK11 * psbt_index + input_index)
+                    * NUM_PKS_A160_PER_CONNECTOR;
+                conn.create_tx_input(
+                    &mut self.0[psbt_index].inputs[input_index],
+                    msk,
+                    signatures.groth16.2[range_start..range_start + NUM_PKS_A160_PER_CONNECTOR]
+                        .try_into()
+                        .unwrap(),
+                );
+            });
 
-            let residual_a160_input = &mut self.0[psbt_index].inputs[NUM_ASSERT_DATA_TX2_A160_PK11];
-            connector160_remainder.create_tx_input(
-                residual_a160_input,
-                msk,
-                signatures.groth16.2[value_offset..value_offset + NUM_PKS_A160_RESIDUAL]
-                    .try_into()
-                    .unwrap(),
-            );
+        let range_start = (NUM_ASSERT_DATA_TX1_A160_PK11 * psbt_index
+            + NUM_ASSERT_DATA_TX2_A160_PK11)
+            * NUM_PKS_A160_PER_CONNECTOR;
+        let residual_a160_input = &mut self.0[psbt_index].inputs[NUM_ASSERT_DATA_TX2_A160_PK11];
+        connector160_remainder.create_tx_input(
+            residual_a160_input,
+            msk,
+            signatures.groth16.2[range_start..range_start + NUM_PKS_A160_RESIDUAL]
+                .try_into()
+                .unwrap(),
+        );
 
-            let residual_a256_input = &mut self.0[psbt_index].inputs
-                [NUM_ASSERT_DATA_TX2_A160_PK11 + NUM_ASSERT_DATA_TX2_A160_PK2];
-            connector256_remainder.create_tx_input(
-                residual_a256_input,
-                msk,
-                signatures_256[value_offset..value_offset + NUM_PKS_A256_RESIDUAL]
-                    .try_into()
-                    .unwrap(),
-            );
+        let input_offset = NUM_ASSERT_DATA_TX2_A160_PK11 + NUM_ASSERT_DATA_TX2_A256_PK7;
+        connector256_batch
+            .iter()
+            .by_ref()
+            .take(NUM_ASSERT_DATA_TX2_A256_PK7)
+            .enumerate()
+            .for_each(|(input_index, conn)| {
+                let range_start =
+                    (NUM_ASSERT_DATA_TX1_A256_PK7 * psbt_index) * NUM_PKS_A256_PER_CONNECTOR;
+                conn.create_tx_input(
+                    &mut self.0[psbt_index].inputs[input_index + input_offset],
+                    msk,
+                    signatures_256[range_start..range_start + NUM_PKS_A256_PER_CONNECTOR]
+                        .try_into()
+                        .unwrap(),
+                );
+            });
 
-            assert_eq!(
-                NUM_ASSERT_DATA_TX2_A160_PK11
-                    + NUM_ASSERT_DATA_TX2_A160_PK2
-                    + NUM_ASSERT_DATA_TX2_A256_PK7,
-                self.0[psbt_index].inputs.len(),
-                "number of inputs in the second psbt must match"
-            );
-        }
+        assert_eq!(
+            NUM_ASSERT_DATA_TX2_A160_PK11
+                + NUM_ASSERT_DATA_TX2_A160_PK2
+                + NUM_ASSERT_DATA_TX2_A256_PK7,
+            self.0[psbt_index].inputs.len(),
+            "number of inputs in the second psbt must match"
+        );
+
+        // let res = self
+        //     .0
+        //     .into_iter()
+        //     .map(|psbt| {
+        //         // Transaction { input: psbt.inputs }
+        //         psbt.extract_tx()
+        //             .expect("should be able to extract signed tx")
+        //     })
+        //     .collect::<Vec<_>>()
+        //     .try_into()
+        //     .unwrap();
 
         self.0
             .into_iter()
-            .map(|psbt| {
-                psbt.extract_tx()
-                    .expect("should be able to extract signed tx")
+            .map(|psbt| Transaction {
+                version: Version::TWO,
+                lock_time: LockTime::ZERO,
+                output: vec![],
+                input: psbt
+                    .inputs
+                    .iter()
+                    .map(|input| TxIn {
+                        witness: input.final_script_witness.clone().unwrap(),
+                        ..Default::default()
+                    })
+                    .collect(),
             })
             .collect::<Vec<_>>()
             .try_into()

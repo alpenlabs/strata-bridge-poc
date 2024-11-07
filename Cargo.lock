@@ -8334,6 +8334,7 @@ dependencies = [
  "ark-r1cs-std",
  "ark-relations",
  "ark-std 0.4.0",
+ "bincode",
  "bitcoin 0.31.0",
  "bitcoin-script 0.3.0",
  "bitcoin-scriptexec",
@@ -8525,6 +8526,7 @@ dependencies = [
 name = "strata-proofimpl-bitvm-bridge"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "bitcoin 0.32.3",
  "borsh",
  "prover-test-utils",
