@@ -8526,6 +8526,7 @@ dependencies = [
 name = "strata-proofimpl-bitvm-bridge"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "bitcoin 0.32.3",
  "borsh",
  "prover-test-utils",

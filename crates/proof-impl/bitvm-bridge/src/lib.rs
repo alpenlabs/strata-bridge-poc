@@ -1,8 +1,7 @@
 mod bitcoin;
+mod bridge_proof;
 mod ckp_verifier;
-mod l1_sement;
 mod primitives;
-mod process;
 
+pub use bridge_proof::process_bridge_proof;
 pub use primitives::{BridgeProofInput, BridgeProofPublicParams};
-pub use process::process_bridge_proof;

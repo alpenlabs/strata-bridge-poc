@@ -1792,7 +1792,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 3.2.0",
+ "proc-macro-crate 1.3.1",
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -3201,7 +3201,7 @@ name = "strata-bridge-tx-builder"
 version = "0.1.0"
 source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#c93aeece9c92d3565d6fa52f1d99ff7f012b9e03"
 dependencies = [
- "bitcoin 0.32.3",
+ "bitcoin",
  "lazy_static",
  "musig2",
  "serde",
@@ -3228,7 +3228,7 @@ dependencies = [
  "anyhow",
  "arbitrary",
  "bincode",
- "bitcoin 0.32.3",
+ "bitcoin",
  "borsh",
  "digest 0.10.7",
  "hex",
@@ -3253,9 +3253,26 @@ dependencies = [
  "snark-bn254-verifier",
  "sp1-core-machine",
  "strata-primitives",
+ "strata-proofimpl-btc-blockspace",
  "strata-state",
+ "strata-tx-parser",
  "strata-zkvm",
  "substrate-bn",
+]
+
+[[package]]
+name = "strata-proofimpl-btc-blockspace"
+version = "0.1.0"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#c93aeece9c92d3565d6fa52f1d99ff7f012b9e03"
+dependencies = [
+ "bitcoin",
+ "borsh",
+ "serde",
+ "sha2",
+ "strata-bridge-tx-builder",
+ "strata-primitives",
+ "strata-state",
+ "strata-tx-parser",
 ]
 
 [[package]]
@@ -3264,7 +3281,7 @@ version = "0.1.0"
 source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#c93aeece9c92d3565d6fa52f1d99ff7f012b9e03"
 dependencies = [
  "arbitrary",
- "bitcoin 0.32.3",
+ "bitcoin",
  "borsh",
  "digest 0.10.7",
  "ethnum",
@@ -3276,6 +3293,24 @@ dependencies = [
  "strata-crypto",
  "strata-primitives",
  "strata-zkvm",
+ "tracing",
+]
+
+[[package]]
+name = "strata-tx-parser"
+version = "0.1.0"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#c93aeece9c92d3565d6fa52f1d99ff7f012b9e03"
+dependencies = [
+ "anyhow",
+ "arbitrary",
+ "bitcoin",
+ "borsh",
+ "hex",
+ "musig2",
+ "strata-bridge-tx-builder",
+ "strata-primitives",
+ "strata-state",
+ "thiserror",
  "tracing",
 ]
 
