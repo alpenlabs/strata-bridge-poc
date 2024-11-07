@@ -14,7 +14,7 @@ use strata_bridge_primitives::{
     scripts::{prelude::*, wots},
     types::OperatorIdx,
 };
-use tracing::{trace, warn};
+use tracing::trace;
 
 #[derive(Debug, Clone)]
 pub struct ConnectorK<Db: ConnectorDb> {
@@ -107,7 +107,6 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
         script: ScriptBuf,
         control_block: ControlBlock,
     ) {
-        warn!(%msk, "msk value for connector_k input");
         let deposit_msk = get_deposit_master_secret_key(msk, deposit_txid);
 
         let witness = script! {
@@ -121,7 +120,7 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
             .map(|index| result.final_stack.get(index))
             .collect::<Vec<_>>();
 
-        warn!(event = "created witness sig", ?witness_stack);
+        trace!(event = "created witness sig", ?witness_stack);
 
         trace!(kind = "kickoff-claim connector witness", ?witness);
 

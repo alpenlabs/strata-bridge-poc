@@ -5,12 +5,9 @@ use bitcoin::{
     consensus,
     hashes::Hash,
     hex::DisplayHex,
-    opcodes::all::OP_PUSHNUM_1,
     sighash::{Prevouts, SighashCache},
     TapSighashType, Transaction, TxOut, Txid,
 };
-use bitcoin_script::script;
-use bitvm::execute_script;
 use musig2::{
     aggregate_partial_signatures, sign_partial, AggNonce, KeyAggContext, PartialSignature, PubNonce,
 };
@@ -31,8 +28,7 @@ use strata_bridge_primitives::{
         tx::OPERATOR_FEE,
     },
     scripts::{
-        prelude::{create_tx, create_tx_ins, create_tx_outs},
-        taproot::{create_message_hash, create_taproot_addr, finalize_input, TaprootWitness},
+        taproot::{create_message_hash, finalize_input, TaprootWitness},
         wots::generate_wots_public_keys,
     },
     types::TxSigningData,
@@ -97,12 +93,10 @@ impl Operator {
         covenant_sig_sender: broadcast::Sender<CovenantSignatureSignal>,
         covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
     ) -> Self {
-        // let mut msk_bytes: [u8; 32] = [0u8; 32];
-        // rand::thread_rng().fill_bytes(&mut msk_bytes);
+        let mut msk_bytes: [u8; 32] = [0u8; 32];
+        rand::thread_rng().fill_bytes(&mut msk_bytes);
 
-        // let msk = msk_bytes.to_lower_hex_string();
-
-        let msk = "helloworld".to_string();
+        let msk = msk_bytes.to_lower_hex_string();
 
         Self {
             agent,
@@ -127,8 +121,6 @@ impl Operator {
     pub async fn start(&mut self, duty_receiver: &mut broadcast::Receiver<BridgeDuty>) {
         let own_index = self.build_context.own_index();
         info!(action = "starting operator", %own_index);
-
-        self.test().await;
 
         loop {
             match duty_receiver.recv().await {
@@ -1538,64 +1530,6 @@ impl Operator {
         // 3. compute superblock and faulty proof
         // 4. publish assert chain
         // 5. try to settle reimbursement tx after wait time
-    }
-
-    async fn test(&self) {
-        return;
-        let locking_script = script! {
-            0
-            OP_EQUALVERIFY
-        };
-
-        let witness_script = script! {
-            0
-        };
-
-        let witness_args = vec![execute_script(witness_script).final_stack.get(0)];
-
-        let mut witness_stack = vec![witness_args];
-
-        let (address, spend_info) = create_taproot_addr(
-            &self.build_context.network(),
-            strata_bridge_primitives::scripts::taproot::SpendPath::ScriptSpend {
-                scripts: &[locking_script.compile()],
-            },
-        )
-        .unwrap();
-
-        let script_pubkey = address.script_pubkey();
-        let amount = BRIDGE_DENOMINATION;
-
-        let (change_address, outpoint, total_amount, txout) = self
-            .agent
-            .select_utxo(amount * 4, HashSet::new())
-            .await
-            .unwrap();
-
-        let tx_ins = create_tx_ins([outpoint]);
-        let change_amount = total_amount - amount - MIN_RELAY_FEE * 300;
-
-        debug!(%total_amount, %amount, %change_amount);
-        let tx_outs = create_tx_outs([
-            (script_pubkey, amount),
-            (change_address.script_pubkey(), change_amount),
-        ]);
-
-        let tx = create_tx(tx_ins, tx_outs);
-
-        let funded_tx = self
-            .agent
-            .client
-            .sign_raw_transaction_with_wallet(&tx)
-            .await
-            .unwrap();
-
-        let funded_tx: Transaction = consensus::encode::deserialize_hex(&funded_tx.hex).unwrap();
-        self.agent
-            .client
-            .send_raw_transaction(&funded_tx)
-            .await
-            .unwrap();
     }
 }
 
