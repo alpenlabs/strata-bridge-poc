@@ -14,7 +14,7 @@ use strata_bridge_primitives::{
 use super::constants::{
     NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11,
     NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A160_PK2,
-    NUM_ASSERT_DATA_TX2_A256_PK7, NUM_INPUTS_PER_ASSERT_DATA_TX,
+    NUM_ASSERT_DATA_TX2_A256_PK7, NUM_INPUTS_PER_ASSERT_DATA_TX_1, NUM_INPUTS_PER_ASSERT_DATA_TX_2,
 };
 use crate::connectors::prelude::*;
 
@@ -33,18 +33,24 @@ impl AssertDataTxBatch {
         let mut psbts: Vec<Psbt> = Vec::with_capacity(NUM_ASSERT_DATA_TX);
 
         for i in 0..NUM_ASSERT_DATA_TX {
-            let starting_index = i * NUM_INPUTS_PER_ASSERT_DATA_TX + 1; // +1 to account for the stake output from
-                                                                        // `pre-assert` tx
+            let starting_index = i * NUM_INPUTS_PER_ASSERT_DATA_TX_1 + 1; // +1 to account for the stake output from
+                                                                          // `pre-assert` tx
 
-            // in the last iteration, there will be less than `N_INPUTS_PER_TX` utxos.
-            let mut utxos: Vec<OutPoint> = Vec::with_capacity(NUM_INPUTS_PER_ASSERT_DATA_TX);
-            let mut prevouts: Vec<TxOut> = Vec::with_capacity(NUM_INPUTS_PER_ASSERT_DATA_TX);
+            // in the last iteration, there will be `NUM_INPUTS_PER_ASSERT_DATA_TX` utxos.
+            let num_utxos = if (i + 1) < NUM_ASSERT_DATA_TX {
+                NUM_INPUTS_PER_ASSERT_DATA_TX_1
+            } else {
+                NUM_INPUTS_PER_ASSERT_DATA_TX_2
+            };
+
+            let mut utxos: Vec<OutPoint> = Vec::with_capacity(num_utxos);
+            let mut prevouts: Vec<TxOut> = Vec::with_capacity(num_utxos);
             for (vout, txout) in input
                 .pre_assert_txouts
                 .iter()
                 .enumerate()
                 .skip(starting_index)
-                .take(NUM_INPUTS_PER_ASSERT_DATA_TX)
+                .take(num_utxos)
             {
                 utxos.push(OutPoint {
                     txid: input.pre_assert_txid,
@@ -123,6 +129,8 @@ impl AssertDataTxBatch {
             _ => signatures.groth16.1[i - 2],
         });
 
+        // There are `NUM_ASSERT_DATA_TX1` transactions each of which take
+        // `NUM_ASSERT_DATA_TX1_A160_PK11` A160 UTXOs and `NUM_ASSERT_DATA_TX1_A256_PK7` A256 UTXOs.
         for psbt_index in 0..NUM_ASSERT_DATA_TX1 {
             connector160_batch
                 .iter()
@@ -160,6 +168,7 @@ impl AssertDataTxBatch {
                 });
         }
 
+        // time to fill the final UTXO which takes all the remaining UTXOs.
         let psbt_index = NUM_ASSERT_DATA_TX1;
 
         connector160_batch
@@ -191,7 +200,7 @@ impl AssertDataTxBatch {
                 .unwrap(),
         );
 
-        let input_offset = NUM_ASSERT_DATA_TX2_A160_PK11 + NUM_ASSERT_DATA_TX2_A256_PK7;
+        let input_offset = NUM_ASSERT_DATA_TX2_A160_PK11 + 1; // +1 for the residual
         connector256_batch
             .iter()
             .by_ref()
