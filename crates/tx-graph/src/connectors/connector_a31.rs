@@ -1,4 +1,5 @@
 use bitcoin::{
+    hashes::Hash,
     psbt::Input,
     taproot::{ControlBlock, LeafVersion, TaprootSpendInfo},
     Address, Network, ScriptBuf, Txid,
@@ -33,6 +34,7 @@ pub enum ConnectorA31Leaf {
     DisproveProof((Script, Option<Script>)),
     DisproveSuperblockCommitment(Option<(wots256::Signature, wots32::Signature, [u8; 80])>),
     DisprovePublicInputsCommitment(
+        Txid,
         Option<(
             wots256::Signature,
             wots256::Signature,
@@ -85,7 +87,7 @@ impl ConnectorA31Leaf {
                 }
             }
 
-            ConnectorA31Leaf::DisprovePublicInputsCommitment(_) => {
+            ConnectorA31Leaf::DisprovePublicInputsCommitment(deposit_txid, _) => {
                 script! {
                     { wots256::compact::checksig_verify(superblock_hash_public_key) }
                     for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
@@ -102,14 +104,13 @@ impl ConnectorA31Leaf {
 
                     for _ in 0..32 { OP_FROMALTSTACK }
                     for _ in 0..4 { OP_FROMALTSTACK }
-                    for _ in 0..32 { OP_FROMALTSTACK } add_bincode_padding_bytes32
-                    for _ in 0..32 { OP_FROMALTSTACK } add_bincode_padding_bytes32
+                    for _ in 0..32 { OP_FROMALTSTACK } // add_bincode_padding_bytes32
+                    for _ in 0..32 { OP_FROMALTSTACK } // add_bincode_padding_bytes32
 
 
-                    // // deposit_txid (public_input_0 to stark proof)
-                    // for &b in deposit_txid.as_byte_array().iter().rev() { { b } }
-                    // add_bincode_padding_bytes32
-                    { sha256(84) }
+                    for &b in deposit_txid.to_byte_array().iter().rev() { { b } } // add_bincode_padding_bytes32
+
+                    { sha256(3 * 32 + 4) }
                     hash_to_bn254_fq
 
                     // verify that hashes don't match
@@ -139,12 +140,15 @@ impl ConnectorA31Leaf {
                     { sig_superblock_hash.to_compact_script() }
                 }
             }
-            ConnectorA31Leaf::DisprovePublicInputsCommitment(Some((
-                sig_superblock_hash,
-                sig_bridge_out_txid,
-                sig_superblock_period_start_ts,
-                sig_public_inputs_hash,
-            ))) => {
+            ConnectorA31Leaf::DisprovePublicInputsCommitment(
+                _,
+                Some((
+                    sig_superblock_hash,
+                    sig_bridge_out_txid,
+                    sig_superblock_period_start_ts,
+                    sig_public_inputs_hash,
+                )),
+            ) => {
                 script! {
                     { sig_public_inputs_hash.to_compact_script() }
                     { sig_superblock_period_start_ts.to_compact_script() }
@@ -244,7 +248,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
             )
             .await,
             self.generate_tapleaf(
-                ConnectorA31Leaf::DisprovePublicInputsCommitment(None),
+                ConnectorA31Leaf::DisprovePublicInputsCommitment(deposit_txid, None),
                 deposit_txid,
             )
             .await,
