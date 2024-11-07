@@ -303,7 +303,7 @@ mod tests {
         mock_txid,
         transactions::{
             assert_data::{AssertDataTxBatch, AssertDataTxInput},
-            constants::TOTAL_CONNECTORS,
+            constants::{NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX2, TOTAL_CONNECTORS},
         },
     };
 
@@ -2827,7 +2827,7 @@ mod tests {
         operator_id: u32,
         deposit_txid: Txid,
         signatures: Signatures,
-    ) -> [bitcoin::Transaction; 6] {
+    ) -> [bitcoin::Transaction; NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2] {
         let network = bitcoin::Network::Regtest;
 
         let input = AssertDataTxInput {

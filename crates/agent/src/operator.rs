@@ -1439,18 +1439,22 @@ impl Operator {
             num_assert_data_txs
         );
 
+        info!(action = "estimating finalized assert data tx sizes", %own_index);
         for (index, signed_assert_data_tx) in signed_assert_data_txs.iter().enumerate() {
             let txid = signed_assert_data_tx.compute_txid();
             let vsize = signed_assert_data_tx.vsize();
             let total_size = signed_assert_data_tx.total_size();
             let weight = signed_assert_data_tx.weight();
             info!(event = "assert-data tx", %index, %txid, %vsize, %total_size, %weight, %own_index);
+        }
 
+        info!(action = "broadcasting finalized assert data txs", %own_index);
+        for (index, signed_assert_data_tx) in signed_assert_data_txs.iter().enumerate() {
             self.agent
                 .client
                 .send_raw_transaction(signed_assert_data_tx)
                 .await
-                .expect("should settle pre-assert");
+                .expect("should settle assert-data");
 
             info!(event = "broadcasted signed assert data tx", %index, %num_assert_data_txs);
         }
@@ -1596,7 +1600,10 @@ impl Operator {
             .expect("should be able to deserialize signed tx");
 
         match self.agent.client.send_raw_transaction(&signed_tx).await {
-            Ok(txid) => Ok(txid),
+            Ok(txid) => {
+                info!(event = "paid the user successfully", %txid, %own_index);
+                Ok(txid)
+            }
             Err(e) => {
                 error!(?e, "could not broadcast bridge out tx");
 
