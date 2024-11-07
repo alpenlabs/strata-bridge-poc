@@ -2,6 +2,7 @@ use bitcoin::{sighash::Prevouts, Amount, OutPoint, Psbt, Transaction, TxOut, Txi
 use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
 use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
+use tracing::trace;
 
 use super::{
     constants::{
@@ -81,7 +82,7 @@ impl PreAssertTx {
                     .by_ref()
                     .take(NUM_ASSERT_DATA_TX1_A160_PK11)
                     .map(|conn| {
-                        let script = conn.create_locking_script();
+                        let script = conn.create_taproot_address().script_pubkey();
                         let amount = script.minimal_non_dust();
 
                         (script, amount)
@@ -94,7 +95,7 @@ impl PreAssertTx {
                     .by_ref()
                     .take(NUM_ASSERT_DATA_TX1_A256_PK7)
                     .map(|conn| {
-                        let script = conn.create_locking_script();
+                        let script = conn.create_taproot_address().script_pubkey();
                         let amount = script.minimal_non_dust();
 
                         (script, amount)
@@ -108,14 +109,16 @@ impl PreAssertTx {
                 .by_ref()
                 .take(NUM_ASSERT_DATA_TX2_A160_PK11)
                 .map(|conn| {
-                    let script = conn.create_locking_script();
+                    let script = conn.create_taproot_address().script_pubkey();
                     let amount = script.minimal_non_dust();
 
                     (script, amount)
                 }),
         );
 
-        let connector160_remainder_script = connector160_remainder.create_locking_script();
+        let connector160_remainder_script = connector160_remainder
+            .create_taproot_address()
+            .script_pubkey();
         let connector160_remainder_amt = connector160_remainder_script.minimal_non_dust();
         scripts_and_amounts.push((connector160_remainder_script, connector160_remainder_amt));
 
@@ -125,7 +128,7 @@ impl PreAssertTx {
                 .by_ref()
                 .take(NUM_ASSERT_DATA_TX2_A256_PK7)
                 .map(|conn| {
-                    let script = conn.create_locking_script();
+                    let script = conn.create_taproot_address().script_pubkey();
                     let amount = script.minimal_non_dust();
 
                     (script, amount)
@@ -133,7 +136,9 @@ impl PreAssertTx {
         );
 
         let total_assertion_amount = scripts_and_amounts.iter().map(|(_, amt)| *amt).sum();
-        let net_stake = OPERATOR_STAKE - total_assertion_amount - MIN_RELAY_FEE;
+        let net_stake = data.input_stake - total_assertion_amount - MIN_RELAY_FEE;
+
+        trace!(event = "calculated net remaining stake", %net_stake);
 
         scripts_and_amounts[0].1 = net_stake;
 
