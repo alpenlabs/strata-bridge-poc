@@ -20,8 +20,8 @@ pub fn verify_checkpoint_and_extract_info(
     check_point_block: &Block,
     chain_state: &ChainState,
 ) -> (WithdrwalInfo, BatchInfo) {
-    let ckp = extract_batch_checkpoint(&check_point_block);
-    let (operator_pk, user_withdrawl_info, ckp_state_root) = extract_chain_state_info(&chain_state);
+    let ckp = extract_batch_checkpoint(check_point_block);
+    let (operator_pk, user_withdrawl_info, ckp_state_root) = extract_chain_state_info(chain_state);
 
     assert_eq!(*ckp.batch_info().final_l2_state_hash(), ckp_state_root);
 

@@ -400,12 +400,11 @@ mod tests {
     }
 
     fn read_partial_disprove_scripts() -> [Script; g16::N_TAPLEAVES] {
-        let scripts = std::array::from_fn(|index| {
+        std::array::from_fn(|index| {
             let path = format!("data/partial-disprove-scripts/{index}");
             let script_buf = ScriptBuf::from_bytes(fs::read(path).unwrap());
             script!().push_script(script_buf)
-        });
-        scripts
+        })
     }
 
     #[test]

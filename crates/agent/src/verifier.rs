@@ -25,6 +25,7 @@ use tracing::info;
 use crate::base::Agent;
 
 #[derive(Clone, Debug)]
+#[expect(clippy::large_enum_variant)]
 pub enum VerifierDuty {
     VerifyClaim {
         operator_id: OperatorIdx,
@@ -74,12 +75,13 @@ impl Verifier {
     pub async fn process_duty(&mut self, duty: VerifierDuty) {
         match duty {
             VerifierDuty::VerifyClaim {
-                operator_id: operator_idx,
+                operator_id,
                 deposit_txid,
                 claim_tx,
             } => {
                 println!("No challenging yet!");
-                let (superblock_period_start_ts, bridge_out_txid) = self.parse_claim_tx(&claim_tx);
+                let (_superblock_period_start_ts, _bridge_out_txid) =
+                    self.parse_claim_tx(&claim_tx);
 
                 // get bridge_out_tx from bitcoin canonical chain
                 // verify that the latest checkpoint state in the rollup has a withdrawal request

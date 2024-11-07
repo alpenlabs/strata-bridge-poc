@@ -15,7 +15,7 @@ use crate::params::prelude::MAGIC_BYTES;
 /// the pubkey set must be provided.
 pub fn n_of_n_script(aggregated_pubkey: &XOnlyPublicKey) -> ScriptBuf {
     script! {
-        { *aggregated_pubkey}
+        { *aggregated_pubkey }
         OP_CHECKSIG
     }
     .compile()

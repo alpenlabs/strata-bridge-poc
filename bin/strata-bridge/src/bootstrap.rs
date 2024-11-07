@@ -10,7 +10,7 @@ use strata_bridge_agent::{
     base::Agent,
     duty_watcher::{DutyWatcher, DutyWatcherConfig},
     operator::Operator,
-    signal::{CovenantSignal, DepositSignal},
+    signal::{CovenantNonceSignal, CovenantSignatureSignal, DepositSignal},
 };
 use strata_bridge_btcio::traits::Reader;
 use strata_bridge_db::{operator::OperatorDb, public::PublicDb};
@@ -132,9 +132,12 @@ pub async fn generate_operator_set(args: &Cli, pubkey_table: PublickeyTable) -> 
     let (deposit_signal_sender, _deposit_signal_receiver) =
         broadcast::channel::<DepositSignal>(deposit_queue_size);
 
-    let covenant_queue_size = num_operators * COVENANT_QUEUE_MULTIPLIER; // higher 'cause signatures are sent in bulk
-    let (covenant_signal_sender, _covenant_signal_receiver) =
-        broadcast::channel::<CovenantSignal>(covenant_queue_size);
+    let covenant_queue_size = num_operators * COVENANT_QUEUE_MULTIPLIER; // higher 'cause nonces and signatures are sent in bulk
+    let (covenant_nonce_signal_sender, _covenant_nonce_signal_receiver) =
+        broadcast::channel::<CovenantNonceSignal>(covenant_queue_size);
+
+    let (covenant_sig_signal_sender, _covenant_sig_signal_receiver) =
+        broadcast::channel::<CovenantSignatureSignal>(covenant_queue_size);
 
     let mut faulty_idxs = Vec::new();
     let mut operator_set: Vec<Operator> = Vec::with_capacity(num_operators);
@@ -168,8 +171,10 @@ pub async fn generate_operator_set(args: &Cli, pubkey_table: PublickeyTable) -> 
             public_db.clone(),
             deposit_signal_sender.clone(),
             deposit_signal_sender.subscribe(),
-            covenant_signal_sender.clone(),
-            covenant_signal_sender.subscribe(),
+            covenant_nonce_signal_sender.clone(),
+            covenant_nonce_signal_sender.subscribe(),
+            covenant_sig_signal_sender.clone(),
+            covenant_sig_signal_sender.subscribe(),
         )
         .await;
 
