@@ -12,11 +12,15 @@ use strata_bridge_primitives::{
 };
 
 use super::constants::{
-    NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11,
-    NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A160_PK2,
-    NUM_ASSERT_DATA_TX2_A256_PK7, NUM_INPUTS_PER_ASSERT_DATA_TX_1, NUM_INPUTS_PER_ASSERT_DATA_TX_2,
+    NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A256_PK7,
+    NUM_ASSERT_DATA_TX2_A160_PK11,
 };
-use crate::connectors::prelude::*;
+use crate::{
+    connectors::prelude::*,
+    transactions::constants::{
+        NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX3_A160_PK11, NUM_ASSERT_DATA_TX3_A160_PK2,
+    },
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssertDataTxInput {
@@ -30,55 +34,55 @@ pub struct AssertDataTxBatch([Psbt; NUM_ASSERT_DATA_TX]);
 
 impl AssertDataTxBatch {
     pub fn new(input: AssertDataTxInput, connector_a2: ConnectorS) -> Self {
-        let mut psbts: Vec<Psbt> = Vec::with_capacity(NUM_ASSERT_DATA_TX);
-
-        for i in 0..NUM_ASSERT_DATA_TX {
-            let starting_index = i * NUM_INPUTS_PER_ASSERT_DATA_TX_1 + 1; // +1 to account for the stake output from
-                                                                          // `pre-assert` tx
-
-            // in the last iteration, there will be `NUM_INPUTS_PER_ASSERT_DATA_TX` utxos.
-            let num_utxos = if (i + 1) < NUM_ASSERT_DATA_TX {
-                NUM_INPUTS_PER_ASSERT_DATA_TX_1
-            } else {
-                NUM_INPUTS_PER_ASSERT_DATA_TX_2
+        Self(std::array::from_fn(|i| {
+            let (utxos, prevouts): (Vec<OutPoint>, Vec<TxOut>) = {
+                let (skip, take) = match i {
+                    0 => (1, NUM_ASSERT_DATA_TX1_A256_PK7),
+                    1..=5 => (
+                        1 + NUM_ASSERT_DATA_TX1_A256_PK7 + (i - 1) * NUM_ASSERT_DATA_TX2_A160_PK11,
+                        NUM_ASSERT_DATA_TX2_A160_PK11,
+                    ),
+                    _ => (
+                        1 + NUM_ASSERT_DATA_TX1_A256_PK7
+                            + NUM_ASSERT_DATA_TX2 * NUM_ASSERT_DATA_TX2_A160_PK11,
+                        NUM_ASSERT_DATA_TX3_A160_PK11 + NUM_ASSERT_DATA_TX3_A160_PK2,
+                    ),
+                };
+                input
+                    .pre_assert_txouts
+                    .iter()
+                    .enumerate()
+                    .skip(skip)
+                    .take(take)
+                    .map(|(vout, txout)| {
+                        (
+                            OutPoint {
+                                txid: input.pre_assert_txid,
+                                vout: vout as u32,
+                            },
+                            txout.clone(),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .into_iter()
+                    .unzip()
             };
-
-            let mut utxos: Vec<OutPoint> = Vec::with_capacity(num_utxos);
-            let mut prevouts: Vec<TxOut> = Vec::with_capacity(num_utxos);
-            for (vout, txout) in input
-                .pre_assert_txouts
-                .iter()
-                .enumerate()
-                .skip(starting_index)
-                .take(num_utxos)
-            {
-                utxos.push(OutPoint {
-                    txid: input.pre_assert_txid,
-                    vout: vout as u32,
-                });
-
-                prevouts.push(txout.clone());
-            }
 
             let tx_ins = create_tx_ins(utxos);
 
             let output_script = connector_a2.create_taproot_address().script_pubkey();
             let output_amt = output_script.minimal_non_dust();
-
             let tx_outs = create_tx_outs([(output_script, output_amt)]);
 
             let tx = create_tx(tx_ins, tx_outs);
-
             let mut psbt = Psbt::from_unsigned_tx(tx).expect("must have an empty witness");
 
             for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts) {
                 input.witness_utxo = Some(utxo)
             }
 
-            psbts.push(psbt);
-        }
-
-        Self(psbts.try_into().expect("should have exactly N elements"))
+            psbt
+        }))
     }
 
     pub fn psbts(&self) -> &[Psbt; NUM_ASSERT_DATA_TX] {
@@ -129,131 +133,110 @@ impl AssertDataTxBatch {
             _ => signatures.groth16.1[i - 2],
         });
 
-        // There are `NUM_ASSERT_DATA_TX1` transactions each of which take
-        // `NUM_ASSERT_DATA_TX1_A160_PK11` A160 UTXOs and `NUM_ASSERT_DATA_TX1_A256_PK7` A256 UTXOs.
-        for psbt_index in 0..NUM_ASSERT_DATA_TX1 {
-            connector160_batch
-                .iter()
-                .by_ref()
-                .take(NUM_ASSERT_DATA_TX1_A160_PK11)
-                .enumerate()
-                .for_each(|(input_index, conn)| {
-                    let range_start = (NUM_ASSERT_DATA_TX1_A160_PK11 * psbt_index + input_index)
-                        * NUM_PKS_A160_PER_CONNECTOR;
-                    conn.create_tx_input(
-                        &mut self.0[psbt_index].inputs[input_index],
-                        msk,
-                        signatures.groth16.2[range_start..range_start + NUM_PKS_A160_PER_CONNECTOR]
-                            .try_into()
-                            .unwrap(),
-                    );
-                });
-
-            let input_offset = NUM_ASSERT_DATA_TX1_A160_PK11;
-            connector256_batch
-                .iter()
-                .by_ref()
-                .take(NUM_ASSERT_DATA_TX1_A256_PK7)
-                .enumerate()
-                .for_each(|(input_index, conn)| {
-                    let range_start = (NUM_ASSERT_DATA_TX1_A256_PK7 * psbt_index + input_index)
-                        * NUM_PKS_A256_PER_CONNECTOR;
-                    conn.create_tx_input(
-                        &mut self.0[psbt_index].inputs[input_index + input_offset],
-                        msk,
-                        signatures_256[range_start..range_start + NUM_PKS_A256_PER_CONNECTOR]
-                            .try_into()
-                            .unwrap(),
-                    );
-                });
-        }
-
-        // time to fill the final UTXO which takes all the remaining UTXOs.
-        let psbt_index = NUM_ASSERT_DATA_TX1;
-
-        connector160_batch
-            .iter()
-            .by_ref()
-            .take(NUM_ASSERT_DATA_TX2_A160_PK11)
-            .enumerate()
-            .for_each(|(input_index, conn)| {
-                let range_start = (NUM_ASSERT_DATA_TX1_A160_PK11 * psbt_index + input_index)
-                    * NUM_PKS_A160_PER_CONNECTOR;
-                conn.create_tx_input(
-                    &mut self.0[psbt_index].inputs[input_index],
-                    msk,
-                    signatures.groth16.2[range_start..range_start + NUM_PKS_A160_PER_CONNECTOR]
-                        .try_into()
-                        .unwrap(),
-                );
-            });
-
-        let range_start = (NUM_ASSERT_DATA_TX1_A160_PK11 * psbt_index
-            + NUM_ASSERT_DATA_TX2_A160_PK11)
-            * NUM_PKS_A160_PER_CONNECTOR;
-        let residual_a160_input = &mut self.0[psbt_index].inputs[NUM_ASSERT_DATA_TX2_A160_PK11];
-        connector160_remainder.create_tx_input(
-            residual_a160_input,
-            msk,
-            signatures.groth16.2[range_start..range_start + NUM_PKS_A160_RESIDUAL]
-                .try_into()
-                .unwrap(),
-        );
-
-        let input_offset = NUM_ASSERT_DATA_TX2_A160_PK11 + 1; // +1 for the residual
+        // add connector 6_7x_256
+        let psbt_index = 0;
         connector256_batch
             .iter()
             .by_ref()
-            .take(NUM_ASSERT_DATA_TX2_A256_PK7)
+            .take(NUM_ASSERT_DATA_TX1_A256_PK7)
             .enumerate()
             .for_each(|(input_index, conn)| {
-                let range_start =
-                    (NUM_ASSERT_DATA_TX1_A256_PK7 * psbt_index) * NUM_PKS_A256_PER_CONNECTOR;
+                let range_s = (input_index + psbt_index * NUM_ASSERT_DATA_TX1_A256_PK7)
+                    * NUM_PKS_A256_PER_CONNECTOR;
+                let range_e = range_s + NUM_PKS_A256_PER_CONNECTOR;
                 conn.create_tx_input(
-                    &mut self.0[psbt_index].inputs[input_index + input_offset],
+                    &mut self.0[psbt_index].inputs[input_index],
                     msk,
-                    signatures_256[range_start..range_start + NUM_PKS_A256_PER_CONNECTOR]
-                        .try_into()
-                        .unwrap(),
+                    signatures_256[range_s..range_e].try_into().unwrap(),
                 );
             });
 
+        // add connector 5 9_11x_160
+        for psbt_index in NUM_ASSERT_DATA_TX1..NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2 {
+            connector160_batch
+                .iter()
+                .by_ref()
+                .take(NUM_ASSERT_DATA_TX2_A160_PK11)
+                .enumerate()
+                .for_each(|(input_index, conn)| {
+                    let range_s = (input_index
+                        + (psbt_index - NUM_ASSERT_DATA_TX1) * NUM_ASSERT_DATA_TX2_A160_PK11)
+                        * NUM_PKS_A160_PER_CONNECTOR;
+                    let range_e = range_s + NUM_PKS_A160_PER_CONNECTOR;
+                    conn.create_tx_input(
+                        &mut self.0[psbt_index].inputs[input_index],
+                        msk,
+                        signatures.groth16.2[range_s..range_e].try_into().unwrap(),
+                    );
+                });
+            println!("psbt_index: {}", psbt_index);
+        }
+
+        // add connector 7_11x_160, 1_2x_160
+        let psbt_index = NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2;
+        let batch_offset = NUM_ASSERT_DATA_TX2_A160_PK11 * NUM_ASSERT_DATA_TX2;
+        println!("connector160_batch: len: {}", connector160_batch.len());
+        println!("psbt_index: {}, batch_offset: {}", psbt_index, batch_offset);
+        connector160_batch[batch_offset..]
+            .iter()
+            .by_ref()
+            .enumerate()
+            .for_each(|(input_index, conn)| {
+                let range_s = (input_index
+                    + (psbt_index - NUM_ASSERT_DATA_TX1) * NUM_ASSERT_DATA_TX2_A160_PK11)
+                    * NUM_PKS_A160_PER_CONNECTOR;
+                let range_e = range_s + NUM_PKS_A160_PER_CONNECTOR;
+                conn.create_tx_input(
+                    &mut self.0[psbt_index].inputs[input_index],
+                    msk,
+                    signatures.groth16.2[range_s..range_e].try_into().unwrap(),
+                );
+            });
+        let range_s = (NUM_ASSERT_DATA_TX2 * NUM_ASSERT_DATA_TX2_A160_PK11
+            + NUM_ASSERT_DATA_TX3_A160_PK11)
+            * NUM_PKS_A160_PER_CONNECTOR;
+        let range_e = range_s + NUM_PKS_A160_RESIDUAL;
+        let residual_a160_input = &mut self.0[psbt_index].inputs[NUM_ASSERT_DATA_TX3_A160_PK11];
+        connector160_remainder.create_tx_input(
+            residual_a160_input,
+            msk,
+            signatures.groth16.2[range_s..range_e].try_into().unwrap(),
+        );
+
         assert_eq!(
-            NUM_ASSERT_DATA_TX2_A160_PK11
-                + NUM_ASSERT_DATA_TX2_A160_PK2
-                + NUM_ASSERT_DATA_TX2_A256_PK7,
+            NUM_ASSERT_DATA_TX3_A160_PK11 + NUM_ASSERT_DATA_TX3_A160_PK2,
             self.0[psbt_index].inputs.len(),
             "number of inputs in the second psbt must match"
         );
 
-        self.0
-            .into_iter()
-            .map(|psbt| {
-                psbt.extract_tx()
-                    .expect("should be able to extract signed tx")
-            })
-            .collect::<Vec<_>>()
-            .try_into()
-            .unwrap()
-
-        // FOR TEST
         // self.0
         //     .into_iter()
-        //     .map(|psbt| Transaction {
-        //         version: Version::TWO,
-        //         lock_time: LockTime::ZERO,
-        //         output: vec![],
-        //         input: psbt
-        //             .inputs
-        //             .iter()
-        //             .map(|input| TxIn {
-        //                 witness: input.final_script_witness.clone().unwrap(),
-        //                 ..Default::default()
-        //             })
-        //             .collect(),
+        //     .map(|psbt| {
+        //         psbt.extract_tx()
+        //             .expect("should be able to extract signed tx")
         //     })
         //     .collect::<Vec<_>>()
         //     .try_into()
         //     .unwrap()
+
+        // FOR TEST
+        self.0
+            .into_iter()
+            .map(|psbt| Transaction {
+                version: bitcoin::transaction::Version::TWO,
+                lock_time: bitcoin::absolute::LockTime::ZERO,
+                output: vec![],
+                input: psbt
+                    .inputs
+                    .iter()
+                    .map(|input| bitcoin::transaction::TxIn {
+                        witness: input.final_script_witness.clone().unwrap(),
+                        ..Default::default()
+                    })
+                    .collect(),
+            })
+            .collect::<Vec<_>>()
+            .try_into()
+            .unwrap()
     }
 }

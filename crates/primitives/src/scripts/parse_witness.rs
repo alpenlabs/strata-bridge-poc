@@ -57,18 +57,13 @@ pub fn parse_claim_witness(script: Script) -> (wots32::Signature, wots256::Signa
 
 pub fn parse_assertion_witnesses(
     witness256: [Script; NUM_CONNECTOR_A256],
-    witness256_residual: Option<Script>,
     witness160: [Script; NUM_CONNECTOR_A160],
     witness160_residual: Option<Script>,
 ) -> (wots256::Signature, g16::Signatures) {
-    let mut w256 = witness256
+    let w256 = witness256
         .map(parse_wots256_signatures::<NUM_PKS_A256_PER_CONNECTOR>)
         .as_flattened()
         .to_vec();
-    if let Some(witness) = witness256_residual {
-        w256.extend(parse_wots256_signatures::<NUM_PKS_A256_RESIDUAL>(witness));
-    }
-
     let mut w160 = witness160
         .map(parse_wots160_signatures::<NUM_PKS_A160_PER_CONNECTOR>)
         .as_flattened()

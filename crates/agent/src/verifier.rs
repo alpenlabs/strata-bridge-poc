@@ -7,6 +7,7 @@ use bitvm::{
 use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
 use strata_bridge_primitives::{
     helpers::hash_to_bn254_fq,
+    params::prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256, NUM_PKS_A160_PER_CONNECTOR},
     scripts::{
         parse_witness::{parse_assertion_witnesses, parse_claim_witness},
         wots::{bridge_poc_verification_key, mock, Signatures},
@@ -15,7 +16,10 @@ use strata_bridge_primitives::{
 };
 use strata_bridge_tx_graph::{
     connectors::prelude::ConnectorA31Leaf,
-    transactions::constants::{NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX2},
+    transactions::constants::{
+        NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2,
+        NUM_ASSERT_DATA_TX2_A160_PK11,
+    },
 };
 use tokio::sync::broadcast::{self, error::RecvError};
 use tracing::{debug, error, info, warn};
@@ -36,7 +40,7 @@ pub enum VerifierDuty {
         deposit_txid: Txid,
 
         claim_tx: Transaction,
-        assert_data_txs: [Transaction; NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2],
+        assert_data_txs: [Transaction; NUM_ASSERT_DATA_TX],
     },
 }
 
@@ -242,46 +246,37 @@ impl Verifier {
     // parse assert data txs
     pub fn parse_assert_data_txs(
         &self,
-        assert_data_txs: &[Transaction],
+        assert_data_txs: &[Transaction; NUM_ASSERT_DATA_TX],
     ) -> (wots256::Signature, g16::Signatures) {
-        let (witness160, mut witness256): (Vec<Vec<Script>>, Vec<Script>) = assert_data_txs
-            [..NUM_ASSERT_DATA_TX1]
+        let mut witnesses = assert_data_txs
             .iter()
-            .map(|tx| {
-                let witness_scripts = tx
+            .flat_map(|tx| {
+                // println!("tx.weight: {}", tx.weight());
+                let witness_sizes = tx
                     .input
                     .iter()
-                    .map(|txin| {
-                        script!()
-                            .push_script(ScriptBuf::from_bytes(txin.witness.to_vec()[0].clone()))
-                    })
+                    .map(|txin| txin.witness.size())
                     .collect::<Vec<_>>();
-                let witness_scripts = witness_scripts.split_at(10);
-                (witness_scripts.0.to_vec(), witness_scripts.1[0].clone())
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .unzip();
-
-        let mut witness160 = witness160.into_iter().flatten().collect::<Vec<_>>();
-
-        let residuals = assert_data_txs[NUM_ASSERT_DATA_TX1]
-            .input
-            .iter()
-            .map(|txin| {
-                script!().push_script(ScriptBuf::from_bytes(txin.witness.to_vec()[0].clone()))
+                tx.input
+                    .iter()
+                    .map(|txin| {
+                        script! {
+                            for w in &txin.witness.to_vec()[..txin.witness.len()-2] {
+                                if w.len() == 1 { { w[0] } } else { { w.clone() } }
+                            }
+                        }
+                    })
+                    .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
 
-        witness160.extend(residuals[..2].to_vec());
-
-        witness256.push(residuals[3].clone());
-
         parse_assertion_witnesses(
-            witness256.try_into().unwrap(),
-            None,
-            witness160.try_into().unwrap(),
-            Some(residuals[2].clone()),
+            witnesses[..NUM_CONNECTOR_A256].to_vec().try_into().unwrap(),
+            witnesses[NUM_ASSERT_DATA_TX1_A256_PK7..NUM_CONNECTOR_A256 + NUM_CONNECTOR_A160]
+                .to_vec()
+                .try_into()
+                .unwrap(),
+            witnesses.last().cloned(),
         )
     }
 }
@@ -310,7 +305,9 @@ mod tests {
         mock_txid,
         transactions::{
             assert_data::{AssertDataTxBatch, AssertDataTxInput},
-            constants::{NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX2, TOTAL_CONNECTORS},
+            constants::{
+                NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX2, TOTAL_CONNECTORS,
+            },
         },
     };
 
@@ -2834,7 +2831,7 @@ mod tests {
         operator_id: u32,
         deposit_txid: Txid,
         signatures: Signatures,
-    ) -> [bitcoin::Transaction; NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2] {
+    ) -> [bitcoin::Transaction; NUM_ASSERT_DATA_TX] {
         let network = bitcoin::Network::Regtest;
 
         let input = AssertDataTxInput {
@@ -2886,7 +2883,7 @@ mod tests {
         .await;
 
         let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
-        let agent = Agent::new(keypair, "", "", "");
+        let agent = Agent::new(keypair, "abc", "abc", "abc");
 
         let mut verifier = Verifier::new(db.clone(), agent);
 
@@ -2909,8 +2906,8 @@ mod tests {
 
         let mut assertions = mock_assertions();
         // disprove public inputs hash disprove proof
-        assertions.superblock_period_start_ts = [1u8; 4]; // assertions.groth16.0[0] = [0u8; 32];
-                                                          // assertions.groth16.1[0] = [0u8; 32]; // disprove proof
+        // assertions.superblock_period_start_ts = [1u8; 4]; // assertions.groth16.0[0] = [0u8; 32];
+        // assertions.groth16.1[0] = [0u8; 32]; // disprove proof
 
         let signatures = generate_wots_signatures(msk, deposit_txid, assertions);
 
@@ -2925,6 +2922,7 @@ mod tests {
         let assert_data_txs =
             build_assert_data_txs(db.clone(), msk, operator_id, deposit_txid, signatures).await;
 
+        println!("parse assert data txs");
         let (superblock_hash, groth16) = verifier.parse_assert_data_txs(&assert_data_txs);
         assert_eq!(
             signatures,
@@ -2977,6 +2975,7 @@ mod tests {
         }
 
         for i in 0..615 * 2 {
+            println!("ITERATION: {i}");
             // disprove public inputs hash disprove proof
             let mut assertions = mock_assertions();
             let j = (i % 2) as u8;

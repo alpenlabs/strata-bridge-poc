@@ -5,10 +5,7 @@ use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
 use tracing::trace;
 
 use super::{
-    constants::{
-        NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A160_PK11, NUM_ASSERT_DATA_TX1_A256_PK7,
-        NUM_ASSERT_DATA_TX2_A160_PK11, NUM_ASSERT_DATA_TX2_A256_PK7,
-    },
+    constants::{NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2_A160_PK11},
     covenant_tx::CovenantTx,
 };
 use crate::connectors::prelude::*;
@@ -75,34 +72,21 @@ impl PreAssertTx {
 
         scripts_and_amounts.push((connector_s_script, connector_s_amt));
 
-        for _ in 0..NUM_ASSERT_DATA_TX1 {
-            scripts_and_amounts.extend(
-                connector160_batch
-                    .iter()
-                    .by_ref()
-                    .take(NUM_ASSERT_DATA_TX1_A160_PK11)
-                    .map(|conn| {
-                        let script = conn.create_taproot_address().script_pubkey();
-                        let amount = script.minimal_non_dust();
+        // add connector 6_7x_256
+        scripts_and_amounts.extend(
+            connector256_batch
+                .iter()
+                .by_ref()
+                .take(NUM_ASSERT_DATA_TX1_A256_PK7)
+                .map(|conn| {
+                    let script = conn.create_taproot_address().script_pubkey();
+                    let amount = script.minimal_non_dust();
 
-                        (script, amount)
-                    }),
-            );
+                    (script, amount)
+                }),
+        );
 
-            scripts_and_amounts.extend(
-                connector256_batch
-                    .iter()
-                    .by_ref()
-                    .take(NUM_ASSERT_DATA_TX1_A256_PK7)
-                    .map(|conn| {
-                        let script = conn.create_taproot_address().script_pubkey();
-                        let amount = script.minimal_non_dust();
-
-                        (script, amount)
-                    }),
-            );
-        }
-
+        // add connector 9_11x_160, 7_11x_160
         scripts_and_amounts.extend(
             connector160_batch
                 .iter()
@@ -116,24 +100,12 @@ impl PreAssertTx {
                 }),
         );
 
+        // add connector 1_2x_160
         let connector160_remainder_script = connector160_remainder
             .create_taproot_address()
             .script_pubkey();
         let connector160_remainder_amt = connector160_remainder_script.minimal_non_dust();
         scripts_and_amounts.push((connector160_remainder_script, connector160_remainder_amt));
-
-        scripts_and_amounts.extend(
-            connector256_batch
-                .iter()
-                .by_ref()
-                .take(NUM_ASSERT_DATA_TX2_A256_PK7)
-                .map(|conn| {
-                    let script = conn.create_taproot_address().script_pubkey();
-                    let amount = script.minimal_non_dust();
-
-                    (script, amount)
-                }),
-        );
 
         let total_assertion_amount = scripts_and_amounts.iter().map(|(_, amt)| *amt).sum();
         let net_stake = data.input_stake - total_assertion_amount - MIN_RELAY_FEE;

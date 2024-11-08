@@ -70,12 +70,10 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA256<N_PUBLIC_KEYS> {
         script! {
             for public_key in self.public_keys {
                 { wots256::checksig_verify(public_key) }
-
-                for _ in 0..32 { OP_2DROP }
-                // { fq_from_nibbles() }
-                // { U254::push_u32_le(&Fq::MODULUS_LIMBS)}
-                // { U254::greaterthan(0, 1) }
-                // OP_VERIFY
+                for i in 1..64 { { i } OP_ROLL }
+                { fq_from_nibbles() }
+                { U254::push_hex(Fq::MODULUS) }
+                { U254::greaterthan(0, 1) } OP_VERIFY
             }
 
             OP_TRUE
@@ -187,12 +185,7 @@ impl<const N_PUBLIC_KEYS: usize> ConnectorA160<N_PUBLIC_KEYS> {
             for public_key in self.public_keys {
                 { wots160::checksig_verify(public_key) }
                 for _ in 0..20 { OP_2DROP }
-                // { fq_from_nibbles() }
-                // { U254::push_u32_le(&Fq::MODULUS_LIMBS)}
-                // { U254::greaterthan(0, 1) }
-                // OP_VERIFY
             }
-
             OP_TRUE
         }
         .compile()
