@@ -12,7 +12,7 @@ hex.workspace = true
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
 serde = { workspace = true, features = ["derive"] }
-sp1-sdk = "2.0.0"
+sp1-sdk = "3.0.0"
 strata-bridge-guest-builder.workspace = true
 strata-primitives.workspace = true
 strata-proofimpl-bitvm-bridge.workspace = true

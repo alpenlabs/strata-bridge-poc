@@ -45,7 +45,7 @@ strata-rpc-api = { git = "https://github.com/alpenlabs/strata.git", branch = "fi
   "client",
 ] }
 strata-rpc-types = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
-strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
+strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch = "main" }
 strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
 strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
 

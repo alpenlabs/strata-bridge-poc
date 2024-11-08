@@ -8,7 +8,7 @@ bitcoin = { version = "=0.32.3", features = ["serde"] }
 borsh.workspace = true
 serde = { workspace = true, features = ["derive"] }
 snark-bn254-verifier = { git = "https://github.com/succinctlabs/snark-bn254-verifier.git", rev = "96bce2079584b68597f3241551e4b97300fd92c6" } # Note: This is unstable
-sp1-core-machine = "2.0.0"
+sp1-core-machine = "3.0.0"
 strata-primitives.workspace = true
 strata-state.workspace = true
 strata-zkvm.workspace = true
