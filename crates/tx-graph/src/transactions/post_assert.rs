@@ -5,11 +5,8 @@ use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::{scripts::prelude::*, types::OperatorIdx};
 use tracing::trace;
 
-use super::{
-    constants::{NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX2},
-    covenant_tx::CovenantTx,
-};
-use crate::connectors::prelude::*;
+use super::covenant_tx::CovenantTx;
+use crate::{connectors::prelude::*, transactions::constants::NUM_ASSERT_DATA_TX};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostAssertTxData {
@@ -76,9 +73,8 @@ impl PostAssertTx {
 
         let mut psbt = Psbt::from_unsigned_tx(tx).expect("witness should be empty");
 
-        const NUM_ASSERT_DATA: usize = NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2;
         let assert_data_output_script = connector_a2.create_taproot_address().script_pubkey();
-        let prevouts = (0..NUM_ASSERT_DATA)
+        let prevouts = (0..NUM_ASSERT_DATA_TX)
             .map(|_| TxOut {
                 script_pubkey: assert_data_output_script.clone(),
                 value: assert_data_output_script.minimal_non_dust(),
@@ -90,7 +86,7 @@ impl PostAssertTx {
             input.witness_utxo = Some(utxo);
         }
 
-        let witnesses = vec![TaprootWitness::Key; NUM_ASSERT_DATA];
+        let witnesses = vec![TaprootWitness::Key; NUM_ASSERT_DATA_TX];
 
         Self {
             psbt,

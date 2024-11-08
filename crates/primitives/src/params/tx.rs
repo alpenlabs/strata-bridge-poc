@@ -2,7 +2,7 @@
 
 use std::str::FromStr;
 
-use bitcoin::{secp256k1::XOnlyPublicKey, Amount};
+use bitcoin::{secp256k1::XOnlyPublicKey, Amount, FeeRate};
 
 /// The value of each UTXO in the Bridge Multisig Address.
 pub const BRIDGE_DENOMINATION: Amount = Amount::from_int_btc(10);
@@ -19,6 +19,10 @@ pub const MIN_RELAY_FEE: Amount = Amount::from_sat(5000);
 ///
 /// So, it requires extra fees. Here, we set it to 4 times the normal.
 pub const ASSERT_DATA_FEE: Amount = Amount::from_sat(4 * 1000);
+
+pub const ASSERT_DATA_FEE_RATE: FeeRate =
+    FeeRate::from_sat_per_vb_unchecked(FeeRate::DUST.to_sat_per_vb_ceil() * 80); // 80 is based on
+                                                                                 // experiment
 
 pub const OPERATOR_STAKE: Amount = Amount::from_int_btc(5);
 

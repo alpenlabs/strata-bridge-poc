@@ -8,7 +8,7 @@ use super::{
     constants::{NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2_A160_PK11},
     covenant_tx::CovenantTx,
 };
-use crate::connectors::prelude::*;
+use crate::{connectors::prelude::*, transactions::constants::NUM_ASSERT_DATA_TX2};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreAssertData {
@@ -81,31 +81,35 @@ impl PreAssertTx {
                 .take(NUM_ASSERT_DATA_TX1_A256_PK7)
                 .map(|conn| {
                     let script = conn.create_taproot_address().script_pubkey();
-                    let amount = script.minimal_non_dust();
+                    let amount = script.minimal_non_dust_custom(ASSERT_DATA_FEE_RATE);
 
                     (script, amount)
                 }),
         );
 
-        // add connector 9_11x_160, 7_11x_160
-        scripts_and_amounts.extend(
-            connector160_batch
-                .iter()
-                .by_ref()
-                .take(NUM_ASSERT_DATA_TX2_A160_PK11)
-                .map(|conn| {
-                    let script = conn.create_taproot_address().script_pubkey();
-                    let amount = script.minimal_non_dust();
+        // add 5 * connector 9_11x_160 + 1 * 7_11x_160
+        // the last iteration accounts for the 7_11x_160
+        for _ in 0..(NUM_ASSERT_DATA_TX2 + 1) {
+            scripts_and_amounts.extend(
+                connector160_batch
+                    .iter()
+                    .by_ref()
+                    .take(NUM_ASSERT_DATA_TX2_A160_PK11)
+                    .map(|conn| {
+                        let script = conn.create_taproot_address().script_pubkey();
+                        let amount = script.minimal_non_dust_custom(ASSERT_DATA_FEE_RATE);
 
-                    (script, amount)
-                }),
-        );
+                        (script, amount)
+                    }),
+            );
+        }
 
         // add connector 1_2x_160
         let connector160_remainder_script = connector160_remainder
             .create_taproot_address()
             .script_pubkey();
-        let connector160_remainder_amt = connector160_remainder_script.minimal_non_dust();
+        let connector160_remainder_amt =
+            connector160_remainder_script.minimal_non_dust_custom(ASSERT_DATA_FEE_RATE);
         scripts_and_amounts.push((connector160_remainder_script, connector160_remainder_amt));
 
         let total_assertion_amount = scripts_and_amounts.iter().map(|(_, amt)| *amt).sum();

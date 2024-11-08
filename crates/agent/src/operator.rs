@@ -1,3 +1,4 @@
+use core::fmt;
 use std::collections::HashSet;
 
 use anyhow::bail;
@@ -1193,14 +1194,14 @@ impl Operator {
     ///
     /// Make sure that `prevouts`, `agg_nonces` and `witnesses` have the same length.
     #[expect(clippy::too_many_arguments)]
-    async fn sign_partial(
+    async fn sign_partial<Tx: CovenantTx + fmt::Debug>(
         &self,
         key_agg_ctx: &KeyAggContext,
         sighash_type: TapSighashType,
         inputs_to_sign: usize,
         own_index: OperatorIdx,
         operator_index: OperatorIdx,
-        covenant_tx: impl CovenantTx,
+        covenant_tx: Tx,
         agg_nonces: &[AggNonce],
     ) -> Vec<PartialSignature> {
         let tx = &covenant_tx.psbt().unsigned_tx;
@@ -1218,6 +1219,7 @@ impl Operator {
             .enumerate()
             .take(inputs_to_sign)
         {
+            trace!(action = "creating message hash", ?covenant_tx);
             let message = create_message_hash(
                 &mut sighash_cache,
                 prevouts.clone(),
@@ -1452,8 +1454,9 @@ impl Operator {
             info!(event = "assert-data tx", %index, %txid, %vsize, %total_size, %weight, %own_index);
         }
 
-        info!(action = "broadcasting finalized assert data txs", %own_index);
         for (index, signed_assert_data_tx) in signed_assert_data_txs.iter().enumerate() {
+            info!(event = "broadcasting signed assert data tx", %index, %num_assert_data_txs);
+
             self.agent
                 .client
                 .send_raw_transaction(signed_assert_data_tx)

@@ -33,11 +33,16 @@ pub fn n_of_n_with_timelock(aggregated_pubkey: &XOnlyPublicKey, timelock: u32) -
 }
 
 pub fn op_return_nonce(data: Vec<u8>) -> ScriptBuf {
-    script! {
-        OP_RETURN
-        { data }
-    }
-    .compile()
+    let mut push_data = PushBytesBuf::new();
+    push_data
+        .extend_from_slice(&data[..])
+        .expect("data should be within limit");
+
+    dbg!(&push_data);
+    Builder::new()
+        .push_opcode(OP_RETURN)
+        .push_slice(push_data)
+        .into_script()
 }
 
 /// Aggregate the pubkeys using [`musig2`] and return the resulting [`XOnlyPublicKey`].

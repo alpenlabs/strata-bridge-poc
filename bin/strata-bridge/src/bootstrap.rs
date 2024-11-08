@@ -92,7 +92,8 @@ pub(crate) async fn bootstrap(args: Cli) {
     let bitcoin_watcher = BitcoinWatcher::new(
         public_db.clone(),
         Arc::new(bitcoin_rpc_client),
-        args.duty_interval,
+        args.btc_scan_interval,
+        args.btc_genesis_height,
     );
 
     let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
