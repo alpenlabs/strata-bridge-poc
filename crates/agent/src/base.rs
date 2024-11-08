@@ -1,4 +1,4 @@
-use std::{collections::HashSet, sync::Arc};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use bitcoin::{
     hashes::Hash,
@@ -9,7 +9,8 @@ use musig2::{KeyAggContext, SecNonce};
 use rand::{rngs::OsRng, RngCore};
 use secp256k1::{schnorr::Signature, Keypair, PublicKey, SecretKey, SECP256K1};
 use strata_bridge_btcio::{
-    traits::{Reader, Wallet},
+    error::ClientResult,
+    traits::{Broadcaster, Reader, Wallet},
     BitcoinClient,
 };
 use strata_bridge_primitives::{params::prelude::MIN_RELAY_FEE, scripts::prelude::*};
@@ -43,6 +44,17 @@ impl Agent {
         .expect("should be able to create message hash");
 
         SECP256K1.sign_schnorr(&msg, &self.keypair)
+    }
+
+    pub async fn wait_and_broadcast(
+        &self,
+        tx: &Transaction,
+        wait_time: Duration,
+    ) -> ClientResult<Txid> {
+        // sleep to confirm parent
+        tokio::time::sleep(wait_time).await;
+
+        self.client.send_raw_transaction(tx).await
     }
 
     pub fn public_key(&self) -> PublicKey {

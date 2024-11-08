@@ -6,7 +6,7 @@ use bitvm::{
 
 use crate::params::prelude::{
     NUM_CONNECTOR_A160, NUM_CONNECTOR_A256, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL,
-    NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256_RESIDUAL,
+    NUM_PKS_A256_PER_CONNECTOR,
 };
 
 fn parse_wots160_signatures<const N_SIGS: usize>(script: Script) -> [wots160::Signature; N_SIGS] {

@@ -1,4 +1,5 @@
-use std::collections::HashSet;
+use core::fmt;
+use std::{collections::HashSet, time::Duration};
 
 use anyhow::bail;
 use bitcoin::{
@@ -25,11 +26,11 @@ use strata_bridge_primitives::{
     duties::BridgeDuty,
     params::{
         prelude::{BRIDGE_DENOMINATION, MIN_RELAY_FEE, OPERATOR_STAKE},
-        tx::OPERATOR_FEE,
+        tx::{BTC_CONFIRM_PERIOD, OPERATOR_FEE},
     },
     scripts::{
         taproot::{create_message_hash, finalize_input, TaprootWitness},
-        wots::{generate_wots_public_keys, generate_wots_signatures, Assertions},
+        wots::{generate_wots_public_keys, generate_wots_signatures, mock, Assertions},
     },
     types::TxSigningData,
     withdrawal::WithdrawalInfo,
@@ -93,10 +94,12 @@ impl Operator {
         covenant_sig_sender: broadcast::Sender<CovenantSignatureSignal>,
         covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
     ) -> Self {
-        let mut msk_bytes: [u8; 32] = [0u8; 32];
-        rand::thread_rng().fill_bytes(&mut msk_bytes);
-
-        let msk = msk_bytes.to_lower_hex_string();
+        // FIXME: replace with actual when proofs are ready.
+        let msk = "secret".to_string();
+        // let mut msk_bytes: [u8; 32] = [0u8; 32];
+        // rand::thread_rng().fill_bytes(&mut msk_bytes);
+        //
+        // let msk = msk_bytes.to_lower_hex_string();
 
         Self {
             agent,
@@ -173,7 +176,9 @@ impl Operator {
         let mut deposit_tx = deposit_info
             .construct_signing_data(&self.build_context)
             .expect("should be able to create build context");
-        let deposit_txid = deposit_tx.psbt.unsigned_tx.compute_txid();
+        // let deposit_txid = deposit_tx.psbt.unsigned_tx.compute_txid();
+        // FIXME: replace with actual when proofs are ready
+        let deposit_txid = Txid::from_byte_array(mock::PUBLIC_INPUTS.0);
 
         info!(action = "generating wots public keys", %deposit_txid, %own_index);
         let public_keys = generate_wots_public_keys(&self.msk, deposit_txid);
@@ -1193,14 +1198,14 @@ impl Operator {
     ///
     /// Make sure that `prevouts`, `agg_nonces` and `witnesses` have the same length.
     #[expect(clippy::too_many_arguments)]
-    async fn sign_partial(
+    async fn sign_partial<Tx: CovenantTx + fmt::Debug>(
         &self,
         key_agg_ctx: &KeyAggContext,
         sighash_type: TapSighashType,
         inputs_to_sign: usize,
         own_index: OperatorIdx,
         operator_index: OperatorIdx,
-        covenant_tx: impl CovenantTx,
+        covenant_tx: Tx,
         agg_nonces: &[AggNonce],
     ) -> Vec<PartialSignature> {
         let tx = &covenant_tx.psbt().unsigned_tx;
@@ -1218,6 +1223,7 @@ impl Operator {
             .enumerate()
             .take(inputs_to_sign)
         {
+            trace!(action = "creating message hash", ?covenant_tx);
             let message = create_message_hash(
                 &mut sighash_cache,
                 prevouts.clone(),
@@ -1327,17 +1333,24 @@ impl Operator {
         // 0. get context
         let network = self.build_context.network();
         let own_index = self.build_context.own_index();
-        let deposit_txid = withdrawal_info.deposit_outpoint().txid;
+
+        // FIXME: replace with actual when proofs are available
+        let deposit_txid = Txid::from_byte_array(mock::PUBLIC_INPUTS.0);
+        // let deposit_txid = withdrawal_info.deposit_outpoint().txid;
+
         let own_pubkey = self.agent.public_key().x_only_public_key().0;
 
         // 1. pay the user with PoW transaction
         let user_pk = withdrawal_info.user_pk();
 
         info!(action = "paying out the user", %user_pk, %own_index);
-        let bridge_out_txid = self
-            .pay_user(user_pk, network, own_index)
-            .await
-            .expect("must be able to pay user");
+        // FIXME: replace with actual once the proofs are ready.
+        let bridge_out_txid = Txid::from_byte_array(mock::PUBLIC_INPUTS.2);
+
+        // let bridge_out_txid = self
+        //     .pay_user(user_pk, network, own_index)
+        //     .await
+        //     .expect("must be able to pay user");
 
         // 2. create tx graph from public data
         info!(action = "reconstructing pegout graph", %deposit_txid, %own_index);
@@ -1400,6 +1413,7 @@ impl Operator {
         .await;
 
         // 4. compute superblock and proof (skip)
+        // FIXME: replace with actual when proofs are ready.
         info!(action = "creating assertion signatures", %own_index);
         let assertions = mock_assertions();
         let assert_data_signatures = generate_wots_signatures(&self.msk, deposit_txid, assertions);
@@ -1424,8 +1438,7 @@ impl Operator {
 
         let txid = self
             .agent
-            .client
-            .send_raw_transaction(&signed_pre_assert)
+            .wait_and_broadcast(&signed_pre_assert, BTC_CONFIRM_PERIOD)
             .await
             .expect("should settle pre-assert");
         info!(event = "broadcasted pre-assert", %txid, %own_index);
@@ -1454,9 +1467,10 @@ impl Operator {
 
         info!(action = "broadcasting finalized assert data txs", %own_index);
         for (index, signed_assert_data_tx) in signed_assert_data_txs.iter().enumerate() {
+            info!(event = "broadcasting signed assert data tx", %index, %num_assert_data_txs);
+
             self.agent
-                .client
-                .send_raw_transaction(signed_assert_data_tx)
+                .wait_and_broadcast(signed_assert_data_tx, Duration::from_secs(1))
                 .await
                 .expect("should settle assert-data");
 
@@ -1478,7 +1492,7 @@ impl Operator {
         let vsize = signed_pre_assert.vsize();
         let total_size = signed_pre_assert.total_size();
         let weight = signed_pre_assert.weight();
-        info!(event = "finalized pre-assert tx", %post_assert_txid, %vsize, %total_size, %weight, %own_index);
+        info!(event = "finalized post-assert tx", %post_assert_txid, %vsize, %total_size, %weight, %own_index);
 
         self.agent
             .client
@@ -1499,12 +1513,14 @@ impl Operator {
         claim_tx: ClaimTx,
         bridge_out_txid: Txid,
     ) {
-        let superblock_period_start_ts = self
-            .agent
-            .client
-            .get_current_timestamp()
-            .await
-            .expect("should be able to get the latest timestamp from the best block");
+        // FIXME: replace with actual when proofs are ready.
+        let superblock_period_start_ts = mock::PUBLIC_INPUTS.3;
+        // let superblock_period_start_ts = self
+        //     .agent
+        //     .client
+        //     .get_current_timestamp()
+        //     .await
+        //     .expect("should be able to get the latest timestamp from the best block");
         debug!(event = "got current timestamp (T_s)", %superblock_period_start_ts, %own_index);
 
         let unsigned_kickoff = &kickoff_tx.psbt().unsigned_tx;

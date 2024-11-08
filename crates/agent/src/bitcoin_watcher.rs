@@ -8,7 +8,7 @@ use strata_bridge_btcio::{
 use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
 use strata_bridge_tx_graph::transactions::constants::NUM_ASSERT_DATA_TX;
 use tokio::sync::broadcast;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::{operator::OperatorIdx, verifier::VerifierDuty};
 
@@ -24,12 +24,17 @@ pub struct BitcoinWatcher {
 }
 
 impl BitcoinWatcher {
-    pub fn new(db: PublicDb, client: Arc<BitcoinClient>, poll_interval: Duration) -> Self {
+    pub fn new(
+        db: PublicDb,
+        client: Arc<BitcoinClient>,
+        poll_interval: Duration,
+        genesis_height: u32,
+    ) -> Self {
         Self {
             db,
             client,
             poll_interval,
-            genesis_height: 0,
+            genesis_height,
         }
     }
 
@@ -38,22 +43,33 @@ impl BitcoinWatcher {
 
         let mut height = self.genesis_height;
         loop {
-            let block = self
-                .client
-                .get_block_at(height)
-                .await
-                .expect("should be able to get block at height");
+            let block = self.client.get_block_at(height).await;
+
+            if let Err(e) = block {
+                if height % 10 == 0 {
+                    warn!(%e, %height, msg = "could not get block");
+                }
+                continue;
+            }
+
+            let block = block.unwrap();
 
             for tx in block.txdata {
                 let txid = tx.compute_txid();
 
-                if let Some((_, _)) = self.db.get_operator_and_deposit_for_claim(&txid).await {
-                    let duty = self.handle_claim().await;
+                if let Some((operator_idx, deposit_txid)) =
+                    self.db.get_operator_and_deposit_for_claim(&txid).await
+                {
+                    info!(event = "noticed claim transaction", by_operator=%operator_idx, for_deposit_txid=%deposit_txid);
 
-                    debug!(action = "dispatching challenge duty for verifier", claim_txid=%txid);
-                    notifier
-                        .send(duty)
-                        .expect("should be able to send challenge duty to the verifier");
+                    warn!(action = "not dispatching challenge duty for now as it is unimplemented");
+
+                    // FIXME: uncomment when `handle_claim()` is updated
+                    // let duty = self.handle_claim().await;
+                    // debug!(action = "dispatching challenge duty for verifier", claim_txid=%txid);
+                    // notifier
+                    //     .send(duty)
+                    //     .expect("should be able to send challenge duty to the verifier");
                 } else if let Some((operator_idx, deposit_txid)) = self
                     .db
                     .get_operator_and_deposit_for_post_assert(&txid)
@@ -71,7 +87,9 @@ impl BitcoinWatcher {
             tokio::time::sleep(self.poll_interval).await;
             height += 1;
 
-            info!(event = "block scanned", cur_height=%height);
+            if height % 10 == 0 {
+                info!(event = "block scanned", cur_height=%height);
+            }
         }
     }
 

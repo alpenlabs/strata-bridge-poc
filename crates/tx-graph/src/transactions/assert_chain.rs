@@ -6,7 +6,7 @@ use strata_bridge_primitives::{
     },
     types::OperatorIdx,
 };
-use tracing::trace;
+use tracing::{trace, warn};
 
 use super::prelude::*;
 use crate::connectors::prelude::*;
@@ -50,9 +50,10 @@ impl AssertChain {
 
         let assert_data_input = AssertDataTxInput {
             pre_assert_txid,
-            pre_assert_txouts: pre_assert.tx_outs().to_vec(),
+            pre_assert_txouts: pre_assert.tx_outs(),
         };
 
+        warn!(event = "constructed assert data input", ?assert_data_input);
         let assert_data = AssertDataTxBatch::new(assert_data_input, connector_s);
 
         let assert_data_txids = assert_data.compute_txids().to_vec();

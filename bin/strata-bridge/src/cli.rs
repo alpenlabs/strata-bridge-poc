@@ -30,6 +30,17 @@ pub(crate) struct Cli {
     #[clap(long, help = "Bitcoind password")]
     pub btc_pass: String,
 
+    #[clap(
+        long,
+        default_value = "1",
+        help = "Bridge duty polling interval (in secs)",
+        value_parser = parse_duration,
+    )]
+    pub btc_scan_interval: Duration,
+
+    #[clap(long, default_value_t = 0, help = "Block height to start scans from")]
+    pub btc_genesis_height: u32,
+
     #[clap(long, help = "RPC server host for the bridge node", default_value_t = DEFAULT_RPC_HOST.to_string())]
     pub rpc_host: String,
 

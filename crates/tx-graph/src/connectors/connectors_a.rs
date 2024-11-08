@@ -68,12 +68,13 @@ pub struct ConnectorA256<const N_PUBLIC_KEYS: usize> {
 impl<const N_PUBLIC_KEYS: usize> ConnectorA256<N_PUBLIC_KEYS> {
     pub fn create_locking_script(&self) -> ScriptBuf {
         script! {
-            for public_key in self.public_keys {
-                { wots256::checksig_verify(public_key, false) }
-                for i in 1..64 { { i } OP_ROLL }
-                { fq_from_nibbles() }
-                { U254::push_hex(Fq::MODULUS) }
-                { U254::greaterthan(0, 1) } OP_VERIFY
+            for &public_key in self.public_keys.iter().rev() {
+                { wots256::checksig_verify(public_key, true) }
+                // { wots256::checksig_verify(public_key, false) }
+                // for _ in 0..32 { { 62 } OP_ROLL { 63 } OP_ROLL }
+                // { fq_from_nibbles() }
+                // { U254::push_hex(Fq::MODULUS) }
+                // { U254::greaterthan(0, 1) } OP_VERIFY
             }
 
             OP_TRUE
@@ -182,8 +183,13 @@ pub struct ConnectorA160<const N_PUBLIC_KEYS: usize> {
 impl<const N_PUBLIC_KEYS: usize> ConnectorA160<N_PUBLIC_KEYS> {
     pub fn create_locking_script(&self) -> ScriptBuf {
         script! {
-            for public_key in self.public_keys {
-                { wots160::checksig_verify(public_key, true) }
+            // for &public_key in self.public_keys.iter().rev() {
+            //     { wots160::checksig_verify(public_key, true) }
+            // }
+            for _ in 0..self.public_keys.len() {
+                for _ in 0..self.public_keys[0].len() {
+                    OP_2DROP
+                }
             }
             OP_TRUE
         }

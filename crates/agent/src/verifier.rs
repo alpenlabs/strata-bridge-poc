@@ -7,7 +7,7 @@ use bitvm::{
 use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
 use strata_bridge_primitives::{
     helpers::hash_to_bn254_fq,
-    params::prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256, NUM_PKS_A160_PER_CONNECTOR},
+    params::prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256},
     scripts::{
         parse_witness::{parse_assertion_witnesses, parse_claim_witness},
         wots::{bridge_poc_verification_key, mock, Signatures},
@@ -16,10 +16,7 @@ use strata_bridge_primitives::{
 };
 use strata_bridge_tx_graph::{
     connectors::prelude::ConnectorA31Leaf,
-    transactions::constants::{
-        NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2,
-        NUM_ASSERT_DATA_TX2_A160_PK11,
-    },
+    transactions::constants::{NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1_A256_PK7},
 };
 use tokio::sync::broadcast::{self, error::RecvError};
 use tracing::{debug, error, info, warn};
@@ -309,9 +306,7 @@ mod tests {
         mock_txid,
         transactions::{
             assert_data::{AssertDataTxBatch, AssertDataTxInput},
-            constants::{
-                NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX2, TOTAL_CONNECTORS,
-            },
+            constants::{NUM_ASSERT_DATA_TX, TOTAL_CONNECTORS},
         },
     };
 
@@ -2840,12 +2835,10 @@ mod tests {
 
         let input = AssertDataTxInput {
             pre_assert_txid: mock_txid(),
-            pre_assert_txouts: (0..=TOTAL_CONNECTORS)
-                .map(|i| TxOut {
-                    value: Amount::from_sat(i as u64),
-                    script_pubkey: ScriptBuf::new(),
-                })
-                .collect(),
+            pre_assert_txouts: std::array::from_fn(|i| TxOut {
+                value: Amount::from_sat(i as u64),
+                script_pubkey: ScriptBuf::new(),
+            }),
         };
 
         let connector_a2 = ConnectorS::new(mock_x_only_public_key(), network);
