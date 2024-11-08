@@ -55,12 +55,10 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
 
         script! {
             // superblock_period_start_timestamp
-            { wots32::checksig_verify(superblock_period_start_ts_public_key) }
-            for _ in 0..4 { OP_2DROP } // drop ts nibbles
+            { wots32::checksig_verify(superblock_period_start_ts_public_key, true) }
 
             // bridge_out_tx_id
-            { wots256::checksig_verify(bridge_out_txid_public_key) }
-            for _ in 0..32 { OP_2DROP }
+            { wots256::checksig_verify(bridge_out_txid_public_key, true) }
 
             OP_TRUE
         }
