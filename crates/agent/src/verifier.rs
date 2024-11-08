@@ -261,12 +261,6 @@ impl Verifier {
         let witnesses = assert_data_txs
             .iter()
             .flat_map(|tx| {
-                println!("tx.weight: {}", tx.weight());
-                let witness_sizes = tx
-                    .input
-                    .iter()
-                    .map(|txin| txin.witness.size())
-                    .collect::<Vec<_>>();
                 tx.input
                     .iter()
                     .map(|txin| {
@@ -2913,11 +2907,11 @@ mod tests {
         //     println!("assertions: {:?}", assertions);
         //     assertions
         // };
-
+        // return;
         let mut assertions = mock_assertions();
         // disprove public inputs hash disprove proof
-        // assertions.superblock_period_start_ts = [1u8; 4]; // assertions.groth16.0[0] = [0u8; 32];
-        // assertions.groth16.1[0] = [0u8; 32]; // disprove proof
+        assertions.superblock_period_start_ts = [1u8; 4]; // assertions.groth16.0[0] = [0u8; 32];
+                                                          // assertions.groth16.1[0] = [0u8; 32]; // disprove proof
 
         let signatures = generate_wots_signatures(msk, deposit_txid, assertions);
 

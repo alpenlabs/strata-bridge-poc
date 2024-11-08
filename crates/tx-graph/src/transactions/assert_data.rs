@@ -169,14 +169,11 @@ impl AssertDataTxBatch {
                         signatures.groth16.2[range_s..range_e].try_into().unwrap(),
                     );
                 });
-            println!("psbt_index: {}", psbt_index);
         }
 
         // add connector 7_11x_160, 1_2x_160
         let psbt_index = NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2;
         let batch_offset = NUM_ASSERT_DATA_TX2_A160_PK11 * NUM_ASSERT_DATA_TX2;
-        println!("connector160_batch: len: {}", connector160_batch.len());
-        println!("psbt_index: {}, batch_offset: {}", psbt_index, batch_offset);
         connector160_batch[batch_offset..]
             .iter()
             .by_ref()
