@@ -6,7 +6,10 @@ use strata_bridge_primitives::{
         connectors::{
             NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL, NUM_PKS_A256_PER_CONNECTOR,
         },
-        prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256, NUM_PKS_A160, NUM_PKS_A256, NUM_PKS_A256_RESIDUAL},
+        prelude::{
+            NUM_CONNECTOR_A160, NUM_CONNECTOR_A256, NUM_PKS_A160, NUM_PKS_A256,
+            NUM_PKS_A256_RESIDUAL,
+        },
     },
     scripts::{prelude::*, wots},
 };
@@ -26,8 +29,8 @@ use crate::{
 pub struct AssertDataTxInput {
     pub pre_assert_txid: Txid,
 
-    pub pre_assert_txouts: [TxOut; NUM_CONNECTOR_A160 + NUM_CONNECTOR_A256 + 1 + 1], // 1 =>
-    // residual, 1 => stake
+    pub pre_assert_txouts: [TxOut; NUM_CONNECTOR_A160 + NUM_CONNECTOR_A256 + 1 + 1], /* 1 =>
+                                                                                      * residual, 1 => stake */
 }
 
 #[derive(Debug, Clone)]
@@ -153,45 +156,33 @@ impl AssertDataTxBatch {
             });
 
         // add connector 5 9_11x_160
-        for psbt_index in NUM_ASSERT_DATA_TX1..NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2 {
-            connector160_batch
-                .iter()
-                .by_ref()
-                .take(NUM_ASSERT_DATA_TX2_A160_PK11)
-                .enumerate()
-                .for_each(|(input_index, conn)| {
-                    let range_s = (input_index
+        connector160_batch
+            .chunks(NUM_ASSERT_DATA_TX2_A160_PK11)
+            .enumerate()
+            .for_each(|(psbt_index, conn_batch)| {
+                conn_batch
+                    .iter()
+                    .enumerate()
+                    .for_each(|(input_index, conn)| {
+                        let range_s = (input_index
                         // last psbt's utxos
-                        + (psbt_index - NUM_ASSERT_DATA_TX1) * NUM_ASSERT_DATA_TX2_A160_PK11)
+                        + psbt_index * NUM_ASSERT_DATA_TX2_A160_PK11)
                         // this input's last utxo
                         * NUM_PKS_A160_PER_CONNECTOR;
-                    let range_e = range_s + NUM_PKS_A160_PER_CONNECTOR;
-                    conn.create_tx_input(
-                        &mut self.0[psbt_index].inputs[input_index],
-                        msk,
-                        signatures.groth16.2[range_s..range_e].try_into().unwrap(),
-                    );
-                });
-        }
+                        let range_e = range_s + NUM_PKS_A160_PER_CONNECTOR;
+
+                        conn.create_tx_input(
+                            // +1 for earlier psbt
+                            &mut self.0[psbt_index + 1].inputs[input_index],
+                            msk,
+                            signatures.groth16.2[range_s..range_e].try_into().unwrap(),
+                        );
+                    });
+            });
 
         // add connector 7_11x_160, 1_2x_160
         let psbt_index = NUM_ASSERT_DATA_TX1 + NUM_ASSERT_DATA_TX2;
-        let batch_offset = NUM_ASSERT_DATA_TX2_A160_PK11 * NUM_ASSERT_DATA_TX2;
-        connector160_batch[batch_offset..]
-            .iter()
-            .by_ref()
-            .enumerate()
-            .for_each(|(input_index, conn)| {
-                let range_s = (input_index
-                    + (psbt_index - NUM_ASSERT_DATA_TX1) * NUM_ASSERT_DATA_TX2_A160_PK11)
-                    * NUM_PKS_A160_PER_CONNECTOR;
-                let range_e = range_s + NUM_PKS_A160_PER_CONNECTOR;
-                conn.create_tx_input(
-                    &mut self.0[psbt_index].inputs[input_index],
-                    msk,
-                    signatures.groth16.2[range_s..range_e].try_into().unwrap(),
-                );
-            });
+
         let range_s = (NUM_ASSERT_DATA_TX2 * NUM_ASSERT_DATA_TX2_A160_PK11
             + NUM_ASSERT_DATA_TX3_A160_PK11)
             * NUM_PKS_A160_PER_CONNECTOR;

@@ -61,6 +61,7 @@ impl AssertChain {
 
         let post_assert_data = PostAssertTxData {
             assert_data_txids,
+            pre_assert_txid,
             input_amount: pre_assert_net_output_stake,
             deposit_txid: data.deposit_txid,
         };
