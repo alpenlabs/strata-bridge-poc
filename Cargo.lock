@@ -8529,6 +8529,7 @@ dependencies = [
  "bincode",
  "bitcoin 0.32.3",
  "borsh",
+ "hex",
  "prover-test-utils",
  "serde",
  "snark-bn254-verifier 1.0.2 (git+https://github.com/succinctlabs/snark-bn254-verifier.git?rev=96bce2079584b68597f3241551e4b97300fd92c6)",

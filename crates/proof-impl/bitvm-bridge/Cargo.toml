@@ -22,3 +22,4 @@ tokio.workspace = true
 tower = { version = "0.4.13", features = ["util"] }
 strata-btcio = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
 prover-test-utils.workspace = true
+hex.workspace = true
