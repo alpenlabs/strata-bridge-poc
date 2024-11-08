@@ -105,17 +105,24 @@ impl BitcoinWatcher {
         deposit_txid: Txid,
     ) -> VerifierDuty {
         let mut assert_data_txs = Vec::new();
-        for txin in post_assert_tx.input {
-            let txid = txin.previous_output.txid;
+        // skip the first input i.e., the stake
+        for txin in post_assert_tx.input.iter().skip(1) {
+            let txid = &txin.previous_output.txid;
 
             let tx = self
                 .client
-                .get_raw_transaction(&txid, None)
+                .get_raw_transaction(txid, None)
                 .await
                 .expect("should be able to fetch post_assert tx");
 
             assert_data_txs.push(tx);
         }
+
+        assert_eq!(
+            assert_data_txs.len(),
+            NUM_ASSERT_DATA_TX,
+            "number of assert data txs must be as expected"
+        );
 
         let assert_data_txs: [Transaction; NUM_ASSERT_DATA_TX] = assert_data_txs
             .try_into()
