@@ -2903,8 +2903,8 @@ mod tests {
         // return;
         let mut assertions = mock_assertions();
         // disprove public inputs hash disprove proof
-        assertions.superblock_period_start_ts = [1u8; 4]; // assertions.groth16.0[0] = [0u8; 32];
-                                                          // assertions.groth16.1[0] = [0u8; 32]; // disprove proof
+        // assertions.superblock_period_start_ts = [1u8; 4]; // assertions.groth16.0[0] = [0u8; 32];
+        assertions.groth16.1[0] = [0u8; 32]; // disprove proof
 
         let signatures = generate_wots_signatures(msk, deposit_txid, assertions);
 

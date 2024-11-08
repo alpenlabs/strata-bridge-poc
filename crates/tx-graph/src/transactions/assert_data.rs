@@ -6,7 +6,10 @@ use strata_bridge_primitives::{
         connectors::{
             NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL, NUM_PKS_A256_PER_CONNECTOR,
         },
-        prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256, NUM_PKS_A160, NUM_PKS_A256, NUM_PKS_A256_RESIDUAL},
+        prelude::{
+            NUM_CONNECTOR_A160, NUM_CONNECTOR_A256, NUM_PKS_A160, NUM_PKS_A256,
+            NUM_PKS_A256_RESIDUAL,
+        },
     },
     scripts::{prelude::*, wots},
 };
@@ -26,8 +29,8 @@ use crate::{
 pub struct AssertDataTxInput {
     pub pre_assert_txid: Txid,
 
-    pub pre_assert_txouts: [TxOut; NUM_CONNECTOR_A160 + NUM_CONNECTOR_A256 + 1 + 1], // 1 =>
-    // residual, 1 => stake
+    pub pre_assert_txouts: [TxOut; NUM_CONNECTOR_A160 + NUM_CONNECTOR_A256 + 1 + 1], /* 1 =>
+                                                                                      * residual, 1 => stake */
 }
 
 #[derive(Debug, Clone)]
