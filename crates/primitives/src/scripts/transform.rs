@@ -37,7 +37,6 @@ pub fn fq_from_nibbles() -> Script {
     const N_DIGITS: u32 = (U254::N_BITS + WINDOW - 1) / WINDOW;
 
     script! {
-        for i in 1..64 { { i } OP_ROLL }
         for i in (1..=N_DIGITS).rev() {
             if (i * WINDOW) % LIMB_SIZE == 0 {
                 OP_TOALTSTACK

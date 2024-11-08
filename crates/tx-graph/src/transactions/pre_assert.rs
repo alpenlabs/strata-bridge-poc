@@ -2,13 +2,13 @@ use bitcoin::{sighash::Prevouts, Amount, OutPoint, Psbt, Transaction, TxOut, Txi
 use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
 use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
-use tracing::trace;
+use tracing::{trace, warn};
 
 use super::{
-    constants::{NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2_A160_PK11},
+    constants::{NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2_A160_PK11, TOTAL_CONNECTORS},
     covenant_tx::CovenantTx,
 };
-use crate::{connectors::prelude::*, transactions::constants::NUM_ASSERT_DATA_TX2};
+use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PreAssertData {
@@ -27,7 +27,7 @@ pub struct PreAssertTx {
     /// The ordering of these is pretty complicated.
     ///
     /// This field is so that we don't have to recompute this order in other places.
-    tx_outs: Vec<TxOut>,
+    tx_outs: [TxOut; TOTAL_CONNECTORS + 1], // +1 for stake
 
     witnesses: Vec<TaprootWitness>,
 }
@@ -72,6 +72,7 @@ impl PreAssertTx {
                                                        // amounts have been calculated for the assertion
 
         scripts_and_amounts.push((connector_s_script, connector_s_amt));
+        warn!(num_scripts=%scripts_and_amounts.len(), event = "added connnector_s");
 
         // add connector 6_7x_256
         scripts_and_amounts.extend(
@@ -86,36 +87,40 @@ impl PreAssertTx {
                     (script, amount)
                 }),
         );
+        warn!(num_scripts=%scripts_and_amounts.len(), event = "added connnector_a256");
+
+        warn!(num_connector_a160_batch=%connector160_batch.len(), event = "a160 batch length");
 
         // add 5 * connector 9_11x_160 + 1 * 7_11x_160
         // the last iteration accounts for the 7_11x_160
-        for _ in 0..(NUM_ASSERT_DATA_TX2 + 1) {
-            scripts_and_amounts.extend(
-                connector160_batch
-                    .iter()
-                    .by_ref()
-                    .take(NUM_ASSERT_DATA_TX2_A160_PK11)
-                    .map(|conn| {
+        connector160_batch
+            .chunks(NUM_ASSERT_DATA_TX2_A160_PK11)
+            .for_each(|conn_batch| {
+                conn_batch.iter().for_each(|conn| {
+                    scripts_and_amounts.push({
                         let script = conn.create_taproot_address().script_pubkey();
                         let amount = script.minimal_non_dust_custom(ASSERT_DATA_FEE_RATE);
 
                         (script, amount)
-                    }),
-            );
-        }
+                    });
+                });
+            });
 
         // add connector 1_2x_160
         let connector160_remainder_script = connector160_remainder
             .create_taproot_address()
             .script_pubkey();
+
         let connector160_remainder_amt =
             connector160_remainder_script.minimal_non_dust_custom(ASSERT_DATA_FEE_RATE);
         scripts_and_amounts.push((connector160_remainder_script, connector160_remainder_amt));
 
+        warn!(num_scripts=%scripts_and_amounts.len(), event = "added connnector_160 residual");
+
         let total_assertion_amount = scripts_and_amounts.iter().map(|(_, amt)| *amt).sum();
         let net_stake = data.input_stake - total_assertion_amount - MIN_RELAY_FEE;
 
-        trace!(event = "calculated net remaining stake", %net_stake);
+        warn!(event = "calculated net remaining stake", %net_stake);
 
         scripts_and_amounts[0].1 = net_stake;
 
@@ -146,7 +151,7 @@ impl PreAssertTx {
             remaining_stake: net_stake,
 
             prevouts,
-            tx_outs,
+            tx_outs: tx_outs.try_into().unwrap(),
             witnesses: witness,
         }
     }
@@ -155,8 +160,8 @@ impl PreAssertTx {
         self.remaining_stake
     }
 
-    pub fn tx_outs(&self) -> &[TxOut] {
-        &self.tx_outs
+    pub fn tx_outs(&self) -> [TxOut; NUM_CONNECTOR_A256 + NUM_CONNECTOR_A160 + 1 + 1] {
+        self.tx_outs.clone()
     }
 
     pub fn finalize(mut self, n_of_n_sig: Signature, connector_c0: ConnectorC0) -> Transaction {

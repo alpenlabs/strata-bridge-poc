@@ -2835,12 +2835,10 @@ mod tests {
 
         let input = AssertDataTxInput {
             pre_assert_txid: mock_txid(),
-            pre_assert_txouts: (0..=TOTAL_CONNECTORS)
-                .map(|i| TxOut {
-                    value: Amount::from_sat(i as u64),
-                    script_pubkey: ScriptBuf::new(),
-                })
-                .collect(),
+            pre_assert_txouts: std::array::from_fn(|i| TxOut {
+                value: Amount::from_sat(i as u64),
+                script_pubkey: ScriptBuf::new(),
+            }),
         };
 
         let connector_a2 = ConnectorS::new(mock_x_only_public_key(), network);

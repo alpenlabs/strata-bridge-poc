@@ -6,7 +6,7 @@ use strata_bridge_primitives::{
         connectors::{
             NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL, NUM_PKS_A256_PER_CONNECTOR,
         },
-        prelude::{NUM_PKS_A160, NUM_PKS_A256, NUM_PKS_A256_RESIDUAL},
+        prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256, NUM_PKS_A160, NUM_PKS_A256, NUM_PKS_A256_RESIDUAL},
     },
     scripts::{prelude::*, wots},
 };
@@ -22,11 +22,12 @@ use crate::{
     },
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct AssertDataTxInput {
     pub pre_assert_txid: Txid,
 
-    pub pre_assert_txouts: Vec<TxOut>,
+    pub pre_assert_txouts: [TxOut; NUM_CONNECTOR_A160 + NUM_CONNECTOR_A256 + 1 + 1], // 1 =>
+    // residual, 1 => stake
 }
 
 #[derive(Debug, Clone)]
@@ -78,7 +79,7 @@ impl AssertDataTxBatch {
             let mut psbt = Psbt::from_unsigned_tx(tx).expect("must have an empty witness");
 
             for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts) {
-                input.witness_utxo = Some(utxo)
+                input.witness_utxo = Some(utxo);
             }
 
             psbt
@@ -160,7 +161,9 @@ impl AssertDataTxBatch {
                 .enumerate()
                 .for_each(|(input_index, conn)| {
                     let range_s = (input_index
+                        // last psbt's utxos
                         + (psbt_index - NUM_ASSERT_DATA_TX1) * NUM_ASSERT_DATA_TX2_A160_PK11)
+                        // this input's last utxo
                         * NUM_PKS_A160_PER_CONNECTOR;
                     let range_e = range_s + NUM_PKS_A160_PER_CONNECTOR;
                     conn.create_tx_input(

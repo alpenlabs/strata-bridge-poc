@@ -43,11 +43,16 @@ impl BitcoinWatcher {
 
         let mut height = self.genesis_height;
         loop {
-            let block = self
-                .client
-                .get_block_at(height)
-                .await
-                .expect("should be able to get block at height");
+            let block = self.client.get_block_at(height).await;
+
+            if let Err(e) = block {
+                if height % 10 == 0 {
+                    warn!(%e, %height, msg = "could not get block");
+                }
+                continue;
+            }
+
+            let block = block.unwrap();
 
             for tx in block.txdata {
                 let txid = tx.compute_txid();
