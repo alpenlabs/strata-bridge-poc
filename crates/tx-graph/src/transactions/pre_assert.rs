@@ -2,7 +2,7 @@ use bitcoin::{sighash::Prevouts, Amount, OutPoint, Psbt, Transaction, TxOut, Txi
 use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
 use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
-use tracing::{trace, warn};
+use tracing::trace;
 
 use super::{
     constants::{NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2_A160_PK11, TOTAL_CONNECTORS},
@@ -72,7 +72,7 @@ impl PreAssertTx {
                                                        // amounts have been calculated for the assertion
 
         scripts_and_amounts.push((connector_s_script, connector_s_amt));
-        warn!(num_scripts=%scripts_and_amounts.len(), event = "added connnector_s");
+        trace!(num_scripts=%scripts_and_amounts.len(), event = "added connnector_s");
 
         // add connector 6_7x_256
         scripts_and_amounts.extend(
@@ -87,9 +87,9 @@ impl PreAssertTx {
                     (script, amount)
                 }),
         );
-        warn!(num_scripts=%scripts_and_amounts.len(), event = "added connnector_a256");
+        trace!(num_scripts=%scripts_and_amounts.len(), event = "added connnector_a256");
 
-        warn!(num_connector_a160_batch=%connector160_batch.len(), event = "a160 batch length");
+        trace!(num_connector_a160_batch=%connector160_batch.len(), event = "a160 batch length");
 
         // add 5 * connector 9_11x_160 + 1 * 7_11x_160
         // the last iteration accounts for the 7_11x_160
@@ -115,12 +115,12 @@ impl PreAssertTx {
             connector160_remainder_script.minimal_non_dust_custom(ASSERT_DATA_FEE_RATE);
         scripts_and_amounts.push((connector160_remainder_script, connector160_remainder_amt));
 
-        warn!(num_scripts=%scripts_and_amounts.len(), event = "added connnector_160 residual");
+        trace!(num_scripts=%scripts_and_amounts.len(), event = "added connnector_160 residual");
 
         let total_assertion_amount = scripts_and_amounts.iter().map(|(_, amt)| *amt).sum();
         let net_stake = data.input_stake - total_assertion_amount - MIN_RELAY_FEE;
 
-        warn!(event = "calculated net remaining stake", %net_stake);
+        trace!(event = "calculated net remaining stake", %net_stake);
 
         scripts_and_amounts[0].1 = net_stake;
 

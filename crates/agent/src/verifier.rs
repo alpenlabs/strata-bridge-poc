@@ -185,7 +185,7 @@ impl Verifier {
                 if let Some(connector_leaf) = connector_leaf {
                     let (locking_script, witness_script) = match connector_leaf {
                         ConnectorA31Leaf::DisproveProof((locking_script, Some(witness_script))) => {
-                            println!("disprove proof");
+                            info!("disproving proof");
                             (locking_script, witness_script)
                         }
                         ConnectorA31Leaf::DisproveSuperblockCommitment(Some((
@@ -204,7 +204,7 @@ impl Verifier {
                                 _public_inputs_hash,
                             )),
                         ) => {
-                            println!("disprove public inputs hash");
+                            info!("disprove public inputs hash");
                             let locking_script =
                                 connector_leaf.clone().generate_locking_script(public_keys);
                             let witness_script = connector_leaf.generate_witness_script();

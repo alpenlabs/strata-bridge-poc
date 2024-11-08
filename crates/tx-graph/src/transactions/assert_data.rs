@@ -1,6 +1,5 @@
 use bitcoin::{OutPoint, Psbt, Transaction, TxOut, Txid};
 use bitvm::signatures::wots::wots256;
-use serde::{Deserialize, Serialize};
 use strata_bridge_primitives::{
     params::{
         connectors::{

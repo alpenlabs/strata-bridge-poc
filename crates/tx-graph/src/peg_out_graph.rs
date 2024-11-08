@@ -10,7 +10,7 @@ use strata_bridge_primitives::{
     scripts::wots,
     types::OperatorIdx,
 };
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::{connectors::prelude::*, transactions::prelude::*};
 
@@ -99,8 +99,8 @@ impl PegOutGraph {
 
         debug!(event = "created assert chain", %operator_idx, %post_assert_txid);
 
-        info!(action = "registering post assert txid for bitcoin watcher", %post_assert_txid, own_index = %operator_idx);
-        db.register_claim_txid(claim_txid, operator_idx, deposit_txid)
+        warn!(action = "registering post assert txid for bitcoin watcher", %post_assert_txid, own_index = %operator_idx);
+        db.register_post_assert_txid(post_assert_txid, operator_idx, deposit_txid)
             .await;
 
         let payout_data = PayoutData {
