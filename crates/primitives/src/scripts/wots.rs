@@ -3105,16 +3105,16 @@ mod tests {
         }
 
         let locking_script = script! {
-            { wots256::checksig_verify(public_keys.0) }
+            { wots256::checksig_verify(public_keys.0, false) }
             for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
 
-            { wots256::checksig_verify(public_keys.1) }
+            { wots256::checksig_verify(public_keys.1, false) }
             for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
 
-            { wots32::checksig_verify(public_keys.2) }
+            { wots32::checksig_verify(public_keys.2, false) }
             for _ in 0..4 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
 
-            { wots256::checksig_verify(public_inputs_hash_public_key) }
+            { wots256::checksig_verify(public_inputs_hash_public_key, false) }
             for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
 
             for _ in 0..32 { OP_FROMALTSTACK }

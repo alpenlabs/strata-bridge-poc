@@ -115,6 +115,16 @@ impl Verifier {
                     .public_db
                     .get_wots_public_keys(operator_id, deposit_txid)
                     .await;
+                // {
+                //     let partial_disprove_scripts =
+                //         self.public_db.get_partial_disprove_scripts().await;
+                //     let disprove_script_lengths = g16::generate_disprove_scripts(
+                //         public_keys.groth16,
+                //         &partial_disprove_scripts,
+                //     )
+                //     .map(|s| s.len());
+                //     println!("disprove script lengths: {:?}", disprove_script_lengths);
+                // }
 
                 let connector_leaf = {
                     // 1. public input hash validation
