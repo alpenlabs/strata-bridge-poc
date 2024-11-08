@@ -7,7 +7,7 @@ use bitvm::{
 use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
 use strata_bridge_primitives::{
     helpers::hash_to_bn254_fq,
-    params::prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256, NUM_PKS_A160_PER_CONNECTOR},
+    params::prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256},
     scripts::{
         parse_witness::{parse_assertion_witnesses, parse_claim_witness},
         wots::{bridge_poc_verification_key, mock, Signatures},
@@ -16,10 +16,7 @@ use strata_bridge_primitives::{
 };
 use strata_bridge_tx_graph::{
     connectors::prelude::ConnectorA31Leaf,
-    transactions::constants::{
-        NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2,
-        NUM_ASSERT_DATA_TX2_A160_PK11,
-    },
+    transactions::constants::{NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1_A256_PK7},
 };
 use tokio::sync::broadcast::{self, error::RecvError};
 use tracing::{debug, error, info, warn};
@@ -248,15 +245,9 @@ impl Verifier {
         &self,
         assert_data_txs: &[Transaction; NUM_ASSERT_DATA_TX],
     ) -> (wots256::Signature, g16::Signatures) {
-        let mut witnesses = assert_data_txs
+        let witnesses = assert_data_txs
             .iter()
             .flat_map(|tx| {
-                // println!("tx.weight: {}", tx.weight());
-                let witness_sizes = tx
-                    .input
-                    .iter()
-                    .map(|txin| txin.witness.size())
-                    .collect::<Vec<_>>();
                 tx.input
                     .iter()
                     .map(|txin| {
@@ -305,9 +296,7 @@ mod tests {
         mock_txid,
         transactions::{
             assert_data::{AssertDataTxBatch, AssertDataTxInput},
-            constants::{
-                NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX2, TOTAL_CONNECTORS,
-            },
+            constants::{NUM_ASSERT_DATA_TX, TOTAL_CONNECTORS},
         },
     };
 
@@ -2904,7 +2893,7 @@ mod tests {
         //     assertions
         // };
 
-        let mut assertions = mock_assertions();
+        let assertions = mock_assertions();
         // disprove public inputs hash disprove proof
         // assertions.superblock_period_start_ts = [1u8; 4]; // assertions.groth16.0[0] = [0u8; 32];
         // assertions.groth16.1[0] = [0u8; 32]; // disprove proof

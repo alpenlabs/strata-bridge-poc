@@ -60,8 +60,9 @@ impl PreAssertTx {
          * transactions. As of this writing, the following configuration yields the lowest
          * number of transactions:
          *
-         * 5 * `AssertDataTx` take 10 A160 connectors and 1 A256 connector each.
-         * Second `AssertDataTx` takes 4 A160<11> connector, 2 A256 connectors, and 1 A160<4>
+         * First, `AssertDataTx` take 7 A256<7> connectors.
+         * Second, 5 * `AssertDataTx` takes 9 A160<11> connector each.
+         * Third, `AssertDataTx` takes  7 A160<11> and 1 A160<2> connector.
          * connector.
          */
         let mut scripts_and_amounts = vec![];
