@@ -2,8 +2,9 @@ use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use bitcoin::{
     hashes::Hash,
+    key::TapTweak,
     sighash::{Prevouts, SighashCache},
-    Address, Amount, OutPoint, TapSighashType, Transaction, TxOut, Txid,
+    Address, Amount, Network, OutPoint, TapSighashType, Transaction, TxOut, Txid,
 };
 use musig2::{KeyAggContext, SecNonce};
 use rand::{rngs::OsRng, RngCore};
@@ -63,6 +64,12 @@ impl Agent {
 
     pub fn secret_key(&self) -> SecretKey {
         SecretKey::from_keypair(&self.keypair)
+    }
+
+    pub fn taproot_address(&self, network: Network) -> Address {
+        let public_key = self.public_key().x_only_public_key().0;
+
+        Address::p2tr_tweaked(public_key.dangerous_assume_tweaked(), network)
     }
 
     pub async fn select_utxo(

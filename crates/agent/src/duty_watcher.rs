@@ -1,5 +1,6 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
+use bitcoin::Txid;
 use strata_bridge_primitives::duties::{BridgeDuties, BridgeDuty};
 use strata_rpc::StrataApiClient;
 use tokio::sync::broadcast;
@@ -17,6 +18,8 @@ pub struct DutyWatcher<StrataClient: StrataApiClient> {
     strata_rpc_client: Arc<StrataClient>,
 
     last_fetched_duty_index: u64,
+
+    dispatched_duties: HashSet<Txid>,
 }
 
 impl<StrataClient: StrataApiClient + Send + Sync> DutyWatcher<StrataClient> {
@@ -25,6 +28,7 @@ impl<StrataClient: StrataApiClient + Send + Sync> DutyWatcher<StrataClient> {
             config,
             strata_rpc_client,
             last_fetched_duty_index: 0,
+            dispatched_duties: HashSet::new(),
         }
     }
 
@@ -46,6 +50,20 @@ impl<StrataClient: StrataApiClient + Send + Sync> DutyWatcher<StrataClient> {
                     info!(event = "fetched duties", %start_index, %stop_index, %num_duties);
 
                     for duty in duties {
+                        let txid = match &duty {
+                            BridgeDuty::SignDeposit(deposit_info) => {
+                                deposit_info.deposit_request_outpoint().txid
+                            }
+                            BridgeDuty::FulfillWithdrawal(withdrawal_info) => {
+                                withdrawal_info.deposit_outpoint().txid
+                            }
+                        };
+
+                        if self.dispatched_duties.contains(&txid) {
+                            debug!(action = "ignoring duplicate duty", %txid);
+                            continue;
+                        }
+
                         debug!(action = "dispatching duty", ?duty);
                         duty_sender.send(duty).expect("should be able to send duty");
                     }

@@ -1,4 +1,4 @@
-use bitcoin::{hashes::Hash, ScriptBuf, Transaction, Txid};
+use bitcoin::{hashes::Hash, Transaction, TxOut, Txid};
 use bitvm::{
     groth16::g16,
     signatures::wots::{wots256, wots32, SignatureImpl},
@@ -6,18 +6,24 @@ use bitvm::{
 };
 use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
 use strata_bridge_primitives::{
+    build_context::{BuildContext, TxBuildContext},
     helpers::hash_to_bn254_fq,
-    params::prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256},
+    params::{
+        prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256},
+        tx::{BTC_CONFIRM_PERIOD, DISPROVER_REWARD},
+    },
     scripts::{
-        parse_witness::{parse_assertion_witnesses, parse_claim_witness},
+        parse_witness::parse_assertion_witnesses,
         wots::{bridge_poc_verification_key, mock, Signatures},
     },
     types::OperatorIdx,
 };
 use strata_bridge_tx_graph::{
-    connectors::prelude::ConnectorA31Leaf,
-    peg_out_graph::PegOutGraph,
-    transactions::constants::{NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1_A256_PK7},
+    connectors::prelude::{ConnectorA30, ConnectorA31, ConnectorA31Leaf},
+    transactions::{
+        constants::{NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1_A256_PK7},
+        prelude::{DisproveData, DisproveTx},
+    },
 };
 use tokio::sync::broadcast::{self, error::RecvError};
 use tracing::{debug, error, info, warn};
@@ -37,6 +43,7 @@ pub enum VerifierDuty {
         operator_id: OperatorIdx,
         deposit_txid: Txid,
 
+        post_assert_tx: Transaction,
         claim_tx: Transaction,
         assert_data_txs: [Transaction; NUM_ASSERT_DATA_TX],
     },
@@ -47,13 +54,20 @@ pub type VerifierIdx = u32;
 #[derive(Debug)]
 pub struct Verifier {
     pub agent: Agent, // required for broadcasting tx
+
+    build_context: TxBuildContext,
+
     public_db: PublicDb,
 }
 
 impl Verifier {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(public_db: PublicDb, agent: Agent) -> Self {
-        Self { public_db, agent }
+    pub fn new(public_db: PublicDb, build_context: TxBuildContext, agent: Agent) -> Self {
+        Self {
+            public_db,
+            build_context,
+            agent,
+        }
     }
 
     pub async fn start(&mut self, duty_receiver: &mut broadcast::Receiver<VerifierDuty>) {
@@ -98,16 +112,18 @@ impl Verifier {
             VerifierDuty::VerifyAssertions {
                 operator_id,
                 deposit_txid,
+
+                post_assert_tx,
                 claim_tx,
                 assert_data_txs,
             } => {
-                warn!("received assertions");
+                info!(event = "verifying assertion", by_operator=%operator_id, for_deposit=%deposit_txid);
 
                 let (superblock_period_start_ts, bridge_out_txid) = self.parse_claim_tx(&claim_tx);
-                warn!("parsed claim tx");
+                info!(event = "parsed claim transaction", superblock_start_ts_size = superblock_period_start_ts.len(), bridge_out_txid_size = %bridge_out_txid.len());
 
                 let (superblock_hash, groth16) = self.parse_assert_data_txs(&assert_data_txs);
-                warn!("parsed assert tx");
+                info!(event = "parsed assert data", ?superblock_hash, wots256_signature_size=%groth16.0.len(), groth16_signature_size=%groth16.1.len());
 
                 let signatures = Signatures {
                     bridge_out_txid,
@@ -115,12 +131,13 @@ impl Verifier {
                     superblock_period_start_ts,
                     groth16,
                 };
-                warn!("extracted signatures");
+                info!(event = "constructed signatures");
 
                 let public_keys = self
                     .public_db
                     .get_wots_public_keys(operator_id, deposit_txid)
                     .await;
+
                 // {
                 //     let partial_disprove_scripts =
                 //         self.public_db.get_partial_disprove_scripts().await;
@@ -134,6 +151,8 @@ impl Verifier {
 
                 let connector_leaf = {
                     // 1. public input hash validation
+                    info!(action = "validating public input hash");
+
                     let public_inputs: mock::BridgeProofPublicParams = (
                         deposit_txid.to_byte_array(),
                         superblock_hash.parse(),
@@ -149,7 +168,7 @@ impl Verifier {
                         committed_public_inputs_hash.map(|b| ((b & 0xf0) >> 4) | ((b & 0x0f) << 4));
 
                     if public_inputs_hash != committed_public_inputs_hash {
-                        println!("public inputs hash mismatch");
+                        warn!(msg = "public inputs hash mismatch");
                         Some(ConnectorA31Leaf::DisprovePublicInputsCommitment(
                             deposit_txid,
                             Some((
@@ -163,9 +182,9 @@ impl Verifier {
                         // 2. do superblock validation
                         let is_superblock_invalid = false;
                         if is_superblock_invalid {
-                            None
+                            unreachable!("always false for now");
                         } else {
-                            println!("verifying groth16 assertions");
+                            info!(action = "verifying groth16 assertions");
                             // 3. groth16 proof validation
                             if let Some((tapleaf_index, witness_script)) =
                                 g16::verify_signed_assertions(
@@ -190,54 +209,62 @@ impl Verifier {
                     }
                 };
 
-                if let Some(connector_leaf) = connector_leaf {
-                    let (locking_script, witness_script) = match connector_leaf {
-                        ConnectorA31Leaf::DisproveProof((locking_script, Some(witness_script))) => {
-                            info!("disproving proof");
-                            (locking_script, witness_script)
-                        }
-                        ConnectorA31Leaf::DisproveSuperblockCommitment(Some((
-                            _superblock_hash,
-                            _superblock_period_start_ts,
-                            _serialized_superblock_header,
-                        ))) => {
-                            unimplemented!("superblock disprover not implemented yet");
-                        }
-                        ConnectorA31Leaf::DisprovePublicInputsCommitment(
-                            _deposit_txid,
-                            Some((
-                                _superblock_hash,
-                                _bridge_out_txid,
-                                _superblock_period_start_ts,
-                                _public_inputs_hash,
-                            )),
-                        ) => {
-                            info!("disprove public inputs hash");
-                            let locking_script =
-                                connector_leaf.clone().generate_locking_script(public_keys);
-                            let witness_script = connector_leaf.generate_witness_script();
-                            (locking_script, witness_script)
-                        }
-                        _ => unimplemented!(),
+                const STAKE_OUTPUT_INDEX: usize = 0;
+                if let Some(disprove_leaf) = connector_leaf {
+                    let disprove_tx_data = DisproveData {
+                        post_assert_txid: post_assert_tx.compute_txid(),
+                        deposit_txid,
+                        input_stake: post_assert_tx
+                            .tx_out(STAKE_OUTPUT_INDEX)
+                            .expect("stake output must exist in post-assert tx")
+                            .value,
+                        network: self.build_context.network(),
                     };
 
-                    // let pg = PegOutGraph::generate(input, deposit_txid, connectors, operator_idx,
-                    // db)
+                    let connector_a30 = ConnectorA30::new(
+                        self.build_context.aggregated_pubkey(),
+                        self.build_context.network(),
+                        self.public_db.clone(),
+                    );
+                    let connector_a31 =
+                        ConnectorA31::new(self.build_context.network(), self.public_db.clone());
 
-                    let script = script! {
-                        { witness_script }
-                        { locking_script }
+                    let disprove_tx = DisproveTx::new(
+                        disprove_tx_data,
+                        operator_id,
+                        connector_a30.clone(),
+                        connector_a31.clone(),
+                    )
+                    .await;
+
+                    let reward_out = TxOut {
+                        value: DISPROVER_REWARD,
+                        script_pubkey: self
+                            .agent
+                            .taproot_address(self.build_context.network())
+                            .script_pubkey(),
                     };
-                    let res = execute_script(script);
-                    for i in 0..res.final_stack.len() {
-                        println!("{i:3}: {:?}", res.final_stack.get(i));
-                    }
+                    let signed_disprove_tx = disprove_tx
+                        .finalize(
+                            connector_a30,
+                            connector_a31,
+                            reward_out,
+                            deposit_txid,
+                            operator_id,
+                            disprove_leaf,
+                        )
+                        .await;
 
-                    assert!(res.success, "disprove script failed")
+                    let disprove_txid = self
+                        .agent
+                        .wait_and_broadcast(&signed_disprove_tx, BTC_CONFIRM_PERIOD)
+                        .await
+                        .expect("should settle disprove tx correctly");
 
-                    // build graph for operator_idx, and deposit_txid
-                    // finalize disprove tx and submit to bitcoin
+                    info!(event = "broadcasted disprove tx successfully", %disprove_txid, %deposit_txid, %operator_id);
                 }
+                // build graph for operator_idx, and deposit_txid
+                info!(action = "constructing disprove tx", for_operator_id=%operator_id, %deposit_txid);
             }
         }
     }
@@ -307,9 +334,11 @@ impl Verifier {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use bitcoin::{
-        absolute::LockTime, hashes::Hash, transaction::Version, Amount, OutPoint, ScriptBuf,
-        Sequence, TxIn, TxOut, Txid, Witness, XOnlyPublicKey,
+        absolute::LockTime, hashes::Hash, transaction::Version, Amount, Network, OutPoint,
+        ScriptBuf, Sequence, TxIn, TxOut, Txid, Witness, XOnlyPublicKey,
     };
     use bitvm::{
         groth16::g16,
@@ -318,8 +347,12 @@ mod tests {
     };
     use secp256k1::{Keypair, Secp256k1, SECP256K1};
     use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
-    use strata_bridge_primitives::scripts::wots::{
-        generate_wots_public_keys, generate_wots_signatures, mock, Assertions, Signatures,
+    use strata_bridge_primitives::{
+        build_context::TxBuildContext,
+        scripts::wots::{
+            generate_wots_public_keys, generate_wots_signatures, mock, Assertions, Signatures,
+        },
+        types::PublickeyTable,
     };
     use strata_bridge_tx_graph::{
         connectors::{
@@ -329,7 +362,7 @@ mod tests {
         mock_txid,
         transactions::{
             assert_data::{AssertDataTxBatch, AssertDataTxInput},
-            constants::{NUM_ASSERT_DATA_TX, TOTAL_CONNECTORS},
+            constants::NUM_ASSERT_DATA_TX,
         },
     };
 
@@ -2903,8 +2936,10 @@ mod tests {
 
         let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
         let agent = Agent::new(keypair, "abc", "abc", "abc");
+        let context =
+            TxBuildContext::new(Network::Regtest, PublickeyTable::from(BTreeMap::new()), 0);
 
-        let mut verifier = Verifier::new(db.clone(), agent);
+        let mut verifier = Verifier::new(db.clone(), context, agent);
 
         println!("generating assertions");
         // let assertions = {
@@ -2928,7 +2963,7 @@ mod tests {
         //     assertions
         // };
         // return;
-        let mut assertions = mock_assertions();
+        let assertions = mock_assertions();
         // disprove public inputs hash disprove proof
         assertions.superblock_period_start_ts = [1u8; 4]; // assertions.groth16.0[0] = [0u8; 32];
                                                           // assertions.groth16.1[0] = [0u8; 32]; // disprove proof
@@ -2961,6 +2996,10 @@ mod tests {
         let duty = VerifierDuty::VerifyAssertions {
             operator_id,
             deposit_txid,
+
+            post_assert_tx: claim_tx.clone(), /* FIXME: this should be post-assert tx (this is
+                                               * okay for
+                                               * test for now) */
             claim_tx,
             assert_data_txs,
         };
@@ -2987,8 +3026,10 @@ mod tests {
 
         let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
         let agent = Agent::new(keypair, "", "", "");
+        let context =
+            TxBuildContext::new(Network::Regtest, PublickeyTable::from(BTreeMap::new()), 0);
 
-        let mut verifier = Verifier::new(db.clone(), agent);
+        let mut verifier = Verifier::new(db.clone(), context, agent);
 
         fn invalidate_groth16_assertions(assertions: &mut Assertions, i: usize, j: u8) {
             match i {
@@ -3037,6 +3078,7 @@ mod tests {
             let duty = VerifierDuty::VerifyAssertions {
                 operator_id,
                 deposit_txid,
+                post_assert_tx: claim_tx.clone(),
                 claim_tx,
                 assert_data_txs,
             };

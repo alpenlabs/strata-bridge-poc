@@ -1,10 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use bitcoin::{Transaction, Txid};
-use strata_bridge_btcio::{
-    traits::{Reader, Wallet},
-    BitcoinClient,
-};
+use strata_bridge_btcio::{traits::Reader, BitcoinClient};
 use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
 use strata_bridge_tx_graph::transactions::constants::NUM_ASSERT_DATA_TX;
 use tokio::sync::broadcast;
@@ -143,6 +140,8 @@ impl BitcoinWatcher {
         VerifierDuty::VerifyAssertions {
             operator_id,
             deposit_txid,
+
+            post_assert_tx,
             claim_tx,
             assert_data_txs,
         }

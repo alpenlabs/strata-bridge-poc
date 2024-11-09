@@ -1,6 +1,6 @@
-use bitcoin::{Address, Amount, Network, OutPoint, Transaction};
+use bitcoin::{key::TapTweak, Address, Amount, Network, OutPoint, Transaction};
 use rand::Rng;
-use secp256k1::{XOnlyPublicKey, SECP256K1};
+use secp256k1::XOnlyPublicKey;
 use strata_bridge_primitives::{
     scripts::general::{create_tx, create_tx_ins, create_tx_outs, op_return_nonce},
     types::OperatorIdx,
@@ -20,7 +20,8 @@ impl BridgeOut {
         recipient_key: XOnlyPublicKey,
     ) -> Self {
         let tx_ins = create_tx_ins(sender_outpoints);
-        let recipient_address = Address::p2tr(SECP256K1, recipient_key, None, network);
+        let recipient_address =
+            Address::p2tr_tweaked(recipient_key.dangerous_assume_tweaked(), network);
         let recipient_pubkey = recipient_address.script_pubkey();
 
         let change_pubkey = change_address.script_pubkey();

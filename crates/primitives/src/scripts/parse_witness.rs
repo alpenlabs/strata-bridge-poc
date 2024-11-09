@@ -162,6 +162,7 @@ mod tests {
             std::array::from_fn(|i| (digits[2 * i + 1] << 4) + digits[2 * i])
         }
 
+        #[expect(unused)]
         fn parse_claim_witness(data: Vec<Vec<u8>>) -> (u32, [u8; 32]) {
             let mut digits = data
                 .chunks_exact(2)
