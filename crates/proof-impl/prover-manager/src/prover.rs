@@ -1,6 +1,7 @@
 use anyhow::Context;
-use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1VerifyingKey};
+use sp1_sdk::{HashableKey, ProverClient, SP1ProofWithPublicValues, SP1VerifyingKey};
 use strata_bridge_guest_builder::GUEST_BRIDGE_ELF;
+use strata_primitives::vk;
 use strata_proofimpl_bitvm_bridge::BridgeProofInput;
 use strata_sp1_adapter::SP1ProofInputBuilder;
 use strata_state::chain_state::ChainState;
@@ -9,7 +10,7 @@ use strata_zkvm::{Proof, ZKVMInputBuilder};
 pub fn make_proof(
     proof_input: BridgeProofInput,
     chain_state: ChainState,
-) -> anyhow::Result<(SP1ProofWithPublicValues, SP1VerifyingKey, Proof)> {
+) -> anyhow::Result<(SP1ProofWithPublicValues, String, SP1VerifyingKey, Proof)> {
     let mut input_builder = SP1ProofInputBuilder::new();
     input_builder.write(&proof_input).unwrap();
     input_builder.write_borsh(&chain_state).unwrap();
@@ -34,7 +35,12 @@ pub fn make_proof(
             .raw_proof,
     )
     .context("Failed to decode Groth16 proof")?;
-    anyhow::Ok((proof, vkey, Proof::new(sp1_groth16_proof_bytes)))
+    anyhow::Ok((
+        proof,
+        vkey.bytes32(),
+        vkey,
+        Proof::new(sp1_groth16_proof_bytes),
+    ))
 }
 
 #[cfg(test)]
@@ -51,6 +57,7 @@ mod test {
 
     #[test]
     fn test_proof_generation_and_save() {
+        sp1_sdk::utils::setup_logger();
         let proof_input_raw = include_bytes!("../../bitvm-bridge/inputs/process_blocks_input.bin");
         let chain_state_raw = include_bytes!("../../bitvm-bridge/inputs/chain_state.bin");
 

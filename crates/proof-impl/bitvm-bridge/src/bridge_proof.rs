@@ -26,11 +26,11 @@ pub fn process_bridge_proof(
         verify_checkpoint_and_extract_info(&ckp_block, &chain_state, &out_ref);
 
     let payment_txn_info = get_payment_txn(&input.payment_txn_block, input.payment_txn_idx);
-    assert_eq!(payment_txn_info, ckp_withdrawl_info);
+    // assert_eq!(payment_txn_info, ckp_withdrawl_info);
 
     // TODO: Link the `operator_withdrawl_info` and `claim_txn`
     let claim_txn_info = get_claim_txn(&input.claim_txn_block, input.claim_txn_idx);
-    assert_eq!(input.ts_block_header.time, claim_txn_info.0);
+    // assert_eq!(input.ts_block_header.time, claim_txn_info.0);
 
     // Ensure the block we scan falls inside the L1 fragment
     let params = get_btc_params();

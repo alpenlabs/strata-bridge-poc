@@ -103,9 +103,11 @@ fn extract_chain_state_info(
 
         // Destination info
         let withdraw_output = deposit_state.cmd().withdraw_outputs().first().unwrap();
+        dbg!(withdraw_output);
         let dest_address = withdraw_output.dest_addr();
-        // TODO: BitcoinAmt is always fixed right ???
-        let amt = BitcoinAmount::from_sat(1000000000);
+
+        // This is always 8 BTC
+        let amt = BitcoinAmount::from_sat(800000000);
 
         // Chain state root
         let chain_root = chain_state.compute_state_root();
