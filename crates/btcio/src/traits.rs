@@ -81,6 +81,13 @@ pub trait Reader {
     /// Gets all transaction ids in mempool.
     async fn get_raw_mempool(&self) -> ClientResult<Vec<Txid>>;
 
+    /// Get a specific transaction with a block hash (or if part of the wallet)
+    async fn get_raw_transaction(
+        &self,
+        txid: &Txid,
+        block_hash: Option<&BlockHash>,
+    ) -> ClientResult<Transaction>;
+
     /// Gets the underlying [`Network`] information.
     async fn network(&self) -> ClientResult<Network>;
 }

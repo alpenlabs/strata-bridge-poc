@@ -7,8 +7,10 @@ use std::{
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine};
 use bitcoin::{
-    bip32::Xpriv, block::Header, consensus::encode::serialize_hex, Address, Block, BlockHash,
-    Network, Transaction, Txid,
+    bip32::Xpriv,
+    block::Header,
+    consensus::encode::{self, serialize_hex},
+    Address, Block, BlockHash, Network, Transaction, Txid,
 };
 use reqwest::{
     header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE},
@@ -320,6 +322,17 @@ impl Reader for BitcoinClient {
         self.call::<Vec<Txid>>("getrawmempool", &[]).await
     }
 
+    async fn get_raw_transaction(
+        &self,
+        txid: &Txid,
+        block_hash: Option<&BlockHash>,
+    ) -> ClientResult<Transaction> {
+        let args = [to_value(txid)?, to_value(false)?, to_value(block_hash)?];
+        let hex: String = self.call("getrawtransaction", &args).await?;
+
+        Ok(encode::deserialize_hex(&hex).map_err(|e| ClientError::Parse(e.to_string()))?)
+    }
+
     async fn network(&self) -> ClientResult<Network> {
         Ok(self
             .call::<GetBlockchainInfo>("getblockchaininfo", &[])
@@ -349,7 +362,7 @@ impl Broadcaster for BitcoinClient {
             }
             Err(ClientError::Server(i, s)) => match i {
                 // Dealing with known and common errors
-                -27 => Ok(tx.compute_txid()), // Tx already in chain
+                -27 | -25 => Ok(tx.compute_txid()), // Tx already in chain
                 _ => Err(ClientError::Server(i, s)),
             },
             Err(e) => Err(ClientError::Other(e.to_string())),

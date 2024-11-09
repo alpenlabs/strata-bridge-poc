@@ -3,6 +3,7 @@ use bitvm::{
     groth16::g16,
     signatures::wots::{wots160, wots256, wots32},
 };
+use serde::Deserialize;
 
 use super::{
     commitments::{
@@ -15,8 +16,11 @@ use super::{
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PublicKeys {
     pub bridge_out_txid: wots256::PublicKey,
+
     pub superblock_hash: wots256::PublicKey,
+
     pub superblock_period_start_ts: wots32::PublicKey,
+
     pub groth16: g16::PublicKeys,
 }
 

@@ -14,6 +14,8 @@ use crate::{connectors::prelude::*, transactions::constants::NUM_ASSERT_DATA_TX}
 pub struct PostAssertTxData {
     pub assert_data_txids: Vec<Txid>,
 
+    pub pre_assert_txid: Txid,
+
     pub input_amount: Amount,
 
     pub deposit_txid: Txid,
@@ -38,10 +40,19 @@ impl PostAssertTx {
         connector_a30: ConnectorA30<Db>,
         connector_a31: ConnectorA31<Db>,
     ) -> Self {
-        let utxos = data.assert_data_txids.iter().map(|txid| OutPoint {
-            txid: *txid,
+        // +1 for stake
+        let total_inputs = NUM_ASSERT_DATA_TX + 1;
+        let mut utxos = Vec::with_capacity(total_inputs);
+        utxos.push(OutPoint {
+            txid: data.pre_assert_txid,
             vout: 0,
         });
+
+        utxos.extend(data.assert_data_txids.iter().map(|txid| OutPoint {
+            txid: *txid,
+            vout: 0,
+        }));
+
         let tx_ins = create_tx_ins(utxos);
 
         trace!(event = "created tx ins", count = tx_ins.len(), %operator_idx);
@@ -79,19 +90,23 @@ impl PostAssertTx {
         let mut psbt = Psbt::from_unsigned_tx(tx).expect("witness should be empty");
 
         let assert_data_output_script = connector_a2.create_taproot_address().script_pubkey();
-        let prevouts = (0..NUM_ASSERT_DATA_TX)
+
+        let mut prevouts = (0..total_inputs)
             .map(|_| TxOut {
                 script_pubkey: assert_data_output_script.clone(),
                 value: assert_data_output_script.minimal_non_dust(),
             })
             .collect::<Vec<TxOut>>();
+
+        prevouts[0].value = data.input_amount; // from the stake
+
         trace!(event = "created prevouts", count = prevouts.len(), %operator_idx);
 
         for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts.clone()) {
             input.witness_utxo = Some(utxo);
         }
 
-        let witnesses = vec![TaprootWitness::Key; NUM_ASSERT_DATA_TX];
+        let witnesses = vec![TaprootWitness::Key; total_inputs];
 
         Self {
             psbt,
@@ -107,6 +122,7 @@ impl PostAssertTx {
     }
 
     pub fn finalize(mut self, signatures: &[Signature]) -> Transaction {
+        // skip the stake
         for (index, input) in self.psbt.inputs.iter_mut().enumerate() {
             finalize_input(input, [signatures[index].as_ref()]);
         }

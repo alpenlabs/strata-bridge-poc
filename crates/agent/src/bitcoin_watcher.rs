@@ -75,6 +75,7 @@ impl BitcoinWatcher {
                     .get_operator_and_deposit_for_post_assert(&txid)
                     .await
                 {
+                    info!(event = "noticed post-assert transaction", by_operator=%operator_idx, for_deposit_txid=%deposit_txid);
                     let duty = self.handle_assertion(tx, operator_idx, deposit_txid).await;
 
                     debug!(action = "dispatching disprove duty for verifier", post_assert_txid=%txid);
@@ -104,19 +105,24 @@ impl BitcoinWatcher {
         deposit_txid: Txid,
     ) -> VerifierDuty {
         let mut assert_data_txs = Vec::new();
-        for txin in post_assert_tx.input {
-            let txid = txin.previous_output.txid;
+        // skip the first input i.e., the stake
+        for txin in post_assert_tx.input.iter().skip(1) {
+            let txid = &txin.previous_output.txid;
 
             let tx = self
                 .client
-                .get_transaction(&txid)
+                .get_raw_transaction(txid, None)
                 .await
                 .expect("should be able to fetch post_assert tx");
 
-            let tx = tx.hex;
-
             assert_data_txs.push(tx);
         }
+
+        assert_eq!(
+            assert_data_txs.len(),
+            NUM_ASSERT_DATA_TX,
+            "number of assert data txs must be as expected"
+        );
 
         let assert_data_txs: [Transaction; NUM_ASSERT_DATA_TX] = assert_data_txs
             .try_into()
@@ -124,16 +130,15 @@ impl BitcoinWatcher {
 
         let pre_assert_tx = self
             .client
-            .get_transaction(&assert_data_txs[0].compute_txid())
+            .get_raw_transaction(&assert_data_txs[0].compute_txid(), None)
             .await
-            .expect("should be able to get pre-assert tx")
-            .hex;
+            .expect("should be able to get pre-assert tx");
+
         let claim_tx = self
             .client
-            .get_transaction(&pre_assert_tx.compute_txid())
+            .get_raw_transaction(&pre_assert_tx.compute_txid(), None)
             .await
-            .expect("should be able to get claim tx")
-            .hex;
+            .expect("should be able to get claim tx");
 
         VerifierDuty::VerifyAssertions {
             operator_id,

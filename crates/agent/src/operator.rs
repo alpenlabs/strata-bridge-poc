@@ -1479,7 +1479,8 @@ impl Operator {
 
         let post_assert_txid = post_assert.compute_txid();
         let mut signatures = Vec::new();
-        for input_index in 0..num_assert_data_txs {
+        // num_assert_data_tx + 1 for stake
+        for input_index in 0..=num_assert_data_txs {
             let n_of_n_sig = self
                 .public_db
                 .get_signature(own_index, post_assert_txid, input_index as u32)

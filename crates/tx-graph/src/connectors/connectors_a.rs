@@ -183,14 +183,14 @@ pub struct ConnectorA160<const N_PUBLIC_KEYS: usize> {
 impl<const N_PUBLIC_KEYS: usize> ConnectorA160<N_PUBLIC_KEYS> {
     pub fn create_locking_script(&self) -> ScriptBuf {
         script! {
-            // for &public_key in self.public_keys.iter().rev() {
-            //     { wots160::checksig_verify(public_key, true) }
-            // }
-            for _ in 0..self.public_keys.len() {
-                for _ in 0..self.public_keys[0].len() {
-                    OP_2DROP
-                }
+            for &public_key in self.public_keys.iter().rev() {
+                { wots160::checksig_verify(public_key, true) }
             }
+            // for _ in 0..self.public_keys.len() {
+            //     for _ in 0..self.public_keys[0].len() {
+            //         OP_2DROP
+            //     }
+            // }
             OP_TRUE
         }
         .compile()
