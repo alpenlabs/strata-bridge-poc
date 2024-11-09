@@ -3,7 +3,9 @@ use bitcoin::{
 };
 use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::{
-    params::prelude::UNSPENDABLE_INTERNAL_KEY, scripts::prelude::*, types::OperatorIdx,
+    params::{prelude::UNSPENDABLE_INTERNAL_KEY, tx::DISPROVER_REWARD},
+    scripts::prelude::*,
+    types::OperatorIdx,
 };
 
 use super::covenant_tx::CovenantTx;
@@ -61,7 +63,7 @@ impl DisproveTx {
 
         let tx_outs = create_tx_outs([
             (burn_script, burn_amount),
-            (ScriptBuf::new(), Amount::from_int_btc(0)),
+            (anyone_can_spend_script(), DISPROVER_REWARD),
         ]);
 
         let tx = create_tx(tx_ins, tx_outs);

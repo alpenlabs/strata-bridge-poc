@@ -14,6 +14,7 @@ use strata_bridge_primitives::{
     },
     scripts::{
         parse_witness::parse_assertion_witnesses,
+        prelude::anyone_can_spend_script,
         wots::{bridge_poc_verification_key, mock, Signatures},
     },
     types::OperatorIdx,
@@ -240,10 +241,11 @@ impl Verifier {
 
                     let reward_out = TxOut {
                         value: DISPROVER_REWARD,
-                        script_pubkey: self
-                            .agent
-                            .taproot_address(self.build_context.network())
-                            .script_pubkey(),
+                        script_pubkey: anyone_can_spend_script(),
+                        // script_pubkey: self
+                        //     .agent
+                        //     .taproot_address(self.build_context.network())
+                        //     .script_pubkey(),
                     };
                     let signed_disprove_tx = disprove_tx
                         .finalize(
