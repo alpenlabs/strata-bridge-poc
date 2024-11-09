@@ -25,14 +25,12 @@ pub fn process_bridge_proof(
     let (ckp_withdrawl_info, batch_info) =
         verify_checkpoint_and_extract_info(&ckp_block, &chain_state, &out_ref);
 
-    // TODO: Actual parsing of the payment txn
-    // TODO: Match the info from `ckp_withdrawl_info` & `payment_txn_info`
     let payment_txn_info = get_payment_txn(&input.payment_txn_block, input.payment_txn_idx);
+    assert_eq!(payment_txn_info, ckp_withdrawl_info);
 
-    // TODO: Actual parsing of the claim txn
-    // TODO: assert ts_block_header.timestamp == claim_txn_info.ts
     // TODO: Link the `operator_withdrawl_info` and `claim_txn`
     let claim_txn_info = get_claim_txn(&input.claim_txn_block, input.claim_txn_idx);
+    assert_eq!(input.ts_block_header.time, claim_txn_info.0);
 
     // Ensure the block we scan falls inside the L1 fragment
     let params = get_btc_params();
