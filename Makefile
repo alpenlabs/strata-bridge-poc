@@ -197,8 +197,8 @@ run:
 		--btc-url http://localhost:18443 \
 		--btc-user rpcuser \
 		--btc-pass rpcpassword \
-		--btc-genesis-height 13040 \
-		--btc-scan-interval 100 \
+		--btc-genesis-height 210 \
+		--btc-scan-interval 390 \
 		--fault-tolerance 0 \
 		--duty-interval 30000 \
 		--num-threads 4 \

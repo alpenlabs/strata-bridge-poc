@@ -211,6 +211,7 @@ impl Verifier {
 
                 const STAKE_OUTPUT_INDEX: usize = 0;
                 if let Some(disprove_leaf) = connector_leaf {
+                    info!(action = "constructing disprove tx", for_operator_id=%operator_id, %deposit_txid);
                     let disprove_tx_data = DisproveData {
                         post_assert_txid: post_assert_tx.compute_txid(),
                         deposit_txid,
@@ -255,6 +256,13 @@ impl Verifier {
                         )
                         .await;
 
+                    {
+                        let vsize = signed_disprove_tx.vsize();
+                        let total_size = signed_disprove_tx.total_size();
+                        let weight = signed_disprove_tx.weight();
+                        info!(event = "finalized pre-assert tx", txid = %signed_disprove_tx.compute_txid(), %vsize, %total_size, %weight);
+                    }
+
                     let disprove_txid = self
                         .agent
                         .wait_and_broadcast(&signed_disprove_tx, BTC_CONFIRM_PERIOD)
@@ -263,8 +271,6 @@ impl Verifier {
 
                     info!(event = "broadcasted disprove tx successfully", %disprove_txid, %deposit_txid, %operator_id);
                 }
-                // build graph for operator_idx, and deposit_txid
-                info!(action = "constructing disprove tx", for_operator_id=%operator_id, %deposit_txid);
             }
         }
     }
@@ -2936,8 +2942,11 @@ mod tests {
 
         let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
         let agent = Agent::new(keypair, "abc", "abc", "abc");
-        let context =
-            TxBuildContext::new(Network::Regtest, PublickeyTable::from(BTreeMap::new()), 0);
+        let context = TxBuildContext::new(
+            Network::Regtest,
+            PublickeyTable::from(BTreeMap::from([(0, keypair.public_key())])),
+            0,
+        );
 
         let mut verifier = Verifier::new(db.clone(), context, agent);
 
@@ -2963,7 +2972,7 @@ mod tests {
         //     assertions
         // };
         // return;
-        let assertions = mock_assertions();
+        let mut assertions = mock_assertions();
         // disprove public inputs hash disprove proof
         assertions.superblock_period_start_ts = [1u8; 4]; // assertions.groth16.0[0] = [0u8; 32];
                                                           // assertions.groth16.1[0] = [0u8; 32]; // disprove proof
