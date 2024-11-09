@@ -64,6 +64,8 @@ impl BitcoinWatcher {
 
                     warn!(action = "not dispatching challenge duty for now as it is unimplemented");
 
+                    self.relevant_txs.write().await.insert(txid, tx);
+
                     // FIXME: uncomment when `handle_claim()` is updated
                     // let duty = self.handle_claim().await;
                     // debug!(action = "dispatching challenge duty for verifier", claim_txid=%txid);
