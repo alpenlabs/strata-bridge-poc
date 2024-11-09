@@ -67,11 +67,18 @@ pub fn process_bridge_proof(
 
 #[cfg(test)]
 mod test {
-    use std::{fs::File, io::Write};
+    use std::{
+        fs::File,
+        io::{Chain, Write},
+    };
 
     use prover_test_utils::{get_bitcoin_client, get_chain_state, get_header_verification_data};
     use strata_btcio::rpc::traits::Reader;
-    use strata_state::chain_state::ChainState;
+    use strata_primitives::buf::Buf32;
+    use strata_state::{
+        batch::BatchCheckpoint, block::L2Block, chain_state::ChainState, tx::ProtocolOperation,
+    };
+    use strata_tx_parser::filter::{filter_relevant_txs, TxFilterRule};
 
     use crate::bridge_proof::{process_bridge_proof, BridgeProofInput, CheckpointInput};
 
@@ -93,18 +100,60 @@ mod test {
         bridge_proof_file.write_all(&bridge_proof_ip_ser).unwrap();
     }
 
+    async fn get_all_checkpoint_infos(from: u64, to: u64) -> Vec<(u64, BatchCheckpoint)> {
+        // Initialize Bitcoin client
+        let btc_client = get_bitcoin_client();
+        let mut checkpoints = vec![];
+
+        for height in from..to {
+            let block = btc_client.get_block_at(height).await.unwrap();
+            let tx_filters = [TxFilterRule::RollupInscription("alpenstrata".to_string())];
+            let relevant_txs = filter_relevant_txs(&block, &tx_filters);
+
+            for tx in relevant_txs {
+                if let ProtocolOperation::RollupInscription(signed_batch) = tx.proto_op() {
+                    // TODO: Apply cred rule
+                    let batch: BatchCheckpoint = signed_batch.clone().into();
+                    checkpoints.push((height, batch));
+                }
+            }
+        }
+        checkpoints
+    }
+
+    #[tokio::test]
+    async fn test_checkpoint() {
+        let checkpoints = get_all_checkpoint_infos(1910, 1950).await;
+        dbg!(checkpoints);
+    }
+
+    #[tokio::test]
+    async fn find_superblock() {
+        // Initialize Bitcoin client
+        let btc_client = get_bitcoin_client();
+
+        let start = 101;
+        let end = 110;
+
+        let mut super_block = Buf32([u8::MAX; 32].into());
+        for height in start..end {
+            let block_hash = btc_client.get_block_hash(height).await.unwrap();
+        }
+    }
+
     #[tokio::test]
     async fn test_process_blocks() {
         // Block numbers for the test
         let genesis_block: u64 = 0;
-        let ckp_block_num: u64 = 787;
+
+        let ckp_block_num: u64 = 1919;
         let start_block_num: u64 = ckp_block_num - 1;
-        let end_block_num = 811;
+        let end_block_num = 2100;
 
         // Transaction block numbers
-        let payment_txn_block_num: u64 = 790;
-        let ts_block_num: u64 = 793;
-        let claim_txn_block_num: u64 = 799;
+        let payment_txn_block_num: u64 = 1931;
+        let ts_block_num: u64 = payment_txn_block_num + 1;
+        let claim_txn_block_num: u64 = 1949;
 
         // Retrieve header verification data
         let (start_header_state, headers) =
@@ -135,8 +184,8 @@ mod test {
             payment_txn_block,
             claim_txn_block,
             ts_block_header,
-            claim_txn_idx: 0,
-            payment_txn_idx: 0,
+            claim_txn_idx: 2,
+            payment_txn_idx: 1,
             headers,
             start_header_state,
         };
