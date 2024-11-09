@@ -58,4 +58,28 @@ pub trait ConnectorDb: Clone + Debug + Send + Sync {
         &self,
         post_assert_txid: &Txid,
     ) -> Option<(OperatorIdx, Txid)>;
+
+    async fn register_assert_data_txids(
+        &self,
+        assert_data_txids: [Txid; 7],
+        operator_idx: OperatorIdx,
+        deposit_txid: Txid,
+    );
+
+    async fn get_operator_and_deposit_for_assert_data(
+        &self,
+        assert_data_txid: &Txid,
+    ) -> Option<(OperatorIdx, Txid)>;
+
+    async fn register_pre_assert_txid(
+        &self,
+        pre_assert_data_txid: Txid,
+        operator_idx: OperatorIdx,
+        deposit_txid: Txid,
+    );
+
+    async fn get_operator_and_deposit_for_pre_assert(
+        &self,
+        pre_assert_data_txid: &Txid,
+    ) -> Option<(OperatorIdx, Txid)>;
 }

@@ -64,6 +64,8 @@ impl<StrataClient: StrataApiClient + Send + Sync> DutyWatcher<StrataClient> {
                             continue;
                         }
 
+                        self.dispatched_duties.insert(txid);
+
                         debug!(action = "dispatching duty", ?duty);
                         duty_sender.send(duty).expect("should be able to send duty");
                     }

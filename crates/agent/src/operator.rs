@@ -39,6 +39,7 @@ use strata_bridge_primitives::{
     withdrawal::WithdrawalInfo,
 };
 use strata_bridge_tx_graph::{
+    connectors::params::PAYOUT_TIMELOCK,
     peg_out_graph::{PegOutGraph, PegOutGraphConnectors, PegOutGraphInput},
     transactions::prelude::*,
 };
@@ -759,7 +760,7 @@ impl Operator {
         let disprove_partial_sigs = self
             .sign_partial(
                 &key_agg_ctx,
-                TapSighashType::Single,
+                TapSighashType::Default,
                 1,
                 own_index,
                 operator_index,
@@ -1402,7 +1403,7 @@ impl Operator {
             kickoff_tx,
             claim_tx,
             assert_chain,
-            payout_tx: _,
+            payout_tx,
             disprove_tx: _,
         } = PegOutGraph::generate(
             peg_out_graph_input,
@@ -1518,7 +1519,27 @@ impl Operator {
             .expect("should be able to finalize post-assert tx");
 
         info!(event = "broadcasted post-assert tx", %post_assert_txid, %own_index);
+
         // 6. settle reimbursement tx after wait time
+        let wait_time = Duration::from_secs(PAYOUT_TIMELOCK as u64 + 20);
+        info!(action = "waiting for timeout period before seeking reimbursement", wait_time_secs=%wait_time.as_secs());
+        tokio::time::sleep(wait_time).await;
+
+        let n_of_n_signature = self
+            .public_db
+            .get_signature(own_index, payout_tx.compute_txid(), 0)
+            .await;
+        let signed_payout_tx = payout_tx.finalize(n_of_n_signature);
+
+        info!(action = "trying to get reimbursement", payout_txid=%signed_payout_tx.compute_txid(), %own_index);
+
+        let txid = self
+            .agent
+            .wait_and_broadcast(&signed_payout_tx, BTC_CONFIRM_PERIOD)
+            .await
+            .expect("should be able to broadcast payout tx");
+
+        info!(event = "successfully received reimbursement", %txid, %own_index);
     }
 
     async fn broadcast_kickoff_and_claim(

@@ -263,8 +263,6 @@ impl Verifier {
 
                     info!(event = "broadcasted disprove tx successfully", %disprove_txid, %deposit_txid, %operator_id);
                 }
-                // build graph for operator_idx, and deposit_txid
-                info!(action = "constructing disprove tx", for_operator_id=%operator_id, %deposit_txid);
             }
         }
     }

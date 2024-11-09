@@ -10,7 +10,7 @@ use strata_bridge_primitives::{
     scripts::wots,
     types::OperatorIdx,
 };
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 use crate::{connectors::prelude::*, transactions::prelude::*};
 
@@ -94,12 +94,25 @@ impl PegOutGraph {
         )
         .await;
 
+        info!(action = "registering pre-assert txid for bitcoin watcher", %claim_txid, own_index = %operator_idx);
+        db.register_pre_assert_txid(
+            assert_chain.pre_assert.compute_txid(),
+            operator_idx,
+            deposit_txid,
+        )
+        .await;
+
+        info!(action = "registering assert data txids for bitcoin watcher", %claim_txid, own_index = %operator_idx);
+        let assert_data_txids = assert_chain.assert_data.compute_txids();
+        db.register_assert_data_txids(assert_data_txids, operator_idx, deposit_txid)
+            .await;
+
         let post_assert_txid = assert_chain.post_assert.compute_txid();
         let post_assert_out_stake = assert_chain.post_assert.remaining_stake();
 
         debug!(event = "created assert chain", %operator_idx, %post_assert_txid);
 
-        warn!(action = "registering post assert txid for bitcoin watcher", %post_assert_txid, own_index = %operator_idx);
+        info!(action = "registering post assert txid for bitcoin watcher", %post_assert_txid, own_index = %operator_idx);
         db.register_post_assert_txid(post_assert_txid, operator_idx, deposit_txid)
             .await;
 
