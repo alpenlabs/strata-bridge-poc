@@ -43,7 +43,7 @@ impl BitcoinWatcher {
             let block = self.client.get_block_at(height).await;
 
             if let Err(e) = block {
-                if height % 10 == 0 {
+                if height % 1000 == 0 {
                     warn!(%e, %height, msg = "could not get block");
                 }
                 continue;

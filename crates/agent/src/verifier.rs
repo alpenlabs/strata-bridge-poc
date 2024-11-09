@@ -16,6 +16,7 @@ use strata_bridge_primitives::{
 };
 use strata_bridge_tx_graph::{
     connectors::prelude::ConnectorA31Leaf,
+    peg_out_graph::PegOutGraph,
     transactions::constants::{NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1_A256_PK7},
 };
 use tokio::sync::broadcast::{self, error::RecvError};
@@ -100,9 +101,13 @@ impl Verifier {
                 claim_tx,
                 assert_data_txs,
             } => {
+                warn!("received assertions");
+
                 let (superblock_period_start_ts, bridge_out_txid) = self.parse_claim_tx(&claim_tx);
+                warn!("parsed claim tx");
 
                 let (superblock_hash, groth16) = self.parse_assert_data_txs(&assert_data_txs);
+                warn!("parsed assert tx");
 
                 let signatures = Signatures {
                     bridge_out_txid,
@@ -110,6 +115,7 @@ impl Verifier {
                     superblock_period_start_ts,
                     groth16,
                 };
+                warn!("extracted signatures");
 
                 let public_keys = self
                     .public_db
@@ -143,6 +149,7 @@ impl Verifier {
                         committed_public_inputs_hash.map(|b| ((b & 0xf0) >> 4) | ((b & 0x0f) << 4));
 
                     if public_inputs_hash != committed_public_inputs_hash {
+                        println!("public inputs hash mismatch");
                         Some(ConnectorA31Leaf::DisprovePublicInputsCommitment(
                             deposit_txid,
                             Some((
@@ -158,6 +165,7 @@ impl Verifier {
                         if is_superblock_invalid {
                             None
                         } else {
+                            println!("verifying groth16 assertions");
                             // 3. groth16 proof validation
                             if let Some((tapleaf_index, witness_script)) =
                                 g16::verify_signed_assertions(
@@ -213,6 +221,9 @@ impl Verifier {
                         _ => unimplemented!(),
                     };
 
+                    // let pg = PegOutGraph::generate(input, deposit_txid, connectors, operator_idx,
+                    // db)
+
                     let script = script! {
                         { witness_script }
                         { locking_script }
@@ -236,18 +247,30 @@ impl Verifier {
         &self,
         claim_tx: &Transaction,
     ) -> (wots32::Signature, wots256::Signature) {
-        let claim_witness_script = script!().push_script(ScriptBuf::from_bytes(
-            claim_tx
-                .input
-                .first()
-                .unwrap()
-                .witness
-                .to_vec()
-                .first()
-                .unwrap()
-                .clone(),
-        ));
-        parse_claim_witness(claim_witness_script)
+        let witness = claim_tx.input.first().unwrap().witness.to_vec();
+        let (witness_txid, witness_ts) = witness.split_at(2 * wots256::N_DIGITS as usize);
+        (
+            std::array::from_fn(|i| {
+                let (i, j) = (2 * i, 2 * i + 1);
+                let preimage = witness_ts[i].clone().try_into().unwrap();
+                let digit = if witness_ts[j].is_empty() {
+                    0
+                } else {
+                    witness_ts[j][0]
+                };
+                (preimage, digit)
+            }),
+            std::array::from_fn(|i| {
+                let (i, j) = (2 * i, 2 * i + 1);
+                let preimage = witness_txid[i].clone().try_into().unwrap();
+                let digit = if witness_txid[j].is_empty() {
+                    0
+                } else {
+                    witness_txid[j][0]
+                };
+                (preimage, digit)
+            }),
+        )
     }
 
     // parse assert data txs
@@ -2800,14 +2823,14 @@ mod tests {
     }
 
     fn build_claim_tx(ts: wots32::Signature, txid: wots256::Signature) -> bitcoin::Transaction {
-        let witness_script = script! {
-            { ts.to_script() }
-            { txid.to_script() }
-        };
-
         let mut witness = Witness::new();
-        witness.push(witness_script.compile().to_bytes());
-
+        let res = execute_script(script! {
+            { txid.to_script() }
+            { ts.to_script() }
+        });
+        for i in 0..res.final_stack.len() {
+            witness.push(res.final_stack.get(i));
+        }
         bitcoin::Transaction {
             version: Version(2),
             lock_time: LockTime::ZERO,
@@ -2887,6 +2910,11 @@ mod tests {
         println!("generating assertions");
         // let assertions = {
         //     let (proof, public_inputs) = mock::get_proof_and_public_inputs();
+
+        //     println!("verifying_key: {:?}", mock::get_verifying_key());
+        //     println!("proof: {:?}", proof);
+        //     println!("public_inputs: {:?}", public_inputs);
+
         //     let assertions = Assertions {
         //         bridge_out_txid: mock::PUBLIC_INPUTS.2,
         //         superblock_hash: mock::PUBLIC_INPUTS.1,
@@ -2900,8 +2928,8 @@ mod tests {
         //     println!("assertions: {:?}", assertions);
         //     assertions
         // };
-
-        let assertions = mock_assertions();
+        // return;
+        let mut assertions = mock_assertions();
         // disprove public inputs hash disprove proof
         // assertions.superblock_period_start_ts = [1u8; 4]; // assertions.groth16.0[0] = [0u8; 32];
         // assertions.groth16.1[0] = [0u8; 32]; // disprove proof

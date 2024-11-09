@@ -80,7 +80,7 @@ pub(crate) struct Cli {
 fn parse_duration(arg: &str) -> Result<Duration, std::num::ParseIntError> {
     let seconds = arg.parse()?;
 
-    Ok(std::time::Duration::from_secs(seconds))
+    Ok(std::time::Duration::from_millis(seconds))
 }
 
 fn parse_fault_tolerance(arg: &str) -> anyhow::Result<u8> {
