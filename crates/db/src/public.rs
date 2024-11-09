@@ -39,6 +39,13 @@ pub struct PublicDb {
 
     // reverse mapping
     claim_txid_to_operator_index_and_deposit_txid: Arc<RwLock<HashMap<Txid, (OperatorIdx, Txid)>>>,
+
+    pre_assert_txid_to_operator_index_and_deposit_txid:
+        Arc<RwLock<HashMap<Txid, (OperatorIdx, Txid)>>>,
+
+    assert_data_txid_to_operator_index_and_deposit_txid:
+        Arc<RwLock<HashMap<Txid, (OperatorIdx, Txid)>>>,
+
     post_assert_txid_to_operator_index_and_deposit_txid:
         Arc<RwLock<HashMap<Txid, (OperatorIdx, Txid)>>>,
 }
@@ -100,6 +107,8 @@ impl Default for PublicDb {
             wots_signatures: Default::default(),
             signatures: Default::default(),
             claim_txid_to_operator_index_and_deposit_txid: Default::default(),
+            assert_data_txid_to_operator_index_and_deposit_txid: Default::default(),
+            pre_assert_txid_to_operator_index_and_deposit_txid: Default::default(),
             post_assert_txid_to_operator_index_and_deposit_txid: Default::default(),
         }
     }
@@ -277,6 +286,56 @@ impl ConnectorDb for PublicDb {
             .read()
             .await
             .get(post_assert_txid)
+            .copied()
+    }
+
+    async fn register_assert_data_txids(
+        &self,
+        assert_data_txids: [Txid; 7],
+        operator_idx: OperatorIdx,
+        deposit_txid: Txid,
+    ) {
+        let mut db = self
+            .assert_data_txid_to_operator_index_and_deposit_txid
+            .write()
+            .await;
+
+        for txid in assert_data_txids {
+            db.insert(txid, (operator_idx, deposit_txid));
+        }
+    }
+
+    async fn get_operator_and_deposit_for_assert_data(
+        &self,
+        assert_data_txid: &Txid,
+    ) -> Option<(OperatorIdx, Txid)> {
+        self.post_assert_txid_to_operator_index_and_deposit_txid
+            .read()
+            .await
+            .get(assert_data_txid)
+            .copied()
+    }
+
+    async fn register_pre_assert_txid(
+        &self,
+        pre_assert_data_txid: Txid,
+        operator_idx: OperatorIdx,
+        deposit_txid: Txid,
+    ) {
+        self.pre_assert_txid_to_operator_index_and_deposit_txid
+            .write()
+            .await
+            .insert(pre_assert_data_txid, (operator_idx, deposit_txid));
+    }
+
+    async fn get_operator_and_deposit_for_pre_assert(
+        &self,
+        pre_assert_data_txid: &Txid,
+    ) -> Option<(OperatorIdx, Txid)> {
+        self.pre_assert_txid_to_operator_index_and_deposit_txid
+            .read()
+            .await
+            .get(pre_assert_data_txid)
             .copied()
     }
 }

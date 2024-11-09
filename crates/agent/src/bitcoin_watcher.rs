@@ -1,10 +1,10 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use bitcoin::{Transaction, Txid};
 use strata_bridge_btcio::{traits::Reader, BitcoinClient};
 use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
 use strata_bridge_tx_graph::transactions::constants::NUM_ASSERT_DATA_TX;
-use tokio::sync::broadcast;
+use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, info, warn};
 
 use crate::{operator::OperatorIdx, verifier::VerifierDuty};
@@ -18,6 +18,8 @@ pub struct BitcoinWatcher {
     client: Arc<BitcoinClient>,
 
     genesis_height: u32,
+
+    relevant_txs: Arc<RwLock<HashMap<Txid, Transaction>>>,
 }
 
 impl BitcoinWatcher {
@@ -32,6 +34,7 @@ impl BitcoinWatcher {
             client,
             poll_interval,
             genesis_height,
+            relevant_txs: Default::default(),
         }
     }
 
@@ -79,6 +82,13 @@ impl BitcoinWatcher {
                     notifier
                         .send(duty)
                         .expect("should be able to send disprove duty to the verifier");
+                } else if let Some((_operator_idx, _deposit_txid)) = self
+                    .db
+                    .get_operator_and_deposit_for_assert_data(&txid)
+                    .await
+                {
+                    // cache it to use later
+                    self.relevant_txs.write().await.insert(txid, tx);
                 }
             }
 
@@ -103,16 +113,16 @@ impl BitcoinWatcher {
     ) -> VerifierDuty {
         let mut assert_data_txs = Vec::new();
         // skip the first input i.e., the stake
+        let relevant_txs = self.relevant_txs.read().await;
+
         for txin in post_assert_tx.input.iter().skip(1) {
             let txid = &txin.previous_output.txid;
 
-            let tx = self
-                .client
-                .get_raw_transaction(txid, None)
-                .await
+            let tx = relevant_txs
+                .get(txid)
                 .expect("should be able to fetch post_assert tx");
 
-            assert_data_txs.push(tx);
+            assert_data_txs.push(tx.clone());
         }
 
         assert_eq!(
@@ -125,17 +135,15 @@ impl BitcoinWatcher {
             .try_into()
             .expect("the number of assert-data txs must match");
 
-        let pre_assert_tx = self
-            .client
-            .get_raw_transaction(&assert_data_txs[0].input[0].previous_output.txid, None)
-            .await
-            .expect("should be able to get pre-assert tx");
+        let pre_assert_tx = relevant_txs
+            .get(&assert_data_txs[0].input[0].previous_output.txid)
+            .expect("pre-assert tx must exist")
+            .clone();
 
-        let claim_tx = self
-            .client
-            .get_raw_transaction(&pre_assert_tx.input[0].previous_output.txid, None)
-            .await
-            .expect("should be able to get claim tx");
+        let claim_tx = relevant_txs
+            .get(&pre_assert_tx.input[0].previous_output.txid)
+            .expect("claim tx must exist")
+            .clone();
 
         VerifierDuty::VerifyAssertions {
             operator_id,
