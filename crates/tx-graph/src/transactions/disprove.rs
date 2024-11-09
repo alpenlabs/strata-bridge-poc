@@ -84,7 +84,14 @@ impl DisproveTx {
             },
         ];
 
-        let witnesses = vec![TaprootWitness::Key; 2];
+        let (script_buf, control_block) =
+            connector_a30.generate_spend_info(ConnectorA30Leaf::Disprove);
+        let witness = TaprootWitness::Script {
+            script_buf,
+            control_block,
+        };
+
+        let witnesses = vec![witness];
 
         for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts.clone()) {
             input.witness_utxo = Some(utxo)
