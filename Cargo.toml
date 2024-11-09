@@ -35,19 +35,19 @@ prover-test-utils = { path = "crates/proof-impl/test-utils" }
 strata-test-utils = { path = "crates/test-utils" }
 
 # deps from original strata repo
-shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields", features = [
+shrex = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2", features = [
   "serde",
 ] }
-strata-bridge-tx-builder = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
-strata-common = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
-strata-primitives = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
-strata-rpc-api = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields", features = [
+strata-bridge-tx-builder = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
+strata-common = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
+strata-primitives = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
+strata-rpc-api = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2", features = [
   "client",
 ] }
-strata-rpc-types = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
-strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
-strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
-strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "fix/add-getters-for-withdrawal-info-fields" }
+strata-rpc-types = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
+strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
+strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
+strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
 
 # external deps
 anyhow = "1.0.86"
