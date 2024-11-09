@@ -116,7 +116,7 @@ pub fn generate_wots_signatures(
     }
 }
 
-pub mod mock {
+pub mod _sp1v2_mock {
     use ark_bn254::{Bn254, Fr};
     use ark_ec::CurveGroup;
     use ark_ff::{Field, PrimeField};
@@ -203,7 +203,7 @@ pub mod mock {
     }
 }
 
-pub mod _sp1v3_mock {
+pub mod mock {
     use ark_bn254::{Bn254, Fr};
     use ark_ec::CurveGroup;
     use ark_ff::{Field, PrimeField};

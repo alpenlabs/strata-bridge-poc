@@ -9,8 +9,8 @@ pub const COMPRESSED_POSTIVE: u8 = 0b10 << 6;
 pub const COMPRESSED_NEGATIVE: u8 = 0b11 << 6;
 pub const COMPRESSED_INFINITY: u8 = 0b01 << 6;
 
-pub const GROTH16_VK_BYTES: &[u8] = include_bytes!("groth16_vk.v2.bin");
-// pub const GROTH16_VK_BYTES: &[u8] = include_bytes!("groth16_vk.v3.bin");
+// pub const GROTH16_VK_BYTES: &[u8] = include_bytes!("groth16_vk.v2.bin");
+pub const GROTH16_VK_BYTES: &[u8] = include_bytes!("groth16_vk.v3.bin");
 
 #[derive(Debug, PartialEq)]
 pub enum CompressionFlag {
