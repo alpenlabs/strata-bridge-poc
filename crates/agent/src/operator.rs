@@ -2,19 +2,25 @@ use core::fmt;
 use std::{collections::HashSet, time::Duration};
 
 use anyhow::bail;
+#[cfg(not(feature = "mock"))]
+use bitcoin::hex::DisplayHex;
 use bitcoin::{
     consensus,
     hashes::Hash,
-    hex::DisplayHex,
     sighash::{Prevouts, SighashCache},
     TapSighashType, Transaction, TxOut, Txid,
 };
 use musig2::{
     aggregate_partial_signatures, sign_partial, AggNonce, KeyAggContext, PartialSignature, PubNonce,
 };
+#[cfg(not(feature = "mock"))]
 use rand::{rngs::OsRng, Rng, RngCore};
-use secp256k1::{schnorr::Signature, XOnlyPublicKey};
-use strata_bridge_btcio::traits::{Broadcaster, Reader, Signer};
+use secp256k1::schnorr::Signature;
+#[cfg(not(feature = "mock"))]
+use secp256k1::XOnlyPublicKey;
+#[cfg(not(feature = "mock"))]
+use strata_bridge_btcio::traits::Reader;
+use strata_bridge_btcio::traits::{Broadcaster, Signer};
 use strata_bridge_db::{
     connector_db::ConnectorDb,
     operator::{KickoffInfo, OperatorDb},
@@ -24,10 +30,7 @@ use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext, TxKind},
     deposit::DepositInfo,
     duties::BridgeDuty,
-    params::{
-        prelude::{BRIDGE_DENOMINATION, MIN_RELAY_FEE, OPERATOR_STAKE},
-        tx::{BTC_CONFIRM_PERIOD, OPERATOR_FEE},
-    },
+    params::prelude::*,
     scripts::{
         taproot::{create_message_hash, finalize_input, TaprootWitness},
         wots::{generate_wots_public_keys, generate_wots_signatures, mock, Assertions},
@@ -37,7 +40,7 @@ use strata_bridge_primitives::{
 };
 use strata_bridge_tx_graph::{
     peg_out_graph::{PegOutGraph, PegOutGraphConnectors, PegOutGraphInput},
-    transactions::{bridge_out::BridgeOut, prelude::*},
+    transactions::prelude::*,
 };
 use tokio::sync::broadcast::{self, error::RecvError};
 use tracing::{debug, error, info, trace, warn};
@@ -94,12 +97,15 @@ impl Operator {
         covenant_sig_sender: broadcast::Sender<CovenantSignatureSignal>,
         covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
     ) -> Self {
-        // FIXME: replace with actual when proofs are ready.
+        #[cfg(feature = "mock")]
         let msk = "secret".to_string();
-        // let mut msk_bytes: [u8; 32] = [0u8; 32];
-        // rand::thread_rng().fill_bytes(&mut msk_bytes);
-        //
-        // let msk = msk_bytes.to_lower_hex_string();
+
+        #[cfg(not(feature = "mock"))]
+        let msk = {
+            let mut msk_bytes: [u8; 32] = [0u8; 32];
+            rand::thread_rng().fill_bytes(&mut msk_bytes);
+            msk_bytes.to_lower_hex_string()
+        };
 
         Self {
             agent,
@@ -176,9 +182,12 @@ impl Operator {
         let mut deposit_tx = deposit_info
             .construct_signing_data(&self.build_context)
             .expect("should be able to create build context");
-        // let deposit_txid = deposit_tx.psbt.unsigned_tx.compute_txid();
-        // FIXME: replace with actual when proofs are ready
+
+        #[cfg(feature = "mock")]
         let deposit_txid = Txid::from_byte_array(mock::PUBLIC_INPUTS.0);
+
+        #[cfg(not(feature = "mock"))]
+        let deposit_txid = deposit_tx.psbt.unsigned_tx.compute_txid();
 
         info!(action = "generating wots public keys", %deposit_txid, %own_index);
         let public_keys = generate_wots_public_keys(&self.msk, deposit_txid);
@@ -1334,9 +1343,11 @@ impl Operator {
         let network = self.build_context.network();
         let own_index = self.build_context.own_index();
 
-        // FIXME: replace with actual when proofs are available
+        #[cfg(feature = "mock")]
         let deposit_txid = Txid::from_byte_array(mock::PUBLIC_INPUTS.0);
-        // let deposit_txid = withdrawal_info.deposit_outpoint().txid;
+
+        #[cfg(not(feature = "mock"))]
+        let deposit_txid = withdrawal_info.deposit_outpoint().txid;
 
         let own_pubkey = self.agent.public_key().x_only_public_key().0;
 
@@ -1344,13 +1355,14 @@ impl Operator {
         let user_pk = withdrawal_info.user_pk();
 
         info!(action = "paying out the user", %user_pk, %own_index);
-        // FIXME: replace with actual once the proofs are ready.
+        #[cfg(feature = "mock")]
         let bridge_out_txid = Txid::from_byte_array(mock::PUBLIC_INPUTS.2);
 
-        // let bridge_out_txid = self
-        //     .pay_user(user_pk, network, own_index)
-        //     .await
-        //     .expect("must be able to pay user");
+        #[cfg(not(feature = "mock"))]
+        let bridge_out_txid = self
+            .pay_user(user_pk, network, own_index)
+            .await
+            .expect("must be able to pay user");
 
         // 2. create tx graph from public data
         info!(action = "reconstructing pegout graph", %deposit_txid, %own_index);
@@ -1413,10 +1425,13 @@ impl Operator {
         .await;
 
         // 4. compute superblock and proof (skip)
-        // FIXME: replace with actual when proofs are ready.
         info!(action = "creating assertion signatures", %own_index);
-        let assertions = mock_assertions();
-        let assert_data_signatures = generate_wots_signatures(&self.msk, deposit_txid, assertions);
+
+        #[cfg(feature = "mock")]
+        let assert_data_signatures = {
+            let assertions = mock_assertions();
+            generate_wots_signatures(&self.msk, deposit_txid, assertions)
+        };
 
         // 5. publish assert chain
         let AssertChain {
@@ -1514,14 +1529,16 @@ impl Operator {
         claim_tx: ClaimTx,
         bridge_out_txid: Txid,
     ) {
-        // FIXME: replace with actual when proofs are ready.
+        #[cfg(feature = "mock")]
         let superblock_period_start_ts = mock::PUBLIC_INPUTS.3;
-        // let superblock_period_start_ts = self
-        //     .agent
-        //     .client
-        //     .get_current_timestamp()
-        //     .await
-        //     .expect("should be able to get the latest timestamp from the best block");
+
+        #[cfg(not(feature = "mock"))]
+        let superblock_period_start_ts = self
+            .agent
+            .client
+            .get_current_timestamp()
+            .await
+            .expect("should be able to get the latest timestamp from the best block");
         debug!(event = "got current timestamp (T_s)", %superblock_period_start_ts, %own_index);
 
         let unsigned_kickoff = &kickoff_tx.psbt().unsigned_tx;
@@ -1567,6 +1584,7 @@ impl Operator {
         info!(event = "broadcasted claim tx", %deposit_txid, %claim_txid, %own_index);
     }
 
+    #[cfg(not(feature = "mock"))]
     async fn pay_user(
         &self,
         user_pk: XOnlyPublicKey,

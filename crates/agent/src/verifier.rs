@@ -306,7 +306,7 @@ mod tests {
         mock_txid,
         transactions::{
             assert_data::{AssertDataTxBatch, AssertDataTxInput},
-            constants::{NUM_ASSERT_DATA_TX, TOTAL_CONNECTORS},
+            constants::NUM_ASSERT_DATA_TX,
         },
     };
 

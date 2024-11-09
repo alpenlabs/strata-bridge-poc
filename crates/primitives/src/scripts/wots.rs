@@ -3,7 +3,6 @@ use bitvm::{
     groth16::g16,
     signatures::wots::{wots160, wots256, wots32},
 };
-use serde::Deserialize;
 
 use super::{
     commitments::{
