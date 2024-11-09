@@ -1429,7 +1429,8 @@ impl Operator {
 
         #[cfg(feature = "mock")]
         let assert_data_signatures = {
-            let assertions = mock_assertions();
+            let mut assertions = mock_assertions();
+            assertions.bridge_out_txid = [0u8; 32]; // FIXME: only do this when `self.am_i_faulty()`
             generate_wots_signatures(&self.msk, deposit_txid, assertions)
         };
 

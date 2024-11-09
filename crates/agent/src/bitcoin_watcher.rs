@@ -140,6 +140,8 @@ impl BitcoinWatcher {
         VerifierDuty::VerifyAssertions {
             operator_id,
             deposit_txid,
+
+            post_assert_tx,
             claim_tx,
             assert_data_txs,
         }

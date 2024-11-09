@@ -33,7 +33,7 @@ pub(crate) struct Cli {
     #[clap(
         long,
         default_value = "1",
-        help = "Bridge duty polling interval (in secs)",
+        help = "Bridge duty polling interval (in milliseconds)",
         value_parser = parse_duration,
     )]
     pub btc_scan_interval: Duration,
@@ -58,7 +58,7 @@ pub(crate) struct Cli {
     #[clap(
         long,
         default_value = "30",
-        help = "Bridge duty polling interval (in secs)",
+        help = "Bridge duty polling interval (in milliseconds)",
         value_parser = parse_duration,
     )]
     pub duty_interval: Duration,

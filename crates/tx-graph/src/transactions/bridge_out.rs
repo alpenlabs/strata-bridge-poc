@@ -1,6 +1,6 @@
 use bitcoin::{key::TapTweak, Address, Amount, Network, OutPoint, Transaction};
 use rand::Rng;
-use secp256k1::{XOnlyPublicKey, SECP256K1};
+use secp256k1::XOnlyPublicKey;
 use strata_bridge_primitives::{
     scripts::general::{create_tx, create_tx_ins, create_tx_outs, op_return_nonce},
     types::OperatorIdx,

@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use bitcoin::Address;
+use bitcoin::{Address, Network};
 use jsonrpsee::ws_client::WsClientBuilder;
 use rand::{rngs::OsRng, Rng};
 use secp256k1::{Keypair, SECP256K1};
@@ -43,6 +43,16 @@ pub(crate) async fn bootstrap(args: Cli) {
         .await
         .expect("failed to connect to the strata RPC server");
 
+    let bitcoin_rpc_client = Arc::new(
+        BitcoinClient::new(&args.btc_url, &args.btc_user, &args.btc_pass)
+            .expect("should be able to create bitcoin client"),
+    );
+
+    let network = bitcoin_rpc_client
+        .network()
+        .await
+        .expect("should be able to get network information");
+
     debug!(action = "querying for operator pubkey set");
     let pubkey_table = strata_rpc_client
         .get_active_operator_chain_pubkey_set()
@@ -63,7 +73,8 @@ pub(crate) async fn bootstrap(args: Cli) {
 
     public_db.set_musig_pubkey_table(&pubkey_table.0).await;
 
-    let operators = generate_operator_set(&args, pubkey_table, public_db.clone()).await;
+    let operators =
+        generate_operator_set(&args, pubkey_table.clone(), public_db.clone(), network).await;
 
     let mut tasks = JoinSet::new();
 
@@ -87,11 +98,9 @@ pub(crate) async fn bootstrap(args: Cli) {
     let (notification_sender, mut notification_receiver) =
         broadcast::channel::<VerifierDuty>(VERIFIER_DUTY_QUEUE_SIZE);
 
-    let bitcoin_rpc_client = BitcoinClient::new(&args.btc_url, &args.btc_user, &args.btc_pass)
-        .expect("should be able to create bitcoin client");
     let bitcoin_watcher = BitcoinWatcher::new(
         public_db.clone(),
-        Arc::new(bitcoin_rpc_client),
+        bitcoin_rpc_client.clone(),
         args.btc_scan_interval,
         args.btc_genesis_height,
     );
@@ -99,7 +108,9 @@ pub(crate) async fn bootstrap(args: Cli) {
     let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
     let agent = Agent::new(keypair, &args.btc_url, &args.btc_user, &args.btc_pass);
 
-    let mut verifier = Verifier::new(public_db.clone(), agent);
+    let verifier_build_context = TxBuildContext::new(network, pubkey_table, u32::MAX); // operator_id
+                                                                                       // does not matter for verifier
+    let mut verifier = Verifier::new(public_db.clone(), verifier_build_context, agent);
 
     tasks.spawn(async move {
         verifier.start(&mut notification_receiver).await;
@@ -128,6 +139,7 @@ pub async fn generate_operator_set(
     args: &Cli,
     pubkey_table: PublickeyTable,
     public_db: PublicDb,
+    network: Network,
 ) -> Vec<Operator> {
     let operator_indexes_and_keypairs =
         get_keypairs_and_load_xpriv(&args.xpriv_file, &pubkey_table);
@@ -152,14 +164,9 @@ pub async fn generate_operator_set(
 
     let mut faulty_idxs = Vec::new();
     let mut operator_set: Vec<Operator> = Vec::with_capacity(num_operators);
+
     for (operator_idx, keypair) in operator_indexes_and_keypairs {
         let agent = Agent::new(keypair, &args.btc_url, &args.btc_user, &args.btc_pass);
-
-        let network = agent
-            .client
-            .network()
-            .await
-            .expect("should be able to get network information");
 
         let build_context = TxBuildContext::new(network, pubkey_table.clone(), operator_idx);
 

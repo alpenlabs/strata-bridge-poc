@@ -101,10 +101,11 @@ impl DisproveTx {
     pub async fn finalize<Db>(
         mut self,
         connector_a30: ConnectorA30<Db>,
-        _connector_a31: ConnectorA31<Db>,
+        connector_a31: ConnectorA31<Db>,
         reward: TxOut,
-        _deposit_txid: Txid,
+        deposit_txid: Txid,
         operator_idx: OperatorIdx,
+        disprove_leaf: ConnectorA31Leaf,
     ) -> Transaction
     where
         Db: ConnectorDb + Clone,
@@ -124,14 +125,14 @@ impl DisproveTx {
             )
             .await;
 
-        // // // TODO: Compute which `ConnectorA31Leaf` is spendable
-        // connector_a31
-        //     .finalize_input(
-        //         &mut self.psbt.inputs[1],
-        //         ConnectorA31Leaf::InvalidateProof(0),
-        //         deposit_txid,
-        //     )
-        //     .await;
+        connector_a31
+            .finalize_input(
+                &mut self.psbt.inputs[1],
+                disprove_leaf,
+                deposit_txid,
+                operator_idx,
+            )
+            .await;
 
         self.psbt
             .extract_tx()
