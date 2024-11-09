@@ -262,6 +262,8 @@ impl Verifier {
                         .expect("should settle disprove tx correctly");
 
                     info!(event = "broadcasted disprove tx successfully", %disprove_txid, %deposit_txid, %operator_id);
+                } else {
+                    info!(event = "assertion is valid!", %operator_id, %deposit_txid);
                 }
             }
         }
