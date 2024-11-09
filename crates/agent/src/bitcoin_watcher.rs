@@ -1,10 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use bitcoin::{Transaction, Txid};
-use strata_bridge_btcio::{
-    traits::{Reader, Wallet},
-    BitcoinClient,
-};
+use strata_bridge_btcio::{traits::Reader, BitcoinClient};
 use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
 use strata_bridge_tx_graph::transactions::constants::NUM_ASSERT_DATA_TX;
 use tokio::sync::broadcast;
@@ -130,13 +127,13 @@ impl BitcoinWatcher {
 
         let pre_assert_tx = self
             .client
-            .get_raw_transaction(&assert_data_txs[0].compute_txid(), None)
+            .get_raw_transaction(&assert_data_txs[0].input[0].previous_output.txid, None)
             .await
             .expect("should be able to get pre-assert tx");
 
         let claim_tx = self
             .client
-            .get_raw_transaction(&pre_assert_tx.compute_txid(), None)
+            .get_raw_transaction(&pre_assert_tx.input[0].previous_output.txid, None)
             .await
             .expect("should be able to get claim tx");
 
