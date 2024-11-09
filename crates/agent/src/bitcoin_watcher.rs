@@ -89,6 +89,11 @@ impl BitcoinWatcher {
                 {
                     // cache it to use later
                     self.relevant_txs.write().await.insert(txid, tx);
+                } else if let Some((_operator_idx, _deposit_txid)) =
+                    self.db.get_operator_and_deposit_for_pre_assert(&txid).await
+                {
+                    // cache it to use later
+                    self.relevant_txs.write().await.insert(txid, tx);
                 }
             }
 
@@ -120,7 +125,7 @@ impl BitcoinWatcher {
 
             let tx = relevant_txs
                 .get(txid)
-                .expect("should be able to fetch post_assert tx");
+                .expect("should be able to fetch assert-data tx");
 
             assert_data_txs.push(tx.clone());
         }

@@ -309,7 +309,7 @@ impl ConnectorDb for PublicDb {
         &self,
         assert_data_txid: &Txid,
     ) -> Option<(OperatorIdx, Txid)> {
-        self.post_assert_txid_to_operator_index_and_deposit_txid
+        self.assert_data_txid_to_operator_index_and_deposit_txid
             .read()
             .await
             .get(assert_data_txid)
