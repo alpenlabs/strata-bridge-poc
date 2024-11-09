@@ -203,6 +203,89 @@ pub mod mock {
     }
 }
 
+pub mod _sp1v3_mock {
+    use ark_bn254::{Bn254, Fr};
+    use ark_ec::CurveGroup;
+    use ark_ff::{Field, PrimeField};
+    use ark_groth16::VerifyingKey;
+    use bitvm::groth16::g16;
+
+    use crate::scripts::sp1g16::{self, hash_bn254_be_bytes};
+
+    type E = Bn254;
+    pub type BridgeProofPublicParams = ([u8; 32], [u8; 32], [u8; 32], u32);
+
+    pub const PUBLIC_INPUTS: BridgeProofPublicParams = (
+        [
+            26, 43, 60, 77, 94, 111, 112, 129, 146, 163, 180, 197, 214, 231, 248, 9, 27, 44, 61,
+            78, 95, 96, 113, 130, 147, 164, 181, 198, 215, 232, 249, 10,
+        ],
+        [
+            170, 187, 204, 221, 238, 255, 32, 17, 34, 51, 68, 85, 102, 119, 136, 153, 170, 187,
+            204, 221, 238, 255, 32, 17, 34, 51, 68, 85, 102, 119, 136, 153,
+        ],
+        [
+            16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 32, 17, 34, 51,
+            68, 85, 102, 119, 136, 153, 170, 187, 204, 221, 238, 255, 32,
+        ],
+        3735928559u32,
+    );
+
+    // 0x006ad7722caccb0a884b4810a46f1d7e06efcd4a2667b9b78155ea18abe1d0d1
+    pub const VKEY_HASH: [u8; 32] = [
+        0, 106, 215, 114, 44, 172, 203, 10, 136, 75, 72, 16, 164, 111, 29, 126, 6, 239, 205, 74,
+        38, 103, 185, 183, 129, 85, 234, 24, 171, 225, 208, 209,
+    ];
+
+    pub const PROOF_BYTES: [u8; 256] = [
+        27, 120, 130, 75, 235, 106, 246, 221, 174, 77, 128, 185, 16, 42, 215, 190, 78, 240, 14, 91,
+        184, 36, 62, 166, 103, 60, 230, 20, 227, 41, 176, 234, 7, 2, 223, 238, 133, 252, 132, 60,
+        194, 240, 193, 210, 246, 173, 102, 77, 179, 227, 197, 220, 83, 29, 244, 113, 117, 90, 0,
+        97, 232, 56, 45, 71, 40, 195, 81, 40, 34, 94, 146, 60, 132, 250, 225, 0, 254, 1, 61, 74,
+        98, 14, 96, 75, 159, 207, 71, 183, 209, 99, 252, 116, 241, 207, 27, 136, 41, 119, 232, 66,
+        16, 148, 99, 254, 146, 206, 156, 25, 22, 139, 92, 37, 26, 73, 176, 96, 181, 81, 204, 38, 9,
+        112, 21, 83, 16, 62, 64, 201, 3, 175, 21, 27, 119, 128, 195, 22, 206, 117, 222, 240, 236,
+        186, 73, 233, 243, 77, 155, 37, 253, 165, 189, 237, 21, 86, 130, 26, 253, 146, 81, 34, 35,
+        167, 132, 248, 37, 11, 71, 41, 165, 43, 176, 227, 205, 22, 177, 162, 116, 56, 187, 90, 121,
+        241, 178, 23, 92, 250, 106, 222, 245, 10, 28, 19, 27, 86, 136, 76, 214, 160, 26, 113, 237,
+        254, 108, 132, 171, 83, 24, 123, 176, 154, 49, 165, 45, 162, 81, 158, 82, 227, 229, 197,
+        158, 168, 98, 221, 19, 74, 134, 231, 161, 49, 121, 120, 169, 60, 41, 27, 124, 133, 150, 77,
+        115, 54, 238, 80, 156, 70, 211, 222, 24, 226, 252, 10, 80, 237, 120, 23,
+    ];
+
+    // 0x5d68f4b901c27a9379a8a0f7bc91fe2003c68c06e6f56ac814ed0477b529c08
+    pub const _PUBLIC_INPUT_HASH: [u8; 32] = [
+        5, 214, 143, 75, 144, 28, 39, 169, 55, 154, 138, 15, 123, 201, 31, 226, 0, 60, 104, 192,
+        110, 111, 86, 172, 129, 78, 208, 71, 123, 82, 156, 8,
+    ];
+
+    pub fn get_verifying_key() -> VerifyingKey<E> {
+        let compile_time_public_inputs = [Fr::from_be_bytes_mod_order(&VKEY_HASH)];
+
+        let mut vk = sp1g16::load_groth16_verifying_key_from_bytes(sp1g16::GROTH16_VK_BYTES);
+
+        let mut vk_gamma_abc_g1_0 = vk.gamma_abc_g1[0] * Fr::ONE;
+        for (i, public_input) in compile_time_public_inputs.iter().enumerate() {
+            vk_gamma_abc_g1_0 += vk.gamma_abc_g1[i + 1] * public_input;
+        }
+        let mut vk_gamma_abc_g1 = vec![vk_gamma_abc_g1_0.into_affine()];
+        vk_gamma_abc_g1.extend(&vk.gamma_abc_g1[1 + compile_time_public_inputs.len()..]);
+        vk.gamma_abc_g1 = vk_gamma_abc_g1;
+
+        vk
+    }
+
+    pub fn get_proof_and_public_inputs() -> (g16::Proof, g16::PublicInputs) {
+        let public_data_bytes = bincode::serialize(&PUBLIC_INPUTS).unwrap();
+        let public_data_hash = hash_bn254_be_bytes(&public_data_bytes);
+
+        let proof = sp1g16::load_groth16_proof_from_bytes(&PROOF_BYTES);
+        let public_inputs = [Fr::from_be_bytes_mod_order(&public_data_hash)];
+
+        (proof, public_inputs)
+    }
+}
+
 pub mod _mock {
     use ark_bn254::{Bn254, Fr};
     use ark_ec::CurveGroup;

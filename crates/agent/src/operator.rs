@@ -1415,7 +1415,8 @@ impl Operator {
         // 4. compute superblock and proof (skip)
         // FIXME: replace with actual when proofs are ready.
         info!(action = "creating assertion signatures", %own_index);
-        let assertions = mock_assertions();
+        let mut assertions = mock_assertions();
+        assertions.groth16.0[0] = [0u8; 32]; // make it faulty
         let assert_data_signatures = generate_wots_signatures(&self.msk, deposit_txid, assertions);
 
         // 5. publish assert chain

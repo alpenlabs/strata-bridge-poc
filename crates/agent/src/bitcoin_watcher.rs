@@ -46,7 +46,7 @@ impl BitcoinWatcher {
             let block = self.client.get_block_at(height).await;
 
             if let Err(e) = block {
-                if height % 10 == 0 {
+                if height % 1000 == 0 {
                     warn!(%e, %height, msg = "could not get block");
                 }
                 continue;
@@ -130,13 +130,13 @@ impl BitcoinWatcher {
 
         let pre_assert_tx = self
             .client
-            .get_raw_transaction(&assert_data_txs[0].compute_txid(), None)
+            .get_raw_transaction(&assert_data_txs[0].input[0].previous_output.txid, None)
             .await
             .expect("should be able to get pre-assert tx");
 
         let claim_tx = self
             .client
-            .get_raw_transaction(&pre_assert_tx.compute_txid(), None)
+            .get_raw_transaction(&pre_assert_tx.input[0].previous_output.txid, None)
             .await
             .expect("should be able to get claim tx");
 
