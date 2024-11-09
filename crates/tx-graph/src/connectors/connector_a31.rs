@@ -289,13 +289,11 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
 
         let witness_script = tapleaf.generate_witness_script();
 
-        finalize_input(
-            input,
-            [
-                witness_script.compile().to_bytes(),
-                script.to_bytes(),
-                control_block.serialize(),
-            ],
-        );
+        let mut witness_stack = taproot_witness_signatures(witness_script);
+
+        witness_stack.push(script.to_bytes());
+        witness_stack.push(control_block.serialize());
+
+        finalize_input(input, witness_stack);
     }
 }
