@@ -5,16 +5,15 @@ version = "0.1.0"
 
 [dependencies]
 bitcoin = { version = "=0.32.3", features = ["serde"] }
+hex.workspace = true
 borsh.workspace = true
 serde = { workspace = true, features = ["derive"] }
-snark-bn254-verifier = { git = "https://github.com/succinctlabs/snark-bn254-verifier.git", rev = "96bce2079584b68597f3241551e4b97300fd92c6" } # Note: This is unstable
-sp1-core-machine = "2.0.0"
+sp1-verifier = { git = "https://github.com/succinctlabs/sp1", rev = "2c7868364cb832531e8cafd258aa06fbab079459" } # Note: On new SP1 version, this will be available via SDK
 strata-primitives.workspace = true
 strata-proofimpl-btc-blockspace = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
 strata-state.workspace = true
 strata-tx-parser = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
 strata-zkvm.workspace = true
-substrate-bn = { git = "https://github.com/sp1-patches/bn", branch = "patch-v0.7.0" }
 
 [dev-dependencies]
 bincode.workspace = true
@@ -22,3 +21,4 @@ tokio.workspace = true
 tower = { version = "0.4.13", features = ["util"] }
 strata-btcio = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
 prover-test-utils.workspace = true
+hex.workspace = true

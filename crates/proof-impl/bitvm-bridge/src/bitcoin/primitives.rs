@@ -1,6 +1,6 @@
 use strata_primitives::{
-    buf::Buf32,
+    bridge::OperatorIdx,
     l1::{BitcoinAmount, XOnlyPk},
 };
 
-pub type WithdrwalInfo = (Buf32, (XOnlyPk, BitcoinAmount));
+pub type WithdrawalInfo = (OperatorIdx, (XOnlyPk, BitcoinAmount));
