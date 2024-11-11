@@ -55,4 +55,63 @@ CREATE TABLE IF NOT EXISTS pre_assert_txid_to_operator_and_deposit (
     pre_assert_data_txid TEXT PRIMARY KEY, -- Store as hex string
     operator_id INTEGER NOT NULL,
     deposit_txid TEXT NOT NULL             -- Store as hex string
+
+);
+-- Table to store collected public nonces for each operator
+CREATE TABLE collected_pubnonces (
+    txid TEXT NOT NULL,
+    input_index INTEGER NOT NULL,
+    operator_id INTEGER NOT NULL,
+    pubnonce TEXT NOT NULL,
+    PRIMARY KEY (txid, input_index, operator_id)
+);
+
+-- Table to store secp256k1::SecNonce data
+CREATE TABLE sec_nonces (
+    txid TEXT NOT NULL,
+    input_index INTEGER NOT NULL,
+    sec_nonce BLOB NOT NULL,
+    PRIMARY KEY (txid, input_index)
+);
+
+-- Table to store collected signatures (message hash and operator ID to partial signature)
+CREATE TABLE collected_signatures (
+    txid TEXT NOT NULL,
+    input_index INTEGER NOT NULL,
+    msg_hash BLOB NOT NULL,
+    operator_id INTEGER NOT NULL,
+    partial_signature TEXT NOT NULL, -- Signature is stored as hex string
+    PRIMARY KEY (txid, input_index, operator_id)
+);
+
+-- Table to store selected outpoints that have been used for KickoffTx
+CREATE TABLE selected_outpoints (
+    txid TEXT NOT NULL,
+    vout INTEGER NOT NULL,
+    PRIMARY KEY (txid, vout)
+);
+
+-- Table to store main KickoffInfo details for each Deposit Txid
+CREATE TABLE kickoff_info (
+    txid TEXT PRIMARY KEY,                -- Unique [deposit] identifier for KickoffInfo
+    change_address TEXT NOT NULL,         -- Change address as a string
+    change_address_network TEXT NOT NULL, -- Network associated with the address (e.g., "bitcoin", "testnet")
+    change_amount INTEGER NOT NULL        -- Change amount in smallest denomination (i.e., satoshis)
+);
+
+-- Table to store funding inputs for each KickoffInfo
+CREATE TABLE funding_inputs (
+    kickoff_txid TEXT NOT NULL,           -- Foreign key to kickoff_info.txid
+    input_txid TEXT NOT NULL,             -- Txid of the funding input
+    vout INTEGER NOT NULL,                -- Output index in the funding input
+    FOREIGN KEY (kickoff_txid) REFERENCES kickoff_info(txid) ON DELETE CASCADE,
+    PRIMARY KEY (kickoff_txid, input_txid, vout)
+);
+
+-- Table to store funding UTXOs for each KickoffInfo, storing TxOut fields directly
+CREATE TABLE funding_utxos (
+    kickoff_txid TEXT NOT NULL,           -- Foreign key to kickoff_info.txid
+    value INTEGER NOT NULL,               -- Value of the TxOut in smallest denomination (e.g., satoshis)
+    script_pubkey TEXT NOT NULL,          -- Serialized ScriptPubKey in hex format
+    FOREIGN KEY (kickoff_txid) REFERENCES kickoff_info(txid) ON DELETE CASCADE
 );

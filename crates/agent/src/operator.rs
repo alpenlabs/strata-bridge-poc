@@ -27,6 +27,7 @@ use strata_bridge_db::{
     public::PublicDb,
 };
 use strata_bridge_primitives::{
+    bitcoin::BitcoinAddress,
     build_context::{BuildContext, TxBuildContext, TxKind},
     deposit::DepositInfo,
     duties::BridgeDuty,
@@ -210,6 +211,10 @@ impl Operator {
         let funding_utxos = vec![funding_utxo];
         let change_amt = total_amount - OPERATOR_STAKE - MIN_RELAY_FEE;
 
+        let change_address =
+            BitcoinAddress::parse(&change_address.to_string(), self.build_context.network())
+                .expect("address and network must match");
+
         info!(action = "composing pegout graph input", %deposit_txid, %own_index);
         let peg_out_graph_input = PegOutGraphInput {
             network: self.build_context.network(),
@@ -218,7 +223,7 @@ impl Operator {
             kickoff_data: KickoffTxData {
                 funding_inputs: funding_inputs.clone(),
                 funding_utxos: funding_utxos.clone(),
-                change_address: change_address.as_unchecked().clone(),
+                change_address: change_address.clone(),
                 change_amt,
                 deposit_txid,
             },
@@ -1038,7 +1043,7 @@ impl Operator {
         let seckey = self.agent.secret_key();
         let secnonce = self
             .db
-            .secnonce(txid, 0)
+            .get_secnonce(txid, 0)
             .await
             .expect("secnonce should exist before adding signatures");
 
@@ -1245,17 +1250,17 @@ impl Operator {
             .expect("should be able to create a message hash");
             let message = message.as_ref();
 
-            let secnonce = if let Some(secnonce) = self.db.secnonce(txid, input_index as u32).await
-            {
-                secnonce
-            } else {
-                // use the first secnonce if the given input_index does not exist
-                // this is the case for post_assert inputs (but not for payout)
-                self.db
-                    .secnonce(txid, 0)
-                    .await
-                    .expect("first secnonce should exist")
-            };
+            let secnonce =
+                if let Some(secnonce) = self.db.get_secnonce(txid, input_index as u32).await {
+                    secnonce
+                } else {
+                    // use the first secnonce if the given input_index does not exist
+                    // this is the case for post_assert inputs (but not for payout)
+                    self.db
+                        .get_secnonce(txid, 0)
+                        .await
+                        .expect("first secnonce should exist")
+                };
 
             let seckey = self.agent.secret_key();
 
@@ -1386,7 +1391,7 @@ impl Operator {
             kickoff_data: KickoffTxData {
                 funding_inputs,
                 funding_utxos,
-                change_address: change_address.as_unchecked().clone(),
+                change_address,
                 change_amt,
                 deposit_txid,
             },

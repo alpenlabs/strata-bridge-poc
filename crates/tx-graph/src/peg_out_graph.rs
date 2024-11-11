@@ -46,12 +46,7 @@ impl PegOutGraph {
         operator_idx: OperatorIdx,
         db: &Db,
     ) -> Self {
-        let kickoff_tx = KickOffTx::new(
-            input.kickoff_data,
-            connectors.kickoff.clone(),
-            input.network,
-        )
-        .await;
+        let kickoff_tx = KickOffTx::new(input.kickoff_data, connectors.kickoff.clone()).await;
         let kickoff_txid = kickoff_tx.compute_txid();
         debug!(event = "created kickoff tx", %operator_idx, %kickoff_txid);
 

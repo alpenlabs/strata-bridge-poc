@@ -64,7 +64,7 @@ impl OperatorDb for OperatorDbInMemory {
         sec_nonces.insert((txid, input_index), secnonce);
     }
 
-    async fn secnonce(&self, txid: Txid, input_index: u32) -> Option<SecNonce> {
+    async fn get_secnonce(&self, txid: Txid, input_index: u32) -> Option<SecNonce> {
         self.sec_nonces
             .read()
             .await

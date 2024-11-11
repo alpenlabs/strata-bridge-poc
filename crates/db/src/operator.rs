@@ -1,9 +1,9 @@
 use std::collections::{BTreeMap, HashSet};
 
 use async_trait::async_trait;
-use bitcoin::{Address, Amount, OutPoint, TxOut, Txid};
+use bitcoin::{Amount, OutPoint, TxOut, Txid};
 use musig2::{PartialSignature, PubNonce, SecNonce};
-use strata_bridge_primitives::types::OperatorIdx;
+use strata_bridge_primitives::{bitcoin::BitcoinAddress, types::OperatorIdx};
 
 pub type MsgHashAndOpIdToSigMap = (Vec<u8>, BTreeMap<OperatorIdx, PartialSignature>);
 
@@ -11,7 +11,7 @@ pub type MsgHashAndOpIdToSigMap = (Vec<u8>, BTreeMap<OperatorIdx, PartialSignatu
 pub struct KickoffInfo {
     pub funding_inputs: Vec<OutPoint>,
     pub funding_utxos: Vec<TxOut>,
-    pub change_address: Address,
+    pub change_address: BitcoinAddress,
     pub change_amt: Amount,
 }
 
@@ -33,7 +33,7 @@ pub trait OperatorDb {
 
     async fn add_secnonce(&self, txid: Txid, input_index: u32, secnonce: SecNonce);
 
-    async fn secnonce(&self, txid: Txid, input_index: u32) -> Option<SecNonce>;
+    async fn get_secnonce(&self, txid: Txid, input_index: u32) -> Option<SecNonce>;
 
     async fn add_message_hash_and_signature(
         &self,
