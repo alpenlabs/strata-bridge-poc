@@ -1330,7 +1330,7 @@ impl Operator {
                     .expect("signature aggregation must succeed");
 
             self.public_db
-                .put_signature(
+                .set_signature(
                     self.build_context.own_index(),
                     txid,
                     input_index as u32,

@@ -7,7 +7,7 @@ use strata_bridge_primitives::{
     params::connectors::{
         NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
     },
-    scripts::wots,
+    scripts::wots::{self, Groth16PublicKeys},
     types::OperatorIdx,
 };
 use tracing::{debug, info};
@@ -39,7 +39,7 @@ pub struct PegOutGraph {
 }
 
 impl PegOutGraph {
-    pub async fn generate<Db: PublicDb>(
+    pub async fn generate<Db: PublicDb + Clone>(
         input: PegOutGraphInput,
         deposit_txid: Txid,
         connectors: PegOutGraphConnectors<Db>,
@@ -179,7 +179,7 @@ pub struct PegOutGraphConnectors<Db: PublicDb + Clone> {
     pub assert_data256_factory: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256>,
 }
 
-impl<Db: PublicDb> PegOutGraphConnectors<Db> {
+impl<Db: PublicDb + Clone> PegOutGraphConnectors<Db> {
     pub async fn new(
         db: Db,
         build_context: &impl BuildContext,
@@ -204,7 +204,8 @@ impl<Db: PublicDb> PegOutGraphConnectors<Db> {
             bridge_out_txid: _,
             superblock_hash: superblock_hash_public_key,
             superblock_period_start_ts: _,
-            groth16: ([public_inputs_hash_public_key], public_keys_256, public_keys_160),
+            groth16:
+                Groth16PublicKeys(([public_inputs_hash_public_key], public_keys_256, public_keys_160)),
         } = db.get_wots_public_keys(operator_idx, deposit_txid).await;
         let assert_data160_factory: ConnectorA160Factory<NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160> =
             ConnectorA160Factory {
@@ -213,7 +214,7 @@ impl<Db: PublicDb> PegOutGraphConnectors<Db> {
             };
 
         let public_keys_256 = std::array::from_fn(|i| match i {
-            0 => superblock_hash_public_key,
+            0 => superblock_hash_public_key.0,
             1 => public_inputs_hash_public_key,
             _ => public_keys_256[i - 2],
         });

@@ -179,12 +179,12 @@ impl Verifier {
                             if let Some((tapleaf_index, witness_script)) =
                                 g16::verify_signed_assertions(
                                     bridge_poc_verification_key(),
-                                    public_keys.groth16,
+                                    *public_keys.groth16,
                                     signatures.groth16,
                                 )
                             {
                                 let disprove_script = g16::generate_disprove_scripts(
-                                    public_keys.groth16,
+                                    *public_keys.groth16,
                                     &PARTIAL_VERIFIER_SCRIPTS,
                                 )[tapleaf_index]
                                     .clone();
@@ -2907,8 +2907,8 @@ mod tests {
         let c256 = ConnectorA256Factory {
             network,
             public_keys: std::array::from_fn(|i| match i {
-                0 => public_keys.superblock_hash,
-                1 => public_keys.groth16.0[0],
+                0 => public_keys.superblock_hash.0,
+                1 => (*public_keys.groth16).0[0],
                 _ => public_keys.groth16.1[i - 2],
             }),
         };

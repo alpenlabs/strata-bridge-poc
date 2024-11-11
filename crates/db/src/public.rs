@@ -1,15 +1,10 @@
-use std::fmt::Debug;
-
 use async_trait::async_trait;
 use bitcoin::Txid;
-use bitvm::{groth16::g16, treepp::*};
 use secp256k1::schnorr::Signature;
 use strata_bridge_primitives::{scripts::wots, types::OperatorIdx};
 
 #[async_trait]
-pub trait PublicDb: Clone + Debug + Send + Sync {
-    async fn get_partial_disprove_scripts(&self) -> [Script; g16::N_TAPLEAVES];
-
+pub trait PublicDb {
     async fn get_wots_public_keys(&self, operator_id: u32, deposit_txid: Txid) -> wots::PublicKeys;
 
     async fn set_wots_public_keys(
@@ -34,6 +29,14 @@ pub trait PublicDb: Clone + Debug + Send + Sync {
         txid: Txid,
         input_index: u32,
     ) -> Signature;
+
+    async fn set_signature(
+        &self,
+        operator_id: u32,
+        txid: Txid,
+        input_index: u32,
+        signature: Signature,
+    );
 
     async fn register_claim_txid(
         &self,

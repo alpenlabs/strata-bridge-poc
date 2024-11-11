@@ -272,3 +272,6 @@ provers/sp1/proofs/
 
 # backup files
 *.bak
+
+# database files
+*.db
