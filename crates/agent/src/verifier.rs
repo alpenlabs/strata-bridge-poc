@@ -12,6 +12,7 @@ use strata_bridge_primitives::{
         prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256},
         tx::{BTC_CONFIRM_PERIOD, DISPROVER_REWARD},
     },
+    partial_verifier_scripts::PARTIAL_VERIFIER_SCRIPTS,
     scripts::{
         parse_witness::parse_assertion_witnesses,
         wots::{bridge_poc_verification_key, mock, Signatures},
@@ -184,7 +185,7 @@ impl Verifier {
                             {
                                 let disprove_script = g16::generate_disprove_scripts(
                                     public_keys.groth16,
-                                    &self.public_db.get_partial_disprove_scripts().await,
+                                    &PARTIAL_VERIFIER_SCRIPTS,
                                 )[tapleaf_index]
                                     .clone();
                                 Some(ConnectorA31Leaf::DisproveProof((
