@@ -1432,10 +1432,8 @@ impl Operator {
         let assert_data_signatures = {
             let mut assertions = mock_assertions();
             if self.am_i_faulty() {
+                warn!(action = "making a faulty assertion");
                 assertions.groth16.0[0] = [0u8; 32];
-                println!("making assertion faulty");
-                // assertions.bridge_out_txid = [0u8; 32]; // FIXME: only do this when
-                // `self.am_i_faulty()`
             }
             generate_wots_signatures(&self.msk, deposit_txid, assertions)
         };

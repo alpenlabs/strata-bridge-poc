@@ -27,7 +27,7 @@ use strata_bridge_tx_graph::{
     },
 };
 use tokio::sync::broadcast::{self, error::RecvError};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, trace, warn};
 
 use crate::base::Agent;
 
@@ -77,7 +77,7 @@ impl Verifier {
         loop {
             match duty_receiver.recv().await {
                 Ok(verifier_duty) => {
-                    debug!(event = "received duty", ?verifier_duty);
+                    trace!(event = "received duty", ?verifier_duty); // NOTE: this is a very big data structure beware before logging
                     self.process_duty(verifier_duty).await;
                 }
                 Err(RecvError::Lagged(skipped_messages)) => {
@@ -124,7 +124,7 @@ impl Verifier {
                 info!(event = "parsed claim transaction", superblock_start_ts_size = superblock_period_start_ts.len(), bridge_out_txid_size = %bridge_out_txid.len());
 
                 let (superblock_hash, groth16) = self.parse_assert_data_txs(&assert_data_txs);
-                info!(event = "parsed assert data", ?superblock_hash, wots256_signature_size=%groth16.0.len(), groth16_signature_size=%groth16.1.len());
+                info!(event = "parsed assert data", wots256_signature_size=%groth16.0.len(), groth16_signature_size=%groth16.1.len());
 
                 let signatures = Signatures {
                     bridge_out_txid,
@@ -262,7 +262,7 @@ impl Verifier {
                         let vsize = signed_disprove_tx.vsize();
                         let total_size = signed_disprove_tx.total_size();
                         let weight = signed_disprove_tx.weight();
-                        info!(event = "finalized pre-assert tx", txid = %signed_disprove_tx.compute_txid(), %vsize, %total_size, %weight);
+                        info!(event = "finalized disprove tx", txid = %signed_disprove_tx.compute_txid(), %vsize, %total_size, %weight);
                     }
 
                     let disprove_txid = self
