@@ -9,11 +9,14 @@ use musig2::{BinaryEncoding, PartialSignature, PubNonce, SecNonce};
 use rkyv::{from_bytes, rancor::Error as RkyvError, to_bytes};
 use secp256k1::schnorr::Signature;
 use sqlx::SqlitePool;
-use strata_bridge_primitives::{bitcoin::BitcoinAddress, scripts::wots, types::OperatorIdx};
+use strata_bridge_primitives::{
+    bitcoin::BitcoinAddress, duties::BridgeDutyStatus, scripts::wots, types::OperatorIdx,
+};
 
 use crate::{
     operator::{KickoffInfo, MsgHashAndOpIdToSigMap, OperatorDb},
     public::PublicDb,
+    tracker::{BitcoinBlockTracker, DutyTracker},
 };
 
 #[derive(Debug, Clone)]
@@ -755,5 +758,110 @@ impl OperatorDb for SqliteDb {
             funding_inputs,
             funding_utxos,
         })
+    }
+}
+
+#[async_trait]
+impl DutyTracker for SqliteDb {
+    async fn get_last_fetched_duty_index(&self) -> u64 {
+        // Retrieve last fetched duty index from duty_index_tracker table
+        let row =
+            sqlx::query!("SELECT last_fetched_duty_index FROM duty_index_tracker WHERE id = 1")
+                .fetch_optional(&self.pool)
+                .await
+                .expect("Failed to fetch last fetched duty index");
+
+        row.map(|r| r.last_fetched_duty_index as u64).unwrap_or(0) // Default to 0 if no record
+    }
+
+    async fn set_last_fetched_duty_index(&self, duty_index: u64) {
+        let duty_index = duty_index as i64;
+
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .expect("should be able to start a transaction");
+
+        sqlx::query!(
+            "INSERT INTO duty_index_tracker (id, last_fetched_duty_index) VALUES (1, ?)
+             ON CONFLICT(id) DO UPDATE SET last_fetched_duty_index = excluded.last_fetched_duty_index",
+            duty_index
+        )
+        .execute(&mut *tx)
+        .await
+        .expect("should be able to set the last fetched duty index");
+
+        tx.commit()
+            .await
+            .expect("should be able to commit last fetch duty index");
+    }
+
+    async fn fetch_status(&self, duty_id: String) -> Option<BridgeDutyStatus> {
+        let row = sqlx::query!("SELECT status FROM duty_tracker WHERE duty_id = ?", duty_id)
+            .fetch_optional(&self.pool)
+            .await
+            .expect("Failed to fetch duty status");
+
+        row.map(|r| serde_json::from_str(&r.status).expect("Failed to parse duty status JSON"))
+    }
+
+    async fn update_duty_status(&self, duty_id: String, status: BridgeDutyStatus) {
+        let status_json =
+            serde_json::to_string(&status).expect("Failed to serialize duty status to JSON");
+
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .expect("should be able to start a transaction");
+
+        sqlx::query!(
+            "INSERT INTO duty_tracker (duty_id, status) VALUES (?, ?)
+             ON CONFLICT(duty_id) DO UPDATE SET status = excluded.status",
+            duty_id,
+            status_json
+        )
+        .execute(&mut *tx)
+        .await
+        .expect("should be able to update duty status");
+
+        tx.commit()
+            .await
+            .expect("should be able to commit duty status");
+    }
+}
+
+#[async_trait]
+impl BitcoinBlockTracker for SqliteDb {
+    async fn get_last_scanned_block_height(&self) -> u64 {
+        let row = sqlx::query!("SELECT block_height FROM bitcoin_block_tracker WHERE id = 1")
+            .fetch_optional(&self.pool)
+            .await
+            .expect("Failed to fetch last scanned block height");
+
+        row.map(|r| r.block_height as u64).unwrap_or(0) // Default to 0 if no record
+    }
+
+    async fn set_last_scanned_block_height(&self, block_height: u64) {
+        let block_height = block_height as i64;
+
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .expect("should be able to start a transaction");
+
+        sqlx::query!(
+            "INSERT OR REPLACE INTO bitcoin_block_tracker (id, block_height) VALUES (1, ?)",
+            block_height
+        )
+        .execute(&mut *tx)
+        .await
+        .expect("should be able to insert last scanned block height");
+
+        tx.commit()
+            .await
+            .expect("should be able to commit last scanned block height");
     }
 }

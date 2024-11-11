@@ -115,3 +115,21 @@ CREATE TABLE funding_utxos (
     script_pubkey TEXT NOT NULL,          -- Serialized ScriptPubKey in hex format
     FOREIGN KEY (kickoff_txid) REFERENCES kickoff_info(txid) ON DELETE CASCADE
 );
+
+-- Table to store duty status information with JSON serialization for the status
+CREATE TABLE IF NOT EXISTS duty_tracker (
+    duty_id TEXT PRIMARY KEY,              -- Unique identifier for each duty as an encoded txid
+    status TEXT NOT NULL                   -- Status of the duty as JSON
+);
+
+-- Table to store the last scanned Bitcoin block height
+CREATE TABLE IF NOT EXISTS bitcoin_block_tracker (
+    id INTEGER PRIMARY KEY CHECK (id = 1), -- Singleton table to store the latest block height
+    block_height INTEGER NOT NULL          -- Last scanned block height
+);
+
+-- Table to store the last fetched duty index for tracking duty progress
+CREATE TABLE IF NOT EXISTS duty_index_tracker (
+    id INTEGER PRIMARY KEY CHECK (id = 1),      -- Singleton row with a fixed id
+    last_fetched_duty_index INTEGER NOT NULL    -- Last fetched duty index
+);
