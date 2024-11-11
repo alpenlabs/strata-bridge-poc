@@ -1,11 +1,10 @@
 use bitcoin::{
-    sighash::Prevouts, Amount, Network, OutPoint, Psbt, ScriptBuf, Transaction, TxOut, Txid,
+    psbt::PsbtSighashType, sighash::Prevouts, Amount, Network, OutPoint, Psbt, TapSighashType,
+    Transaction, TxOut, Txid,
 };
 use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::{
-    params::{prelude::UNSPENDABLE_INTERNAL_KEY, tx::DISPROVER_REWARD},
-    scripts::prelude::*,
-    types::OperatorIdx,
+    params::prelude::UNSPENDABLE_INTERNAL_KEY, scripts::prelude::*, types::OperatorIdx,
 };
 
 use super::covenant_tx::CovenantTx;
@@ -61,10 +60,7 @@ impl DisproveTx {
         let burn_script = burn_address.script_pubkey();
         let burn_amount = burn_script.minimal_non_dust();
 
-        let tx_outs = create_tx_outs([
-            (burn_script, burn_amount),
-            (anyone_can_spend_script(), DISPROVER_REWARD),
-        ]);
+        let tx_outs = create_tx_outs([(burn_script, burn_amount)]);
 
         let tx = create_tx(tx_ins, tx_outs);
 
@@ -96,8 +92,10 @@ impl DisproveTx {
         let witnesses = vec![witness];
 
         for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts.clone()) {
-            input.witness_utxo = Some(utxo)
+            input.witness_utxo = Some(utxo);
         }
+
+        psbt.inputs[0].sighash_type = Some(PsbtSighashType::from(TapSighashType::Single));
 
         Self {
             psbt,
@@ -120,14 +118,10 @@ impl DisproveTx {
         Db: ConnectorDb + Clone,
     {
         let original_txid = self.compute_txid();
-        let psbt = self.psbt_mut();
-
-        psbt.unsigned_tx.output[1] = reward;
 
         connector_a30
             .finalize_input(
                 &mut self.psbt.inputs[0],
-                0,
                 operator_idx,
                 original_txid,
                 ConnectorA30Leaf::Disprove,
@@ -143,9 +137,14 @@ impl DisproveTx {
             )
             .await;
 
-        self.psbt
+        let mut tx = self
+            .psbt
             .extract_tx()
-            .expect("should be able to extract tx")
+            .expect("should be able to extract tx");
+
+        tx.output.push(reward);
+
+        tx
     }
 }
 

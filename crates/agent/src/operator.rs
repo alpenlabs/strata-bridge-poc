@@ -756,16 +756,16 @@ impl Operator {
             .await;
 
         trace!(action = "signing disprove tx partially", %operator_index);
-        let all_inputs = disprove_tx.witnesses().len();
+        let inputs_to_sign = disprove_tx.witnesses().len();
         let disprove_partial_sigs = self
             .sign_partial(
                 &key_agg_ctx,
-                TapSighashType::Default,
-                1,
+                TapSighashType::Single,
+                inputs_to_sign,
                 own_index,
                 operator_index,
                 disprove_tx,
-                vec![agg_nonces.disprove; all_inputs].as_ref(),
+                vec![agg_nonces.disprove; inputs_to_sign].as_ref(),
             )
             .await;
 
@@ -1233,7 +1233,8 @@ impl Operator {
             .enumerate()
             .take(inputs_to_sign)
         {
-            trace!(action = "creating message hash", ?covenant_tx);
+            trace!(action = "creating message hash", ?covenant_tx, %input_index);
+
             let message = create_message_hash(
                 &mut sighash_cache,
                 prevouts.clone(),

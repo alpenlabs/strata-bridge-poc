@@ -1,7 +1,7 @@
 use bitcoin::{
     psbt::Input,
-    taproot::{ControlBlock, LeafVersion, TaprootSpendInfo},
-    Address, Network, ScriptBuf, Txid, XOnlyPublicKey,
+    taproot::{ControlBlock, LeafVersion, Signature, TaprootSpendInfo},
+    Address, Network, ScriptBuf, TapSighashType, Txid, XOnlyPublicKey,
 };
 use strata_bridge_db::connector_db::ConnectorDb;
 use strata_bridge_primitives::{scripts::prelude::*, types::OperatorIdx};
@@ -71,18 +71,22 @@ impl<Db: ConnectorDb> ConnectorA30<Db> {
     pub async fn finalize_input(
         &self,
         input: &mut Input,
-        input_index: u32,
         operator_idx: OperatorIdx,
         txid: Txid,
         tapleaf: ConnectorA30Leaf,
     ) {
         let (script, control_block) = self.generate_spend_info(tapleaf);
-        let n_of_n_sig = self.db.get_signature(operator_idx, txid, input_index).await;
+        let n_of_n_sig = self.db.get_signature(operator_idx, txid, 0).await;
+
+        let signature = Signature {
+            signature: n_of_n_sig,
+            sighash_type: TapSighashType::Single,
+        };
 
         finalize_input(
             input,
             [
-                n_of_n_sig.serialize().to_vec(),
+                signature.serialize().to_vec(),
                 script.to_bytes(),
                 control_block.serialize(),
             ],
