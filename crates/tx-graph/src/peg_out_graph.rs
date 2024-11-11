@@ -1,7 +1,7 @@
 use bitcoin::{Amount, Network, Txid};
 use secp256k1::XOnlyPublicKey;
 use serde::{Deserialize, Serialize};
-use strata_bridge_db::connector_db::PublicDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     build_context::BuildContext,
     params::connectors::{

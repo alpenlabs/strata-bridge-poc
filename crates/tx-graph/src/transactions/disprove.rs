@@ -2,7 +2,7 @@ use bitcoin::{
     psbt::PsbtSighashType, sighash::Prevouts, Amount, Network, OutPoint, Psbt, TapSighashType,
     Transaction, TxOut, Txid,
 };
-use strata_bridge_db::connector_db::PublicDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     params::prelude::UNSPENDABLE_INTERNAL_KEY, scripts::prelude::*, types::OperatorIdx,
 };

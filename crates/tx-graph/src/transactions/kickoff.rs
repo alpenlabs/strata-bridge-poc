@@ -2,7 +2,7 @@ use bitcoin::{
     address::NetworkUnchecked, Address, Amount, Network, OutPoint, Psbt, Transaction, TxOut, Txid,
 };
 use serde::{Deserialize, Serialize};
-use strata_bridge_db::connector_db::PublicDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
 
 use crate::connectors::prelude::*;

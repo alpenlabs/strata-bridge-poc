@@ -15,7 +15,7 @@ use strata_bridge_agent::{
     verifier::{Verifier, VerifierDuty},
 };
 use strata_bridge_btcio::{traits::Reader, BitcoinClient};
-use strata_bridge_db::{operator::OperatorDb, public::PublicDbInMemory};
+use strata_bridge_db::inmemory::prelude::*;
 use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext},
     duties::BridgeDuty,
@@ -180,7 +180,7 @@ pub async fn generate_operator_set(
             faulty_idxs.push(operator_idx);
         }
 
-        let operator_db = OperatorDb::default();
+        let operator_db = OperatorDbInMemory::default();
         let operator = Operator::new(
             agent,
             build_context,

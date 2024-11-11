@@ -3,7 +3,7 @@ use bitcoin::{
     taproot::{ControlBlock, LeafVersion, Signature, TaprootSpendInfo},
     Address, Network, ScriptBuf, TapSighashType, Txid, XOnlyPublicKey,
 };
-use strata_bridge_db::connector_db::PublicDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{scripts::prelude::*, types::OperatorIdx};
 
 use super::params::PAYOUT_TIMELOCK;

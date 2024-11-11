@@ -1,7 +1,7 @@
 use bitcoin::{sighash::Prevouts, Amount, Network, OutPoint, Psbt, Transaction, TxOut, Txid};
 use secp256k1::{schnorr::Signature, XOnlyPublicKey};
 use serde::{Deserialize, Serialize};
-use strata_bridge_db::connector_db::PublicDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     params::{prelude::MIN_RELAY_FEE, tx::BRIDGE_DENOMINATION},
     scripts::prelude::*,

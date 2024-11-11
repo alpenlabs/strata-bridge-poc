@@ -12,7 +12,7 @@ use bitvm::{
     signatures::wots::{wots256, wots32, SignatureImpl},
     treepp::*,
 };
-use strata_bridge_db::connector_db::PublicDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     scripts::{prelude::*, wots},
     types::OperatorIdx,

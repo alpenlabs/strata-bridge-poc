@@ -1,5 +1,5 @@
 use bitcoin::{Amount, OutPoint, Psbt, Transaction, TxOut, Txid};
-use strata_bridge_db::connector_db::PublicDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     params::prelude::{MIN_RELAY_FEE, OPERATOR_STAKE},
     scripts::prelude::*,

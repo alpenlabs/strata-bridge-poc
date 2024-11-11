@@ -4,7 +4,7 @@ use bitvm::{
     signatures::wots::{wots256, wots32, SignatureImpl},
     treepp::*,
 };
-use strata_bridge_db::{connector_db::PublicDb, public::PublicDbInMemory};
+use strata_bridge_db::{inmemory::prelude::*, public::PublicDb};
 use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext},
     helpers::hash_to_bn254_fq,
@@ -343,7 +343,7 @@ mod tests {
         treepp::*,
     };
     use secp256k1::{Keypair, Secp256k1, SECP256K1};
-    use strata_bridge_db::{connector_db::PublicDb, public::PublicDbInMemory};
+    use strata_bridge_db::{inmemory::prelude::PublicDbInMemory, public::PublicDb};
     use strata_bridge_primitives::{
         build_context::TxBuildContext,
         scripts::wots::{

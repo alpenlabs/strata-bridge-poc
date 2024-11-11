@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use bitcoin::{Transaction, Txid};
 use strata_bridge_btcio::{traits::Reader, BitcoinClient};
-use strata_bridge_db::{connector_db::PublicDb, public::PublicDbInMemory};
+use strata_bridge_db::{inmemory::prelude::*, public::PublicDb};
 use strata_bridge_tx_graph::transactions::constants::NUM_ASSERT_DATA_TX;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, info, warn};

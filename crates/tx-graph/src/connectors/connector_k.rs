@@ -9,7 +9,7 @@ use bitvm::{
     treepp::*,
 };
 use secp256k1::XOnlyPublicKey;
-use strata_bridge_db::connector_db::PublicDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     scripts::{prelude::*, wots},
     types::OperatorIdx,
