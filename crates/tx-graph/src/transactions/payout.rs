@@ -1,7 +1,7 @@
 use bitcoin::{sighash::Prevouts, Amount, Network, OutPoint, Psbt, Transaction, TxOut, Txid};
 use secp256k1::{schnorr::Signature, XOnlyPublicKey};
 use serde::{Deserialize, Serialize};
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::connector_db::PublicDb;
 use strata_bridge_primitives::{
     params::{prelude::MIN_RELAY_FEE, tx::BRIDGE_DENOMINATION},
     scripts::prelude::*,
@@ -35,7 +35,7 @@ pub struct PayoutTx {
 }
 
 impl PayoutTx {
-    pub fn new<Db: ConnectorDb>(
+    pub fn new<Db: PublicDb>(
         data: PayoutData,
         connector_a30: ConnectorA30<Db>,
         connector_b: ConnectorS,

@@ -9,7 +9,7 @@ use bitvm::{
     treepp::*,
 };
 use secp256k1::XOnlyPublicKey;
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::connector_db::PublicDb;
 use strata_bridge_primitives::{
     scripts::{prelude::*, wots},
     types::OperatorIdx,
@@ -17,7 +17,7 @@ use strata_bridge_primitives::{
 use tracing::trace;
 
 #[derive(Debug, Clone)]
-pub struct ConnectorK<Db: ConnectorDb> {
+pub struct ConnectorK<Db: PublicDb> {
     pub n_of_n_agg_pubkey: XOnlyPublicKey,
 
     pub network: Network,
@@ -27,7 +27,7 @@ pub struct ConnectorK<Db: ConnectorDb> {
     pub db: Db,
 }
 
-impl<Db: ConnectorDb> ConnectorK<Db> {
+impl<Db: PublicDb> ConnectorK<Db> {
     pub fn new(
         n_of_n_agg_pubkey: XOnlyPublicKey,
         network: Network,

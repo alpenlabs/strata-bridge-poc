@@ -2,7 +2,7 @@ use bitcoin::{
     psbt::PsbtSighashType, sighash::Prevouts, Amount, Network, OutPoint, Psbt, TapSighashType,
     Transaction, TxOut, Txid,
 };
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::connector_db::PublicDb;
 use strata_bridge_primitives::{
     params::prelude::UNSPENDABLE_INTERNAL_KEY, scripts::prelude::*, types::OperatorIdx,
 };
@@ -31,7 +31,7 @@ pub struct DisproveTx {
 }
 
 impl DisproveTx {
-    pub async fn new<Db: ConnectorDb>(
+    pub async fn new<Db: PublicDb>(
         data: DisproveData,
         operator_idx: OperatorIdx,
         connector_a30: ConnectorA30<Db>,
@@ -115,7 +115,7 @@ impl DisproveTx {
         disprove_leaf: ConnectorA31Leaf,
     ) -> Transaction
     where
-        Db: ConnectorDb + Clone,
+        Db: PublicDb + Clone,
     {
         let original_txid = self.compute_txid();
 

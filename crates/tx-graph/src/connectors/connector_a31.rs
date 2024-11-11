@@ -12,7 +12,7 @@ use bitvm::{
     signatures::wots::{wots256, wots32, SignatureImpl},
     treepp::*,
 };
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::connector_db::PublicDb;
 use strata_bridge_primitives::{
     scripts::{prelude::*, wots},
     types::OperatorIdx,
@@ -22,7 +22,7 @@ use tracing::trace;
 use crate::transactions::constants::SUPERBLOCK_PERIOD;
 
 #[derive(Debug, Clone)]
-pub struct ConnectorA31<DB: ConnectorDb> {
+pub struct ConnectorA31<DB: PublicDb> {
     network: Network,
 
     db: DB,
@@ -162,7 +162,7 @@ impl ConnectorA31Leaf {
     }
 }
 
-impl<DB: ConnectorDb> ConnectorA31<DB> {
+impl<DB: PublicDb> ConnectorA31<DB> {
     pub fn new(network: Network, db: DB) -> Self {
         Self { network, db }
     }

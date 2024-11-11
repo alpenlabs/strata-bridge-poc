@@ -16,14 +16,14 @@ use tokio::sync::RwLock;
 use tracing::{info, trace};
 
 use super::operator::OperatorIdx;
-use crate::{connector_db::ConnectorDb, constants::VK_SCRIPTS_FILE};
+use crate::{connector_db::PublicDb, constants::VK_SCRIPTS_FILE};
 
 pub type TxInputToSignatureMap = HashMap<(Txid, u32), Signature>;
 pub type OperatorIdxToTxInputSigMap = HashMap<OperatorIdx, TxInputToSignatureMap>;
 
 // Assume that no node will update other nodes' data in this public db.
 #[derive(Debug, Clone)]
-pub struct PublicDb {
+pub struct PublicDbInMemory {
     musig_pubkey_table: Arc<RwLock<BTreeMap<OperatorIdx, PublicKey>>>,
 
     verifier_scripts: Arc<RwLock<[Script; g16::N_TAPLEAVES]>>,
@@ -50,7 +50,7 @@ pub struct PublicDb {
         Arc<RwLock<HashMap<Txid, (OperatorIdx, Txid)>>>,
 }
 
-impl Default for PublicDb {
+impl Default for PublicDbInMemory {
     fn default() -> Self {
         let verifier_scripts: [Script; N_TAPLEAVES] = if fs::exists(VK_SCRIPTS_FILE)
             .expect("should be able to check for existence of verifier scripts file")
@@ -114,7 +114,7 @@ impl Default for PublicDb {
     }
 }
 
-impl PublicDb {
+impl PublicDbInMemory {
     pub async fn add_verifier_scripts(&self, verifier_scripts: &[Script; g16::N_TAPLEAVES]) {
         self.verifier_scripts
             .write()
@@ -156,7 +156,7 @@ impl PublicDb {
 }
 
 #[async_trait]
-impl ConnectorDb for PublicDb {
+impl PublicDb for PublicDbInMemory {
     async fn get_partial_disprove_scripts(&self) -> [Script; g16::N_TAPLEAVES] {
         self.verifier_scripts.read().await.clone()
     }

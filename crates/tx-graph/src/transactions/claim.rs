@@ -1,5 +1,5 @@
 use bitcoin::{Amount, OutPoint, Psbt, Transaction, TxOut, Txid};
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::connector_db::PublicDb;
 use strata_bridge_primitives::{
     params::prelude::{MIN_RELAY_FEE, OPERATOR_STAKE},
     scripts::prelude::*,
@@ -22,7 +22,7 @@ pub struct ClaimTx {
 }
 
 impl ClaimTx {
-    pub async fn new<Db: ConnectorDb>(
+    pub async fn new<Db: PublicDb>(
         data: ClaimData,
         connector_k: ConnectorK<Db>,
         connector_c0: ConnectorC0,
@@ -79,7 +79,7 @@ impl ClaimTx {
         self.psbt.unsigned_tx.compute_txid()
     }
 
-    pub async fn finalize<Db: ConnectorDb>(
+    pub async fn finalize<Db: PublicDb>(
         mut self,
         deposit_txid: Txid,
         connector_k: &ConnectorK<Db>,

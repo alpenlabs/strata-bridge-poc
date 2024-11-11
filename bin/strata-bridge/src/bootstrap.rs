@@ -15,7 +15,7 @@ use strata_bridge_agent::{
     verifier::{Verifier, VerifierDuty},
 };
 use strata_bridge_btcio::{traits::Reader, BitcoinClient};
-use strata_bridge_db::{operator::OperatorDb, public::PublicDb};
+use strata_bridge_db::{operator::OperatorDb, public::PublicDbInMemory};
 use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext},
     duties::BridgeDuty,
@@ -68,7 +68,7 @@ pub(crate) async fn bootstrap(args: Cli) {
     let (duty_sender, _duty_receiver) = broadcast::channel::<BridgeDuty>(DUTY_QUEUE_SIZE);
 
     // initialize public database
-    let public_db = PublicDb::default();
+    let public_db = PublicDbInMemory::default();
     debug!(event = "initialized public db");
 
     public_db.set_musig_pubkey_table(&pubkey_table.0).await;
@@ -138,7 +138,7 @@ pub(crate) async fn bootstrap(args: Cli) {
 pub async fn generate_operator_set(
     args: &Cli,
     pubkey_table: PublickeyTable,
-    public_db: PublicDb,
+    public_db: PublicDbInMemory,
     network: Network,
 ) -> Vec<Operator> {
     let operator_indexes_and_keypairs =

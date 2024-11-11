@@ -3,13 +3,13 @@ use bitcoin::{
     taproot::{ControlBlock, LeafVersion, Signature, TaprootSpendInfo},
     Address, Network, ScriptBuf, TapSighashType, Txid, XOnlyPublicKey,
 };
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::connector_db::PublicDb;
 use strata_bridge_primitives::{scripts::prelude::*, types::OperatorIdx};
 
 use super::params::PAYOUT_TIMELOCK;
 
 #[derive(Debug, Clone)]
-pub struct ConnectorA30<Db: ConnectorDb> {
+pub struct ConnectorA30<Db: PublicDb> {
     n_of_n_agg_pubkey: XOnlyPublicKey,
 
     network: Network,
@@ -23,7 +23,7 @@ pub enum ConnectorA30Leaf {
     Disprove,
 }
 
-impl<Db: ConnectorDb> ConnectorA30<Db> {
+impl<Db: PublicDb> ConnectorA30<Db> {
     pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Db) -> Self {
         Self {
             n_of_n_agg_pubkey,

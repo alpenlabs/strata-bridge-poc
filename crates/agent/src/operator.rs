@@ -22,9 +22,9 @@ use secp256k1::XOnlyPublicKey;
 use strata_bridge_btcio::traits::Reader;
 use strata_bridge_btcio::traits::{Broadcaster, Signer};
 use strata_bridge_db::{
-    connector_db::ConnectorDb,
+    connector_db::PublicDb,
     operator::{KickoffInfo, OperatorDb},
-    public::PublicDb,
+    public::PublicDbInMemory,
 };
 use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext, TxKind},
@@ -66,7 +66,7 @@ pub struct Operator {
 
     db: OperatorDb,
 
-    public_db: PublicDb,
+    public_db: PublicDbInMemory,
 
     is_faulty: bool,
 
@@ -90,7 +90,7 @@ impl Operator {
         build_context: TxBuildContext,
         is_faulty: bool,
         db: OperatorDb,
-        public_db: PublicDb,
+        public_db: PublicDbInMemory,
         deposit_signal_sender: broadcast::Sender<DepositSignal>,
         deposit_signal_receiver: broadcast::Receiver<DepositSignal>,
         covenant_nonce_sender: broadcast::Sender<CovenantNonceSignal>,
@@ -1548,7 +1548,7 @@ impl Operator {
 
     async fn broadcast_kickoff_and_claim(
         &self,
-        connectors: &PegOutGraphConnectors<PublicDb>,
+        connectors: &PegOutGraphConnectors<PublicDbInMemory>,
         own_index: u32,
         deposit_txid: Txid,
         kickoff_tx: KickOffTx,

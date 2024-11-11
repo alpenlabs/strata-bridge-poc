@@ -1,7 +1,7 @@
 use bitcoin::{Amount, Network, Txid};
 use secp256k1::XOnlyPublicKey;
 use serde::{Deserialize, Serialize};
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::connector_db::PublicDb;
 use strata_bridge_primitives::{
     build_context::BuildContext,
     params::connectors::{
@@ -39,7 +39,7 @@ pub struct PegOutGraph {
 }
 
 impl PegOutGraph {
-    pub async fn generate<Db: ConnectorDb>(
+    pub async fn generate<Db: PublicDb>(
         input: PegOutGraphInput,
         deposit_txid: Txid,
         connectors: PegOutGraphConnectors<Db>,
@@ -161,7 +161,7 @@ impl PegOutGraph {
 }
 
 #[derive(Debug, Clone)]
-pub struct PegOutGraphConnectors<Db: ConnectorDb + Clone> {
+pub struct PegOutGraphConnectors<Db: PublicDb + Clone> {
     pub kickoff: ConnectorK<Db>,
 
     pub claim_out_0: ConnectorC0,
@@ -179,7 +179,7 @@ pub struct PegOutGraphConnectors<Db: ConnectorDb + Clone> {
     pub assert_data256_factory: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256>,
 }
 
-impl<Db: ConnectorDb> PegOutGraphConnectors<Db> {
+impl<Db: PublicDb> PegOutGraphConnectors<Db> {
     pub async fn new(
         db: Db,
         build_context: &impl BuildContext,

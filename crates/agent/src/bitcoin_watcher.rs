@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use bitcoin::{Transaction, Txid};
 use strata_bridge_btcio::{traits::Reader, BitcoinClient};
-use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
+use strata_bridge_db::{connector_db::PublicDb, public::PublicDbInMemory};
 use strata_bridge_tx_graph::transactions::constants::NUM_ASSERT_DATA_TX;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, info, warn};
@@ -11,7 +11,7 @@ use crate::{operator::OperatorIdx, verifier::VerifierDuty};
 
 #[derive(Debug, Clone)]
 pub struct BitcoinWatcher {
-    db: PublicDb,
+    db: PublicDbInMemory,
 
     poll_interval: Duration,
 
@@ -24,7 +24,7 @@ pub struct BitcoinWatcher {
 
 impl BitcoinWatcher {
     pub fn new(
-        db: PublicDb,
+        db: PublicDbInMemory,
         client: Arc<BitcoinClient>,
         poll_interval: Duration,
         genesis_height: u32,

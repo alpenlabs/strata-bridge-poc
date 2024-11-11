@@ -2,7 +2,7 @@ use bitcoin::{
     address::NetworkUnchecked, Address, Amount, Network, OutPoint, Psbt, Transaction, TxOut, Txid,
 };
 use serde::{Deserialize, Serialize};
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::connector_db::PublicDb;
 use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
 
 use crate::connectors::prelude::*;
@@ -24,7 +24,7 @@ pub struct KickoffTxData {
 pub struct KickOffTx(Psbt);
 
 impl KickOffTx {
-    pub async fn new<Db: ConnectorDb>(
+    pub async fn new<Db: PublicDb>(
         data: KickoffTxData,
         connector_k: ConnectorK<Db>,
         network: Network,

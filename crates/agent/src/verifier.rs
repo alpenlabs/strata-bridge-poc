@@ -4,7 +4,7 @@ use bitvm::{
     signatures::wots::{wots256, wots32, SignatureImpl},
     treepp::*,
 };
-use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
+use strata_bridge_db::{connector_db::PublicDb, public::PublicDbInMemory};
 use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext},
     helpers::hash_to_bn254_fq,
@@ -57,12 +57,12 @@ pub struct Verifier {
 
     build_context: TxBuildContext,
 
-    public_db: PublicDb,
+    public_db: PublicDbInMemory,
 }
 
 impl Verifier {
     #[allow(clippy::too_many_arguments)]
-    pub fn new(public_db: PublicDb, build_context: TxBuildContext, agent: Agent) -> Self {
+    pub fn new(public_db: PublicDbInMemory, build_context: TxBuildContext, agent: Agent) -> Self {
         Self {
             public_db,
             build_context,
@@ -343,7 +343,7 @@ mod tests {
         treepp::*,
     };
     use secp256k1::{Keypair, Secp256k1, SECP256K1};
-    use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
+    use strata_bridge_db::{connector_db::PublicDb, public::PublicDbInMemory};
     use strata_bridge_primitives::{
         build_context::TxBuildContext,
         scripts::wots::{
@@ -2877,7 +2877,7 @@ mod tests {
     }
 
     async fn build_assert_data_txs(
-        db: PublicDb,
+        db: PublicDbInMemory,
         msk: &str,
         operator_id: u32,
         deposit_txid: Txid,
@@ -2922,7 +2922,7 @@ mod tests {
         let deposit_txid = Txid::from_byte_array(mock::PUBLIC_INPUTS.0);
 
         println!("initializing the db");
-        let db = PublicDb::default();
+        let db = PublicDbInMemory::default();
 
         db.set_wots_public_keys(
             operator_id,
@@ -3015,7 +3015,7 @@ mod tests {
         let deposit_txid = Txid::from_byte_array(mock::PUBLIC_INPUTS.0);
 
         println!("initializing the db");
-        let db = PublicDb::default();
+        let db = PublicDbInMemory::default();
 
         db.set_wots_public_keys(
             operator_id,
