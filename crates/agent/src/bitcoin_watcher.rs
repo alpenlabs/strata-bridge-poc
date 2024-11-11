@@ -49,6 +49,8 @@ impl BitcoinWatcher {
                 if height % 1000 == 0 {
                     warn!(%e, %height, msg = "could not get block");
                 }
+                tokio::time::sleep(self.poll_interval).await;
+
                 continue;
             }
 
