@@ -38,7 +38,6 @@ pub fn op_return_nonce(data: Vec<u8>) -> ScriptBuf {
         .extend_from_slice(&data[..])
         .expect("data should be within limit");
 
-    dbg!(&push_data);
     Builder::new()
         .push_opcode(OP_RETURN)
         .push_slice(push_data)
