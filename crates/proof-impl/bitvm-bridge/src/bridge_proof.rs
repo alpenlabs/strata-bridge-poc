@@ -69,7 +69,7 @@ pub fn process_bridge_proof(
         header_hashes
     };
 
-    // superblock hash and count
+    // superblock hash and blocks count
     let (superblock_hash, superblock_period_blocks_count) = headers.iter().zip(header_hashes).fold(
         ([u8::MAX; 32], 0),
         |(mut superblock_hash, mut superblock_period_blocks_count), (header, hash)| {
@@ -111,9 +111,10 @@ pub fn process_bridge_proof(
         // extract batch checkpoint from checkpoint tx
         let script = checkpoint.tx.input[0].witness.tapscript().unwrap();
         let inscription = parse_inscription_data(&script.into(), ROLLUP_NAME).unwrap();
-        let signed_batch =
-            borsh::from_slice::<SignedBatchCheckpoint>(inscription.batch_data()).unwrap();
-        let batch_checkpoint: BatchCheckpoint = signed_batch.into();
+        let batch_checkpoint: BatchCheckpoint =
+            borsh::from_slice::<SignedBatchCheckpoint>(inscription.batch_data())
+                .unwrap()
+                .into();
 
         let batch_checkpoint_proof = batch_checkpoint.proof();
         // TODO: Fix this
@@ -154,6 +155,13 @@ pub fn process_bridge_proof(
         assert_eq!(operator_id, dispatched_state.assignee());
         assert_eq!(withdrawal_address, withdrawal.dest_addr().clone());
         assert_eq!(withdrawal_amount, BitcoinAmount::from_sat(800000000));
+
+        let batch_info = batch_checkpoint.batch_info();
+        assert_eq!(
+            batch_info.l1_transition.1,
+            initial_header_state.compute_hash().unwrap(),
+            "Invalid initial_header_state"
+        );
     }
 
     BridgeProofPublicParams {
