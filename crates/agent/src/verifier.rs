@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 use bitcoin::{hashes::Hash, Transaction, TxOut, Txid};
 use bitvm::{
     groth16::g16,
     signatures::wots::{wots256, wots32, SignatureImpl},
     treepp::*,
 };
-use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext},
     helpers::hash_to_bn254_fq,
@@ -12,9 +14,9 @@ use strata_bridge_primitives::{
         prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256},
         tx::{BTC_CONFIRM_PERIOD, DISPROVER_REWARD},
     },
+    partial_verifier_scripts::PARTIAL_VERIFIER_SCRIPTS,
     scripts::{
         parse_witness::parse_assertion_witnesses,
-        prelude::anyone_can_spend_script,
         wots::{bridge_poc_verification_key, mock, Signatures},
     },
     types::OperatorIdx,
@@ -27,7 +29,7 @@ use strata_bridge_tx_graph::{
     },
 };
 use tokio::sync::broadcast::{self, error::RecvError};
-use tracing::{debug, error, info, warn};
+use tracing::{error, info, trace, warn};
 
 use crate::base::Agent;
 
@@ -53,17 +55,20 @@ pub enum VerifierDuty {
 pub type VerifierIdx = u32;
 
 #[derive(Debug)]
-pub struct Verifier {
+pub struct Verifier<P: PublicDb> {
     pub agent: Agent, // required for broadcasting tx
 
     build_context: TxBuildContext,
 
-    public_db: PublicDb,
+    public_db: Arc<P>,
 }
 
-impl Verifier {
+impl<P> Verifier<P>
+where
+    P: PublicDb + Clone,
+{
     #[allow(clippy::too_many_arguments)]
-    pub fn new(public_db: PublicDb, build_context: TxBuildContext, agent: Agent) -> Self {
+    pub fn new(public_db: Arc<P>, build_context: TxBuildContext, agent: Agent) -> Self {
         Self {
             public_db,
             build_context,
@@ -77,7 +82,7 @@ impl Verifier {
         loop {
             match duty_receiver.recv().await {
                 Ok(verifier_duty) => {
-                    debug!(event = "received duty", ?verifier_duty);
+                    trace!(event = "received duty", ?verifier_duty); // NOTE: this is a very big data structure beware before logging
                     self.process_duty(verifier_duty).await;
                 }
                 Err(RecvError::Lagged(skipped_messages)) => {
@@ -124,7 +129,7 @@ impl Verifier {
                 info!(event = "parsed claim transaction", superblock_start_ts_size = superblock_period_start_ts.len(), bridge_out_txid_size = %bridge_out_txid.len());
 
                 let (superblock_hash, groth16) = self.parse_assert_data_txs(&assert_data_txs);
-                info!(event = "parsed assert data", ?superblock_hash, wots256_signature_size=%groth16.0.len(), groth16_signature_size=%groth16.1.len());
+                info!(event = "parsed assert data", wots256_signature_size=%groth16.0.len(), groth16_signature_size=%groth16.1.len());
 
                 let signatures = Signatures {
                     bridge_out_txid,
@@ -138,17 +143,6 @@ impl Verifier {
                     .public_db
                     .get_wots_public_keys(operator_id, deposit_txid)
                     .await;
-
-                // {
-                //     let partial_disprove_scripts =
-                //         self.public_db.get_partial_disprove_scripts().await;
-                //     let disprove_script_lengths = g16::generate_disprove_scripts(
-                //         public_keys.groth16,
-                //         &partial_disprove_scripts,
-                //     )
-                //     .map(|s| s.len());
-                //     println!("disprove script lengths: {:?}", disprove_script_lengths);
-                // }
 
                 let connector_leaf = {
                     // 1. public input hash validation
@@ -190,13 +184,13 @@ impl Verifier {
                             if let Some((tapleaf_index, witness_script)) =
                                 g16::verify_signed_assertions(
                                     bridge_poc_verification_key(),
-                                    public_keys.groth16,
+                                    *public_keys.groth16,
                                     signatures.groth16,
                                 )
                             {
                                 let disprove_script = g16::generate_disprove_scripts(
-                                    public_keys.groth16,
-                                    &self.public_db.get_partial_disprove_scripts().await,
+                                    *public_keys.groth16,
+                                    &PARTIAL_VERIFIER_SCRIPTS,
                                 )[tapleaf_index]
                                     .clone();
                                 Some(ConnectorA31Leaf::DisproveProof((
@@ -241,11 +235,10 @@ impl Verifier {
 
                     let reward_out = TxOut {
                         value: DISPROVER_REWARD,
-                        script_pubkey: anyone_can_spend_script(),
-                        // script_pubkey: self
-                        //     .agent
-                        //     .taproot_address(self.build_context.network())
-                        //     .script_pubkey(),
+                        script_pubkey: self
+                            .agent
+                            .taproot_address(self.build_context.network())
+                            .script_pubkey(),
                     };
                     let signed_disprove_tx = disprove_tx
                         .finalize(
@@ -262,7 +255,7 @@ impl Verifier {
                         let vsize = signed_disprove_tx.vsize();
                         let total_size = signed_disprove_tx.total_size();
                         let weight = signed_disprove_tx.weight();
-                        info!(event = "finalized pre-assert tx", txid = %signed_disprove_tx.compute_txid(), %vsize, %total_size, %weight);
+                        info!(event = "finalized disprove tx", txid = %signed_disprove_tx.compute_txid(), %vsize, %total_size, %weight);
                     }
 
                     let disprove_txid = self
@@ -356,7 +349,7 @@ mod tests {
         treepp::*,
     };
     use secp256k1::{Keypair, Secp256k1, SECP256K1};
-    use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
+    use strata_bridge_db::{inmemory::prelude::PublicDbInMemory, public::PublicDb};
     use strata_bridge_primitives::{
         build_context::TxBuildContext,
         scripts::wots::{
@@ -2890,7 +2883,7 @@ mod tests {
     }
 
     async fn build_assert_data_txs(
-        db: PublicDb,
+        db: PublicDbInMemory,
         msk: &str,
         operator_id: u32,
         deposit_txid: Txid,
@@ -2919,8 +2912,8 @@ mod tests {
         let c256 = ConnectorA256Factory {
             network,
             public_keys: std::array::from_fn(|i| match i {
-                0 => public_keys.superblock_hash,
-                1 => public_keys.groth16.0[0],
+                0 => public_keys.superblock_hash.0,
+                1 => (*public_keys.groth16).0[0],
                 _ => public_keys.groth16.1[i - 2],
             }),
         };
@@ -2935,7 +2928,7 @@ mod tests {
         let deposit_txid = Txid::from_byte_array(mock::PUBLIC_INPUTS.0);
 
         println!("initializing the db");
-        let db = PublicDb::default();
+        let db = PublicDbInMemory::default();
 
         db.set_wots_public_keys(
             operator_id,
@@ -2952,7 +2945,7 @@ mod tests {
             0,
         );
 
-        let mut verifier = Verifier::new(db.clone(), context, agent);
+        let mut verifier = Verifier::new(db.clone().into(), context, agent);
 
         println!("generating assertions");
         // let assertions = {
@@ -3028,7 +3021,7 @@ mod tests {
         let deposit_txid = Txid::from_byte_array(mock::PUBLIC_INPUTS.0);
 
         println!("initializing the db");
-        let db = PublicDb::default();
+        let db = PublicDbInMemory::default();
 
         db.set_wots_public_keys(
             operator_id,
@@ -3042,7 +3035,7 @@ mod tests {
         let context =
             TxBuildContext::new(Network::Regtest, PublickeyTable::from(BTreeMap::new()), 0);
 
-        let mut verifier = Verifier::new(db.clone(), context, agent);
+        let mut verifier = Verifier::new(db.clone().into(), context, agent);
 
         fn invalidate_groth16_assertions(assertions: &mut Assertions, i: usize, j: u8) {
             match i {

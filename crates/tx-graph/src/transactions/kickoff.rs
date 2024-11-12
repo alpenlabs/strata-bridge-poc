@@ -1,9 +1,7 @@
-use bitcoin::{
-    address::NetworkUnchecked, Address, Amount, Network, OutPoint, Psbt, Transaction, TxOut, Txid,
-};
+use bitcoin::{Amount, OutPoint, Psbt, Transaction, TxOut, Txid};
 use serde::{Deserialize, Serialize};
-use strata_bridge_db::connector_db::ConnectorDb;
-use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
+use strata_bridge_db::public::PublicDb;
+use strata_bridge_primitives::{bitcoin::BitcoinAddress, params::prelude::*, scripts::prelude::*};
 
 use crate::connectors::prelude::*;
 
@@ -11,7 +9,7 @@ use crate::connectors::prelude::*;
 pub struct KickoffTxData {
     pub funding_inputs: Vec<OutPoint>,
     pub funding_utxos: Vec<TxOut>,
-    pub change_address: Address<NetworkUnchecked>,
+    pub change_address: BitcoinAddress,
     pub change_amt: Amount,
     pub deposit_txid: Txid,
 }
@@ -24,10 +22,9 @@ pub struct KickoffTxData {
 pub struct KickOffTx(Psbt);
 
 impl KickOffTx {
-    pub async fn new<Db: ConnectorDb>(
+    pub async fn new<Db: PublicDb + Clone>(
         data: KickoffTxData,
         connector_k: ConnectorK<Db>,
-        network: Network,
     ) -> Self {
         let tx_ins = create_tx_ins(data.funding_inputs);
 
@@ -36,10 +33,7 @@ impl KickOffTx {
             .await
             .script_pubkey();
 
-        let change_address = data
-            .change_address
-            .require_network(network)
-            .expect("address should be valid for network");
+        let change_address = data.change_address.address();
         let scripts_and_amounts = [
             (commitment_script, OPERATOR_STAKE),
             (change_address.script_pubkey(), data.change_amt),

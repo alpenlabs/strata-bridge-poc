@@ -39,9 +39,9 @@ impl BridgeOut {
             let op_return_script = op_return_nonce(nonce);
 
             let scripts_and_amounts = [
+                (op_return_script, op_return_amount),
                 (recipient_pubkey.clone(), amount),
                 (change_pubkey.clone(), change_amount),
-                (op_return_script, op_return_amount),
             ];
 
             let tx_outs = create_tx_outs(scripts_and_amounts);
@@ -125,15 +125,16 @@ mod tests {
         );
 
         // Verify the outputs contain the recipient, change, and OP_RETURN with expected values
-        let recipient_pubkey =
-            Address::p2tr(SECP256K1, recipient_key, None, network).script_pubkey();
         let change_pubkey = change_address.script_pubkey();
         let op_return_amount = Amount::from_int_btc(0);
 
         assert!(
             tx.output
                 .iter()
-                .any(|out| out.script_pubkey == recipient_pubkey && out.value == amount),
+                .any(
+                    |out| out.script_pubkey[2..].to_hex_string() == recipient_key.to_string()
+                        && out.value == amount
+                ),
             "Recipient output is missing or incorrect"
         );
         assert!(

@@ -1,11 +1,11 @@
 use bitcoin::{sighash::Prevouts, Amount, OutPoint, Psbt, Transaction, TxOut, Txid};
 use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     params::tx::MIN_RELAY_FEE, scripts::prelude::*, types::OperatorIdx,
 };
-use tracing::{trace, warn};
+use tracing::trace;
 
 use super::covenant_tx::CovenantTx;
 use crate::{connectors::prelude::*, transactions::constants::NUM_ASSERT_DATA_TX};
@@ -33,7 +33,7 @@ pub struct PostAssertTx {
 }
 
 impl PostAssertTx {
-    pub async fn new<Db: ConnectorDb>(
+    pub async fn new<Db: PublicDb>(
         data: PostAssertTxData,
         operator_idx: OperatorIdx,
         connector_a2: ConnectorS,
@@ -79,7 +79,7 @@ impl PostAssertTx {
         let net_stake = data.input_amount
             - scripts_and_amounts.iter().map(|(_, amt)| *amt).sum()
             - MIN_RELAY_FEE;
-        warn!(%net_stake, %operator_idx, event = "calculated net stake for post-assert");
+        trace!(%net_stake, %operator_idx, event = "calculated net stake for post-assert");
         scripts_and_amounts[0].1 = net_stake;
 
         let tx_outs = create_tx_outs(scripts_and_amounts);

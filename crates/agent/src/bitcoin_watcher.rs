@@ -1,40 +1,46 @@
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use bitcoin::{Transaction, Txid};
-use strata_bridge_btcio::{traits::Reader, BitcoinClient};
-use strata_bridge_db::{connector_db::ConnectorDb, public::PublicDb};
+use strata_bridge_btcio::traits::Reader;
+use strata_bridge_db::{public::PublicDb, tracker::BitcoinBlockTrackerDb};
 use strata_bridge_tx_graph::transactions::constants::NUM_ASSERT_DATA_TX;
-use tokio::sync::{broadcast, RwLock};
+use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
 use crate::{operator::OperatorIdx, verifier::VerifierDuty};
 
 #[derive(Debug, Clone)]
-pub struct BitcoinWatcher {
-    db: PublicDb,
+pub struct BitcoinWatcher<D: BitcoinBlockTrackerDb, P: PublicDb, R: Reader> {
+    db: Arc<D>,
+
+    public_db: Arc<P>,
 
     poll_interval: Duration,
 
-    client: Arc<BitcoinClient>,
+    client: Arc<R>,
 
     genesis_height: u32,
-
-    relevant_txs: Arc<RwLock<HashMap<Txid, Transaction>>>,
 }
 
-impl BitcoinWatcher {
+impl<D, P, R> BitcoinWatcher<D, P, R>
+where
+    D: BitcoinBlockTrackerDb + Send + Sync + 'static,
+    P: PublicDb + Send + Sync + 'static,
+    R: Reader + Send + Sync + 'static,
+{
     pub fn new(
-        db: PublicDb,
-        client: Arc<BitcoinClient>,
+        db: Arc<D>,
+        public_db: Arc<P>,
+        client: Arc<R>,
         poll_interval: Duration,
         genesis_height: u32,
     ) -> Self {
         Self {
             db,
+            public_db,
             client,
             poll_interval,
             genesis_height,
-            relevant_txs: Default::default(),
         }
     }
 
@@ -49,6 +55,8 @@ impl BitcoinWatcher {
                 if height % 1000 == 0 {
                     warn!(%e, %height, msg = "could not get block");
                 }
+                tokio::time::sleep(self.poll_interval).await;
+
                 continue;
             }
 
@@ -57,14 +65,16 @@ impl BitcoinWatcher {
             for tx in block.txdata {
                 let txid = tx.compute_txid();
 
-                if let Some((operator_idx, deposit_txid)) =
-                    self.db.get_operator_and_deposit_for_claim(&txid).await
+                if let Some((operator_idx, deposit_txid)) = self
+                    .public_db
+                    .get_operator_and_deposit_for_claim(&txid)
+                    .await
                 {
                     info!(event = "noticed claim transaction", by_operator=%operator_idx, for_deposit_txid=%deposit_txid);
 
                     warn!(action = "not dispatching challenge duty for now as it is unimplemented");
 
-                    self.relevant_txs.write().await.insert(txid, tx);
+                    self.db.add_relevant_tx(tx).await;
 
                     // FIXME: uncomment when `handle_claim()` is updated
                     // let duty = self.handle_claim().await;
@@ -73,7 +83,7 @@ impl BitcoinWatcher {
                     //     .send(duty)
                     //     .expect("should be able to send challenge duty to the verifier");
                 } else if let Some((operator_idx, deposit_txid)) = self
-                    .db
+                    .public_db
                     .get_operator_and_deposit_for_post_assert(&txid)
                     .await
                 {
@@ -85,17 +95,17 @@ impl BitcoinWatcher {
                         .send(duty)
                         .expect("should be able to send disprove duty to the verifier");
                 } else if let Some((_operator_idx, _deposit_txid)) = self
-                    .db
+                    .public_db
                     .get_operator_and_deposit_for_assert_data(&txid)
                     .await
                 {
-                    // cache it to use later
-                    self.relevant_txs.write().await.insert(txid, tx);
-                } else if let Some((_operator_idx, _deposit_txid)) =
-                    self.db.get_operator_and_deposit_for_pre_assert(&txid).await
+                    self.db.add_relevant_tx(tx).await;
+                } else if let Some((_operator_idx, _deposit_txid)) = self
+                    .public_db
+                    .get_operator_and_deposit_for_pre_assert(&txid)
+                    .await
                 {
-                    // cache it to use later
-                    self.relevant_txs.write().await.insert(txid, tx);
+                    self.db.add_relevant_tx(tx).await;
                 }
             }
 
@@ -119,15 +129,16 @@ impl BitcoinWatcher {
         deposit_txid: Txid,
     ) -> VerifierDuty {
         let mut assert_data_txs = Vec::new();
-        // skip the first input i.e., the stake
-        let relevant_txs = self.relevant_txs.read().await;
 
+        // skip the first input i.e., the stake
         for txin in post_assert_tx.input.iter().skip(1) {
             let txid = &txin.previous_output.txid;
 
-            let tx = relevant_txs
-                .get(txid)
-                .expect("should be able to fetch assert-data tx");
+            let tx = self
+                .db
+                .get_relevant_tx(txid)
+                .await
+                .expect("assert data tx must be in db");
 
             assert_data_txs.push(tx.clone());
         }
@@ -142,15 +153,17 @@ impl BitcoinWatcher {
             .try_into()
             .expect("the number of assert-data txs must match");
 
-        let pre_assert_tx = relevant_txs
-            .get(&assert_data_txs[0].input[0].previous_output.txid)
-            .expect("pre-assert tx must exist")
-            .clone();
+        let pre_assert_tx = self
+            .db
+            .get_relevant_tx(&assert_data_txs[0].input[0].previous_output.txid)
+            .await
+            .expect("pre-assert tx must exist");
 
-        let claim_tx = relevant_txs
-            .get(&pre_assert_tx.input[0].previous_output.txid)
-            .expect("claim tx must exist")
-            .clone();
+        let claim_tx = self
+            .db
+            .get_relevant_tx(&pre_assert_tx.input[0].previous_output.txid)
+            .await
+            .expect("claim tx must exist");
 
         VerifierDuty::VerifyAssertions {
             operator_id,

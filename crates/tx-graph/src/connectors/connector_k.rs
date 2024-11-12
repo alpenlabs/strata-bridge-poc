@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bitcoin::{
     hashes::Hash,
     psbt::Input,
@@ -9,7 +11,7 @@ use bitvm::{
     treepp::*,
 };
 use secp256k1::XOnlyPublicKey;
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     scripts::{prelude::*, wots},
     types::OperatorIdx,
@@ -17,22 +19,22 @@ use strata_bridge_primitives::{
 use tracing::trace;
 
 #[derive(Debug, Clone)]
-pub struct ConnectorK<Db: ConnectorDb> {
+pub struct ConnectorK<Db: PublicDb> {
     pub n_of_n_agg_pubkey: XOnlyPublicKey,
 
     pub network: Network,
 
     pub operator_idx: OperatorIdx,
 
-    pub db: Db,
+    pub db: Arc<Db>,
 }
 
-impl<Db: ConnectorDb> ConnectorK<Db> {
+impl<Db: PublicDb> ConnectorK<Db> {
     pub fn new(
         n_of_n_agg_pubkey: XOnlyPublicKey,
         network: Network,
         operator_idx: OperatorIdx,
-        db: Db,
+        db: Arc<Db>,
     ) -> Self {
         Self {
             n_of_n_agg_pubkey,
@@ -55,12 +57,12 @@ impl<Db: ConnectorDb> ConnectorK<Db> {
 
         script! {
             // superblock_period_start_timestamp
-            { wots32::checksig_verify(superblock_period_start_ts_public_key, true) }
+            { wots32::checksig_verify(superblock_period_start_ts_public_key.0, true) }
             // ts_from_nibbles OP_CLTV OP_DROP // check absolute locktime
 
 
             // bridge_out_tx_id
-            { wots256::checksig_verify(bridge_out_txid_public_key, true) }
+            { wots256::checksig_verify(bridge_out_txid_public_key.0, true) }
 
             OP_TRUE
         }

@@ -205,3 +205,8 @@ run:
 		--stack-size 512 \
 		--xpriv-file .secrets/xprivs.bin 2>&1 | tee run.log.$(TIMESTAMP)
 
+.PHONY: migrate
+migrate:
+	rm -f operator.db && \
+	touch operator.db && \
+	sqlx migrate run

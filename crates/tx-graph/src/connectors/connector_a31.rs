@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bitcoin::{
     hashes::Hash,
     psbt::Input,
@@ -12,8 +14,9 @@ use bitvm::{
     signatures::wots::{wots256, wots32, SignatureImpl},
     treepp::*,
 };
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
+    partial_verifier_scripts::PARTIAL_VERIFIER_SCRIPTS,
     scripts::{prelude::*, wots},
     types::OperatorIdx,
 };
@@ -22,10 +25,10 @@ use tracing::trace;
 use crate::transactions::constants::SUPERBLOCK_PERIOD;
 
 #[derive(Debug, Clone)]
-pub struct ConnectorA31<DB: ConnectorDb> {
+pub struct ConnectorA31<DB: PublicDb> {
     network: Network,
 
-    db: DB,
+    db: Arc<DB>,
 }
 
 #[derive(Debug, Clone)]
@@ -50,17 +53,17 @@ impl ConnectorA31Leaf {
             bridge_out_txid: bridge_out_txid_public_key,
             superblock_hash: superblock_hash_public_key,
             superblock_period_start_ts: superblock_period_start_ts_public_key,
-            groth16: ([public_inputs_hash_public_key], _, _),
+            groth16: Groth16PublicKeys(([public_inputs_hash_public_key], _, _)),
         } = public_keys;
         match self {
             ConnectorA31Leaf::DisproveSuperblockCommitment(_) => {
                 script! {
                     // committed superblock hash
-                    { wots256::compact::checksig_verify(superblock_hash_public_key) }
+                    { wots256::compact::checksig_verify(superblock_hash_public_key.0) }
                     { sb_hash_from_nibbles() } { H256::toaltstack() }
 
                     // committed superblock period start timestamp
-                    { wots32::compact::checksig_verify(superblock_period_start_ts_public_key) }
+                    { wots32::compact::checksig_verify(superblock_period_start_ts_public_key.0) }
                     { ts_from_nibbles() } OP_TOALTSTACK
 
                     // extract superblock timestamp from header
@@ -89,13 +92,13 @@ impl ConnectorA31Leaf {
 
             ConnectorA31Leaf::DisprovePublicInputsCommitment(deposit_txid, _) => {
                 script! {
-                    { wots256::compact::checksig_verify(superblock_hash_public_key) }
+                    { wots256::compact::checksig_verify(superblock_hash_public_key.0) }
                     for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
 
-                    { wots256::compact::checksig_verify(bridge_out_txid_public_key) }
+                    { wots256::compact::checksig_verify(bridge_out_txid_public_key.0) }
                     for _ in 0..32 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
 
-                    { wots32::compact::checksig_verify(superblock_period_start_ts_public_key) }
+                    { wots32::compact::checksig_verify(superblock_period_start_ts_public_key.0) }
                     for _ in 0..4 { OP_SWAP { NMUL(1 << 4) } OP_ADD OP_TOALTSTACK }
 
                     { wots256::compact::checksig_verify(public_inputs_hash_public_key) }
@@ -162,8 +165,8 @@ impl ConnectorA31Leaf {
     }
 }
 
-impl<DB: ConnectorDb> ConnectorA31<DB> {
-    pub fn new(network: Network, db: DB) -> Self {
+impl<Db: PublicDb> ConnectorA31<Db> {
+    pub fn new(network: Network, db: Arc<Db>) -> Self {
         Self { network, db }
     }
 
@@ -211,9 +214,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
         deposit_txid: Txid,
         operator_idx: OperatorIdx,
     ) -> [Script; N_TAPLEAVES] {
-        trace!(action = "getting partial disprove scripts from db", %operator_idx);
-        let partial_disprove_scripts = &self.db.get_partial_disprove_scripts().await;
-        trace!(event = "got partial disprove scripts from db", %operator_idx);
+        let partial_disprove_scripts = &PARTIAL_VERIFIER_SCRIPTS;
 
         trace!(action = "getting public_keys from db", %operator_idx, %deposit_txid);
         let public_keys = self
@@ -225,7 +226,7 @@ impl<DB: ConnectorDb> ConnectorA31<DB> {
 
         trace!(action = "generating disprove scripts", %operator_idx);
         let disprove_scripts =
-            g16::generate_disprove_scripts(public_keys, partial_disprove_scripts);
+            g16::generate_disprove_scripts(public_keys.0, partial_disprove_scripts);
         trace!(action = "generated disprove scripts", %operator_idx, num_disprove_scripts=%disprove_scripts.len());
 
         disprove_scripts

@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use anyhow::bail;
 #[cfg(not(feature = "mock"))]
@@ -22,11 +22,11 @@ use secp256k1::XOnlyPublicKey;
 use strata_bridge_btcio::traits::Reader;
 use strata_bridge_btcio::traits::{Broadcaster, Signer};
 use strata_bridge_db::{
-    connector_db::ConnectorDb,
     operator::{KickoffInfo, OperatorDb},
     public::PublicDb,
 };
 use strata_bridge_primitives::{
+    bitcoin::BitcoinAddress,
     build_context::{BuildContext, TxBuildContext, TxKind},
     deposit::DepositInfo,
     duties::BridgeDuty,
@@ -57,16 +57,16 @@ use crate::{
 pub type OperatorIdx = u32;
 
 #[derive(Debug)]
-pub struct Operator {
+pub struct Operator<O: OperatorDb, P: PublicDb> {
     pub agent: Agent,
 
     msk: String,
 
     build_context: TxBuildContext,
 
-    db: OperatorDb,
+    db: Arc<O>,
 
-    public_db: PublicDb,
+    public_db: Arc<P>,
 
     is_faulty: bool,
 
@@ -83,14 +83,18 @@ pub struct Operator {
     covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
 }
 
-impl Operator {
+impl<O, P> Operator<O, P>
+where
+    O: OperatorDb,
+    P: PublicDb + Clone,
+{
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         agent: Agent,
         build_context: TxBuildContext,
         is_faulty: bool,
-        db: OperatorDb,
-        public_db: PublicDb,
+        db: Arc<O>,
+        public_db: Arc<P>,
         deposit_signal_sender: broadcast::Sender<DepositSignal>,
         deposit_signal_receiver: broadcast::Receiver<DepositSignal>,
         covenant_nonce_sender: broadcast::Sender<CovenantNonceSignal>,
@@ -210,6 +214,10 @@ impl Operator {
         let funding_utxos = vec![funding_utxo];
         let change_amt = total_amount - OPERATOR_STAKE - MIN_RELAY_FEE;
 
+        let change_address =
+            BitcoinAddress::parse(&change_address.to_string(), self.build_context.network())
+                .expect("address and network must match");
+
         info!(action = "composing pegout graph input", %deposit_txid, %own_index);
         let peg_out_graph_input = PegOutGraphInput {
             network: self.build_context.network(),
@@ -218,7 +226,7 @@ impl Operator {
             kickoff_data: KickoffTxData {
                 funding_inputs: funding_inputs.clone(),
                 funding_utxos: funding_utxos.clone(),
-                change_address: change_address.as_unchecked().clone(),
+                change_address: change_address.clone(),
                 change_amt,
                 deposit_txid,
             },
@@ -252,7 +260,7 @@ impl Operator {
             deposit_txid,
             peg_out_graph_connectors,
             own_index,
-            &self.public_db,
+            self.public_db.clone(),
         )
         .await;
 
@@ -467,7 +475,7 @@ impl Operator {
                         deposit_txid,
                         connectors,
                         sender_id,
-                        &self.public_db,
+                        self.public_db.clone(),
                     )
                     .await;
                     let AssertChain {
@@ -756,16 +764,16 @@ impl Operator {
             .await;
 
         trace!(action = "signing disprove tx partially", %operator_index);
-        let all_inputs = disprove_tx.witnesses().len();
+        let inputs_to_sign = disprove_tx.witnesses().len();
         let disprove_partial_sigs = self
             .sign_partial(
                 &key_agg_ctx,
-                TapSighashType::Default,
-                1,
+                TapSighashType::Single,
+                inputs_to_sign,
                 own_index,
                 operator_index,
                 disprove_tx,
-                vec![agg_nonces.disprove; all_inputs].as_ref(),
+                vec![agg_nonces.disprove; inputs_to_sign].as_ref(),
             )
             .await;
 
@@ -835,7 +843,7 @@ impl Operator {
                         deposit_txid,
                         connectors,
                         sender_id,
-                        &self.public_db,
+                        self.public_db.clone(),
                     )
                     .await;
                     let AssertChain {
@@ -1038,7 +1046,7 @@ impl Operator {
         let seckey = self.agent.secret_key();
         let secnonce = self
             .db
-            .secnonce(txid, 0)
+            .get_secnonce(txid, 0)
             .await
             .expect("secnonce should exist before adding signatures");
 
@@ -1233,7 +1241,8 @@ impl Operator {
             .enumerate()
             .take(inputs_to_sign)
         {
-            trace!(action = "creating message hash", ?covenant_tx);
+            trace!(action = "creating message hash", ?covenant_tx, %input_index);
+
             let message = create_message_hash(
                 &mut sighash_cache,
                 prevouts.clone(),
@@ -1244,17 +1253,17 @@ impl Operator {
             .expect("should be able to create a message hash");
             let message = message.as_ref();
 
-            let secnonce = if let Some(secnonce) = self.db.secnonce(txid, input_index as u32).await
-            {
-                secnonce
-            } else {
-                // use the first secnonce if the given input_index does not exist
-                // this is the case for post_assert inputs (but not for payout)
-                self.db
-                    .secnonce(txid, 0)
-                    .await
-                    .expect("first secnonce should exist")
-            };
+            let secnonce =
+                if let Some(secnonce) = self.db.get_secnonce(txid, input_index as u32).await {
+                    secnonce
+                } else {
+                    // use the first secnonce if the given input_index does not exist
+                    // this is the case for post_assert inputs (but not for payout)
+                    self.db
+                        .get_secnonce(txid, 0)
+                        .await
+                        .expect("first secnonce should exist")
+                };
 
             let seckey = self.agent.secret_key();
 
@@ -1329,7 +1338,7 @@ impl Operator {
                     .expect("signature aggregation must succeed");
 
             self.public_db
-                .put_signature(
+                .set_signature(
                     self.build_context.own_index(),
                     txid,
                     input_index as u32,
@@ -1385,7 +1394,7 @@ impl Operator {
             kickoff_data: KickoffTxData {
                 funding_inputs,
                 funding_utxos,
-                change_address: change_address.as_unchecked().clone(),
+                change_address,
                 change_amt,
                 deposit_txid,
             },
@@ -1410,7 +1419,7 @@ impl Operator {
             deposit_txid,
             connectors.clone(),
             own_index,
-            &self.public_db,
+            self.public_db.clone(),
         )
         .await;
 
@@ -1432,10 +1441,8 @@ impl Operator {
         let assert_data_signatures = {
             let mut assertions = mock_assertions();
             if self.am_i_faulty() {
+                warn!(action = "making a faulty assertion");
                 assertions.groth16.0[0] = [0u8; 32];
-                println!("making assertion faulty");
-                // assertions.bridge_out_txid = [0u8; 32]; // FIXME: only do this when
-                // `self.am_i_faulty()`
             }
             generate_wots_signatures(&self.msk, deposit_txid, assertions)
         };
@@ -1538,18 +1545,23 @@ impl Operator {
 
         info!(action = "trying to get reimbursement", payout_txid=%signed_payout_tx.compute_txid(), %own_index);
 
-        let txid = self
+        match self
             .agent
             .wait_and_broadcast(&signed_payout_tx, BTC_CONFIRM_PERIOD)
             .await
-            .expect("should be able to broadcast payout tx");
-
-        info!(event = "successfully received reimbursement", %txid, %own_index);
+        {
+            Ok(txid) => {
+                info!(event = "successfully received reimbursement", %txid, %own_index);
+            }
+            Err(e) => {
+                error!(msg = "unable to get reimbursement :(", %e, %txid, %own_index);
+            }
+        }
     }
 
     async fn broadcast_kickoff_and_claim(
         &self,
-        connectors: &PegOutGraphConnectors<PublicDb>,
+        connectors: &PegOutGraphConnectors<P>,
         own_index: u32,
         deposit_txid: Txid,
         kickoff_tx: KickOffTx,

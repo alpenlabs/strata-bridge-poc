@@ -4,6 +4,7 @@ pub mod deposit;
 pub mod duties;
 pub mod helpers;
 pub mod params;
+pub mod partial_verifier_scripts;
 pub mod scripts;
 pub mod types;
 pub mod withdrawal;

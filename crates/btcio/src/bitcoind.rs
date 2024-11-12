@@ -362,7 +362,7 @@ impl Broadcaster for BitcoinClient {
             }
             Err(ClientError::Server(i, s)) => match i {
                 // Dealing with known and common errors
-                -27 | -25 => Ok(tx.compute_txid()), // Tx already in chain
+                -27 => Ok(tx.compute_txid()), // Tx already in chain
                 _ => Err(ClientError::Server(i, s)),
             },
             Err(e) => Err(ClientError::Other(e.to_string())),

@@ -1,13 +1,15 @@
+use std::sync::Arc;
+
 use bitcoin::{Amount, Network, Txid};
 use secp256k1::XOnlyPublicKey;
 use serde::{Deserialize, Serialize};
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     build_context::BuildContext,
     params::connectors::{
         NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
     },
-    scripts::wots,
+    scripts::wots::{self, Groth16PublicKeys},
     types::OperatorIdx,
 };
 use tracing::{debug, info};
@@ -39,19 +41,14 @@ pub struct PegOutGraph {
 }
 
 impl PegOutGraph {
-    pub async fn generate<Db: ConnectorDb>(
+    pub async fn generate<Db: PublicDb + Clone>(
         input: PegOutGraphInput,
         deposit_txid: Txid,
         connectors: PegOutGraphConnectors<Db>,
         operator_idx: OperatorIdx,
-        db: &Db,
+        db: Arc<Db>,
     ) -> Self {
-        let kickoff_tx = KickOffTx::new(
-            input.kickoff_data,
-            connectors.kickoff.clone(),
-            input.network,
-        )
-        .await;
+        let kickoff_tx = KickOffTx::new(input.kickoff_data, connectors.kickoff.clone()).await;
         let kickoff_txid = kickoff_tx.compute_txid();
         debug!(event = "created kickoff tx", %operator_idx, %kickoff_txid);
 
@@ -161,7 +158,7 @@ impl PegOutGraph {
 }
 
 #[derive(Debug, Clone)]
-pub struct PegOutGraphConnectors<Db: ConnectorDb + Clone> {
+pub struct PegOutGraphConnectors<Db: PublicDb> {
     pub kickoff: ConnectorK<Db>,
 
     pub claim_out_0: ConnectorC0,
@@ -179,9 +176,9 @@ pub struct PegOutGraphConnectors<Db: ConnectorDb + Clone> {
     pub assert_data256_factory: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256>,
 }
 
-impl<Db: ConnectorDb> PegOutGraphConnectors<Db> {
+impl<Db: PublicDb> PegOutGraphConnectors<Db> {
     pub async fn new(
-        db: Db,
+        db: Arc<Db>,
         build_context: &impl BuildContext,
         deposit_txid: Txid,
         operator_idx: OperatorIdx,
@@ -204,7 +201,8 @@ impl<Db: ConnectorDb> PegOutGraphConnectors<Db> {
             bridge_out_txid: _,
             superblock_hash: superblock_hash_public_key,
             superblock_period_start_ts: _,
-            groth16: ([public_inputs_hash_public_key], public_keys_256, public_keys_160),
+            groth16:
+                Groth16PublicKeys(([public_inputs_hash_public_key], public_keys_256, public_keys_160)),
         } = db.get_wots_public_keys(operator_idx, deposit_txid).await;
         let assert_data160_factory: ConnectorA160Factory<NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160> =
             ConnectorA160Factory {
@@ -213,7 +211,7 @@ impl<Db: ConnectorDb> PegOutGraphConnectors<Db> {
             };
 
         let public_keys_256 = std::array::from_fn(|i| match i {
-            0 => superblock_hash_public_key,
+            0 => superblock_hash_public_key.0,
             1 => public_inputs_hash_public_key,
             _ => public_keys_256[i - 2],
         });

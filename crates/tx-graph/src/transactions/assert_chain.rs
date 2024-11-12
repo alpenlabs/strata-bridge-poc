@@ -1,5 +1,5 @@
 use bitcoin::Txid;
-use strata_bridge_db::connector_db::ConnectorDb;
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     params::connectors::{
         NUM_PKS_A160, NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A256, NUM_PKS_A256_PER_CONNECTOR,
@@ -26,7 +26,7 @@ pub struct AssertChain {
 
 impl AssertChain {
     #[expect(clippy::too_many_arguments)]
-    pub async fn new<Db: ConnectorDb>(
+    pub async fn new<Db: PublicDb>(
         data: AssertChainData,
         operator_idx: OperatorIdx,
         connector_c0: ConnectorC0,

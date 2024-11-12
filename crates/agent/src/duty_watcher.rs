@@ -1,7 +1,7 @@
-use std::{collections::HashSet, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
-use bitcoin::Txid;
-use strata_bridge_primitives::duties::{BridgeDuties, BridgeDuty};
+use strata_bridge_db::tracker::DutyTrackerDb;
+use strata_bridge_primitives::duties::{BridgeDuties, BridgeDuty, BridgeDutyStatus};
 use strata_rpc::StrataApiClient;
 use tokio::sync::broadcast;
 use tracing::{debug, error, info};
@@ -12,33 +12,39 @@ pub struct DutyWatcherConfig {
 }
 
 #[derive(Debug, Clone)]
-pub struct DutyWatcher<StrataClient: StrataApiClient> {
+pub struct DutyWatcher<StrataClient: StrataApiClient, Db: DutyTrackerDb> {
     config: DutyWatcherConfig,
 
     strata_rpc_client: Arc<StrataClient>,
 
-    last_fetched_duty_index: u64,
-
-    dispatched_duties: HashSet<Txid>,
+    db: Arc<Db>,
 }
 
-impl<StrataClient: StrataApiClient + Send + Sync> DutyWatcher<StrataClient> {
-    pub fn new(config: DutyWatcherConfig, strata_rpc_client: Arc<StrataClient>) -> Self {
+impl<StrataClient, Db: DutyTrackerDb> DutyWatcher<StrataClient, Db>
+where
+    StrataClient: StrataApiClient + Send + Sync,
+    Db: DutyTrackerDb + Send + Sync,
+{
+    pub fn new(
+        config: DutyWatcherConfig,
+        strata_rpc_client: Arc<StrataClient>,
+        db: Arc<Db>,
+    ) -> Self {
         Self {
             config,
             strata_rpc_client,
-            last_fetched_duty_index: 0,
-            dispatched_duties: HashSet::new(),
+            db,
         }
     }
 
     pub async fn start(&mut self, duty_sender: broadcast::Sender<BridgeDuty>) {
         loop {
             let operator_idx = u32::MAX; // doesn't really matter in the current impl
+            let last_fetched_duty_index = self.db.get_last_fetched_duty_index().await;
 
             match self
                 .strata_rpc_client
-                .get_bridge_duties(operator_idx, self.last_fetched_duty_index)
+                .get_bridge_duties(operator_idx, last_fetched_duty_index)
                 .await
             {
                 Ok(BridgeDuties {
@@ -59,18 +65,20 @@ impl<StrataClient: StrataApiClient + Send + Sync> DutyWatcher<StrataClient> {
                             }
                         };
 
-                        if self.dispatched_duties.contains(&txid) {
+                        if self.db.fetch_duty_status(txid).await.is_some() {
                             debug!(action = "ignoring duplicate duty", %txid);
                             continue;
                         }
 
-                        self.dispatched_duties.insert(txid);
+                        self.db
+                            .update_duty_status(txid, BridgeDutyStatus::Received)
+                            .await;
 
                         debug!(action = "dispatching duty", ?duty);
                         duty_sender.send(duty).expect("should be able to send duty");
                     }
 
-                    self.last_fetched_duty_index = stop_index;
+                    self.db.set_last_fetched_duty_index(stop_index).await;
                 }
                 Err(e) => {
                     error!(?e, "could not get duties from strata");

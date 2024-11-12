@@ -118,6 +118,7 @@ reqwest = { version = "0.12.7", default-features = false, features = [
   "zstd",
   "json",
 ] }
+rkyv = "0.8.8"
 secp256k1 = "0.28.0"
 serde = { version = "1.0", features = ["derive"] }
 serde-hex = "0.1.0"
@@ -127,6 +128,14 @@ serde_json = { version = "1.0", default-features = false, features = [
 ] }
 serde_with = "3.9.0"
 sha2 = "0.10"
+sqlx = { version = "0.8.2", features = [
+  "sqlite",
+  "runtime-tokio",
+  "json",
+  "macros",
+  "derive",
+  "migrate",
+] }
 suppaftp = { version = "6.0.1", features = ["async", "async-native-tls"] }
 tempfile = "3.10.1"
 terrors = "0.3.0"

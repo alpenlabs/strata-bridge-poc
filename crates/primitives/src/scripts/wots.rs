@@ -1,6 +1,8 @@
+use std::ops::{Deref, DerefMut};
+
 use bitcoin::Txid;
 use bitvm::{
-    groth16::g16,
+    groth16::g16::{self},
     signatures::wots::{wots160, wots256, wots32},
 };
 
@@ -12,18 +14,55 @@ use super::{
     prelude::secret_key_for_public_inputs_hash,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PublicKeys {
-    pub bridge_out_txid: wots256::PublicKey,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct Wots256PublicKey(pub wots256::PublicKey);
 
-    pub superblock_hash: wots256::PublicKey,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct Wots160PublicKey(pub wots160::PublicKey);
 
-    pub superblock_period_start_ts: wots32::PublicKey,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct Wots32PublicKey(pub wots32::PublicKey);
 
-    pub groth16: g16::PublicKeys,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct Groth16PublicKeys(pub g16::PublicKeys);
+
+// should probably not do this but `g16::PublicKeys` is already a tuple, so these impls make the
+// tuple access more ergonomic.
+impl Deref for Groth16PublicKeys {
+    type Target = g16::PublicKeys;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+impl DerefMut for Groth16PublicKeys {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct PublicKeys {
+    pub bridge_out_txid: Wots256PublicKey,
+
+    pub superblock_hash: Wots256PublicKey,
+
+    pub superblock_period_start_ts: Wots32PublicKey,
+
+    pub groth16: Groth16PublicKeys,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct Wots256Signature(wots256::Signature);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct Wots32Signature(wots32::Signature);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+pub struct Groth16Signatures(g16::Signatures);
+
+#[derive(Debug, Clone, Copy, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct Signatures {
     pub bridge_out_txid: wots256::Signature,
     pub superblock_hash: wots256::Signature,
@@ -31,7 +70,7 @@ pub struct Signatures {
     pub groth16: g16::Signatures,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct Assertions {
     pub bridge_out_txid: [u8; 32],
     pub superblock_hash: [u8; 32],
@@ -51,16 +90,16 @@ pub fn get_deposit_master_secret_key(msk: &str, deposit_txid: Txid) -> String {
 pub fn generate_wots_public_keys(msk: &str, deposit_txid: Txid) -> PublicKeys {
     let deposit_msk = get_deposit_master_secret_key(msk, deposit_txid);
     PublicKeys {
-        bridge_out_txid: wots256::generate_public_key(&secret_key_for_bridge_out_txid(
-            &deposit_msk,
+        bridge_out_txid: Wots256PublicKey(wots256::generate_public_key(
+            &secret_key_for_bridge_out_txid(&deposit_msk),
         )),
-        superblock_hash: wots256::generate_public_key(&secret_key_for_superblock_hash(
-            &deposit_msk,
+        superblock_hash: Wots256PublicKey(wots256::generate_public_key(
+            &secret_key_for_superblock_hash(&deposit_msk),
         )),
-        superblock_period_start_ts: wots32::generate_public_key(
+        superblock_period_start_ts: Wots32PublicKey(wots32::generate_public_key(
             &secret_key_for_superblock_period_start_ts(&deposit_msk),
-        ),
-        groth16: (
+        )),
+        groth16: Groth16PublicKeys((
             [wots256::generate_public_key(
                 &secret_key_for_public_inputs_hash(&deposit_msk),
             )],
@@ -70,7 +109,7 @@ pub fn generate_wots_public_keys(msk: &str, deposit_txid: Txid) -> PublicKeys {
             std::array::from_fn(|i| {
                 wots160::generate_public_key(&secret_key_for_proof_element(&deposit_msk, i + 40))
             }),
-        ),
+        )),
     }
 }
 
@@ -522,12 +561,12 @@ mod tests {
         println!("    Generating wots signatures for assertions");
         let signatures = generate_wots_signatures(WOTS_MSK, deposit_txid, assertions).groth16;
 
-        match g16::verify_signed_assertions(bridge_poc_vk.clone(), public_keys, signatures) {
+        match g16::verify_signed_assertions(bridge_poc_vk.clone(), public_keys.0, signatures) {
             Some((i, witness_script)) => {
                 println!("    Assertions (invalidated={i}) is invalid!");
 
                 let tapleaf_script =
-                    g16::generate_disprove_scripts(public_keys, partial_disprove_scripts)[i]
+                    g16::generate_disprove_scripts(public_keys.0, partial_disprove_scripts)[i]
                         .clone();
 
                 let script = script! {
@@ -590,12 +629,12 @@ mod tests {
             println!("    Generating wots signatures for assertions (invalidated={i}");
             let signatures = generate_wots_signatures(WOTS_MSK, deposit_txid, assertions).groth16;
 
-            match g16::verify_signed_assertions(bridge_poc_vk.clone(), public_keys, signatures) {
+            match g16::verify_signed_assertions(bridge_poc_vk.clone(), public_keys.0, signatures) {
                 Some((tapleaf_index, witness_script)) => {
                     println!("    Assertions (invalidated={i}) is invalid!");
 
                     let tapleaf_script =
-                        g16::generate_disprove_scripts(public_keys, partial_disprove_scripts)
+                        g16::generate_disprove_scripts(public_keys.0, partial_disprove_scripts)
                             [tapleaf_index]
                             .clone();
 
@@ -3244,7 +3283,7 @@ mod tests {
         let public_keys = generate_wots_public_keys("msk", mock_txid());
 
         let start = Instant::now();
-        g16::generate_disprove_scripts(public_keys.groth16, partial_disprove_scripts);
+        g16::generate_disprove_scripts(public_keys.groth16.0, partial_disprove_scripts);
         println!("generate_disprove_scripts: {:?}", Instant::now() - start);
     }
 

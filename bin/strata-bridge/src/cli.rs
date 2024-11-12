@@ -18,7 +18,7 @@ pub(crate) struct Cli {
     #[clap(long, help = "ws URL of the rollup RPC server")]
     pub strata_url: String,
 
-    #[clap(long, help = "Request timeout for websocket connection to strata (in secs)", default_value = "300", value_parser = parse_duration)]
+    #[clap(long, help = "Request timeout for websocket connection to strata (in milliseconds)", default_value = "300000", value_parser = parse_duration)]
     pub strata_ws_timeout: Duration,
 
     #[clap(long, help = "URL of the bitcoind node")]
