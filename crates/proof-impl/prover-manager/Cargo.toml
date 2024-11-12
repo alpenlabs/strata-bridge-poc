@@ -4,6 +4,7 @@ name = "strata-prover-manager"
 version = "0.1.0"
 
 [dependencies]
+rs_merkle = { version = "1.4.2", default-features = false }
 anyhow.workspace = true
 bincode.workspace = true
 bitcoin = { version = "=0.32.3", features = ["serde"] }
@@ -12,7 +13,7 @@ hex.workspace = true
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
 serde = { workspace = true, features = ["derive"] }
-sp1-sdk = "2.0.0"
+sp1-sdk = "3.0.0"
 strata-bridge-guest-builder.workspace = true
 strata-primitives.workspace = true
 strata-proofimpl-bitvm-bridge.workspace = true

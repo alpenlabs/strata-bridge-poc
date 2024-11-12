@@ -6,8 +6,10 @@ version = "0.1.0"
 [workspace]
 
 [dependencies]
-sp1-zkvm = { version = "2.0.0", features = ["verify"] }
+borsh = { version = "1.5.0", features = ["derive"] }
+sp1-zkvm = { version = "3.0.0", features = ["verify"] }
 strata-proofimpl-bitvm-bridge = { path = "../../crates/proof-impl/bitvm-bridge" }
+
 
 [patch.crates-io]
 secp256k1 = { git = "https://github.com/sp1-patches/rust-secp256k1", branch = "patch-secp256k1-v0.29.0" }

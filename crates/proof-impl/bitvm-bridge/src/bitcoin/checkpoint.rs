@@ -1,5 +1,6 @@
 use bitcoin::Block;
 use strata_primitives::{
+    bridge::OperatorIdx,
     buf::Buf32,
     l1::{BitcoinAmount, OutputRef, XOnlyPk},
 };
@@ -12,7 +13,10 @@ use strata_state::{
 };
 use strata_tx_parser::filter::{filter_relevant_txs, TxFilterRule};
 
-use crate::bitcoin::primitives::WithdrwalInfo;
+use crate::{
+    bitcoin::primitives::WithdrawalInfo,
+    ckp_verifier::{verify_groth16, STRATA_CKP_VERIFICATION_KEY},
+};
 
 /// Verifies the checkpoint proof and extracts withdrawal and batch information from the chain
 /// state.
@@ -20,14 +24,14 @@ pub fn verify_checkpoint_and_extract_info(
     check_point_block: &Block,
     chain_state: &ChainState,
     output_ref: &OutputRef,
-) -> (WithdrwalInfo, BatchInfo) {
+) -> (WithdrawalInfo, BatchInfo) {
     let ckp = extract_batch_checkpoint(check_point_block);
     let (operator_pk, user_withdrawl_info, ckp_state_root) =
         extract_chain_state_info(chain_state, output_ref);
 
     assert_eq!(*ckp.batch_info().final_l2_state_hash(), ckp_state_root);
 
-    let withdrwal_info: WithdrwalInfo = (operator_pk, user_withdrawl_info);
+    let withdrwal_info: WithdrawalInfo = (operator_pk, user_withdrawl_info);
     let batch_info = ckp.batch_info();
 
     (withdrwal_info, batch_info.clone())
@@ -38,18 +42,30 @@ fn extract_batch_checkpoint(block: &Block) -> BatchCheckpoint {
     assert!(check_merkle_root(block));
     assert!(check_witness_commitment(block));
 
-    let tx_filters = [TxFilterRule::RollupInscription("strata".to_string())];
-    let batch_info = retrieve_batch_checkpoint(block, tx_filters.to_vec())
+    let tx_filters = [TxFilterRule::RollupInscription("alpenstrata".to_string())];
+    let batch_checkpoint = retrieve_batch_checkpoint(block, tx_filters.to_vec())
         .expect("Batch info not found in the block");
 
-    let proof = batch_info.proof();
+    let proof = batch_checkpoint.proof();
+
+    // TODO: assert proof is not empty
+    // Only use this for dev mode
     if proof.is_empty() {
         println!("Accepting with the empty proof")
     } else {
         // TODO: Verify the checkpoint proof
+        let public_params_raw = borsh::to_vec(&batch_checkpoint.proof_output()).unwrap();
+        assert!(
+            verify_groth16(
+                proof,
+                STRATA_CKP_VERIFICATION_KEY.as_ref(),
+                &public_params_raw
+            ),
+            "Checkpoint proof verification fiiled"
+        )
     }
 
-    batch_info
+    batch_checkpoint
 }
 
 /// Retrieves the `BatchCheckpoint` from a block using specified transaction filter rules.
@@ -73,9 +89,7 @@ fn retrieve_batch_checkpoint(
 fn extract_chain_state_info(
     chain_state: &ChainState,
     output_ref: &OutputRef,
-) -> (Buf32, (XOnlyPk, BitcoinAmount), Buf32) {
-    let operator_table = chain_state.operator_table();
-
+) -> (OperatorIdx, (XOnlyPk, BitcoinAmount), Buf32) {
     let deposit_entry = chain_state
         .deposits_table()
         .deposits()
@@ -86,19 +100,19 @@ fn extract_chain_state_info(
     if let DepositState::Dispatched(deposit_state) = deposit_entry.deposit_state() {
         // Operator
         let operator_idx = deposit_state.assignee();
-        let operator = operator_table.get_entry_at_pos(operator_idx).unwrap();
-        let operator_pk = operator.wallet_pk();
 
         // Destination info
         let withdraw_output = deposit_state.cmd().withdraw_outputs().first().unwrap();
+        dbg!(withdraw_output);
         let dest_address = withdraw_output.dest_addr();
-        // TODO: BitcoinAmt is always fixed right ???
-        let amt = BitcoinAmount::from_sat(1000000000);
+
+        // This is always 8 BTC
+        let amt = BitcoinAmount::from_sat(800000000);
 
         // Chain state root
         let chain_root = chain_state.compute_state_root();
 
-        return (*operator_pk, (*dest_address, amt), chain_root);
+        return (operator_idx, (*dest_address, amt), chain_root);
     }
     panic!("deposit state not in `DepositState::Dispatched`")
 }
@@ -116,7 +130,7 @@ mod test {
     #[tokio::test]
     async fn test_verify_checkpoint_and_extract_info() {
         let (chain_state, output_ref) = get_chain_state();
-        let block_num: u64 = 509;
+        let block_num: u64 = 787;
         let btc_client = get_bitcoin_client();
         let block = btc_client.get_block_at(block_num).await.unwrap();
 
@@ -125,11 +139,12 @@ mod test {
 
     #[tokio::test]
     async fn test_retrieve_batch_checkpoint() {
-        let block_num: u64 = 509;
+        let block_num: u64 = 787;
         let btc_client = get_bitcoin_client();
         let block = btc_client.get_block_at(block_num).await.unwrap();
 
         let _batch_checkpoint = extract_batch_checkpoint(&block);
+        println!("{:?}", _batch_checkpoint);
     }
 
     #[test]

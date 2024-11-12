@@ -179,9 +179,6 @@ where
 
                 info!(action = "getting the latest checkpoint info");
 
-                self.
-
-
                 if assignee_id != own_index {
                     warn!(action = "ignoring withdrawal duty unassigned to this operator", %assignee_id, %own_index);
                     return;
