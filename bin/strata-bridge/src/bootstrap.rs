@@ -15,7 +15,10 @@ use strata_bridge_agent::{
     verifier::{Verifier, VerifierDuty},
 };
 use strata_bridge_btcio::{traits::Reader, BitcoinClient};
-use strata_bridge_db::inmemory::prelude::*;
+use strata_bridge_db::inmemory::{
+    prelude::*,
+    tracker::{BitcoinBlockTrackerInMemory, DutyTrackerInMemory},
+};
 use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext},
     duties::BridgeDuty,
@@ -63,17 +66,22 @@ pub(crate) async fn bootstrap(args: Cli) {
         poll_interval: args.duty_interval,
     };
 
-    let mut duty_watcher = DutyWatcher::new(duty_watcher_config, Arc::new(strata_rpc_client));
+    let duty_tracker_db = DutyTrackerInMemory::default();
+    let mut duty_watcher = DutyWatcher::new(
+        duty_watcher_config,
+        Arc::new(strata_rpc_client),
+        Arc::new(duty_tracker_db),
+    );
 
     let (duty_sender, _duty_receiver) = broadcast::channel::<BridgeDuty>(DUTY_QUEUE_SIZE);
 
     // initialize public database
-    let public_db = PublicDbInMemory::default();
+    let public_db = Arc::new(PublicDbInMemory::default());
     debug!(event = "initialized public db");
 
     public_db.set_musig_pubkey_table(&pubkey_table.0).await;
 
-    let operators =
+    let operators: Vec<Operator<OperatorDbInMemory, PublicDbInMemory>> =
         generate_operator_set(&args, pubkey_table.clone(), public_db.clone(), network).await;
 
     let mut tasks = JoinSet::new();
@@ -98,7 +106,10 @@ pub(crate) async fn bootstrap(args: Cli) {
     let (notification_sender, mut notification_receiver) =
         broadcast::channel::<VerifierDuty>(VERIFIER_DUTY_QUEUE_SIZE);
 
+    let bitcoin_tracker_db = Arc::new(BitcoinBlockTrackerInMemory::default());
+
     let bitcoin_watcher = BitcoinWatcher::new(
+        bitcoin_tracker_db,
         public_db.clone(),
         bitcoin_rpc_client.clone(),
         args.btc_scan_interval,
@@ -138,9 +149,9 @@ pub(crate) async fn bootstrap(args: Cli) {
 pub async fn generate_operator_set(
     args: &Cli,
     pubkey_table: PublickeyTable,
-    public_db: PublicDbInMemory,
+    public_db: Arc<PublicDbInMemory>,
     network: Network,
-) -> Vec<Operator> {
+) -> Vec<Operator<OperatorDbInMemory, PublicDbInMemory>> {
     let operator_indexes_and_keypairs =
         get_keypairs_and_load_xpriv(&args.xpriv_file, &pubkey_table);
 
@@ -163,7 +174,8 @@ pub async fn generate_operator_set(
         broadcast::channel::<CovenantSignatureSignal>(covenant_queue_size);
 
     let mut faulty_idxs = Vec::new();
-    let mut operator_set: Vec<Operator> = Vec::with_capacity(num_operators);
+    let mut operator_set: Vec<Operator<OperatorDbInMemory, PublicDbInMemory>> =
+        Vec::with_capacity(num_operators);
 
     for (operator_idx, keypair) in operator_indexes_and_keypairs {
         let agent = Agent::new(keypair, &args.btc_url, &args.btc_user, &args.btc_pass);
@@ -180,7 +192,7 @@ pub async fn generate_operator_set(
             faulty_idxs.push(operator_idx);
         }
 
-        let operator_db = OperatorDbInMemory::default();
+        let operator_db = Arc::new(OperatorDbInMemory::default());
         let operator = Operator::new(
             agent,
             build_context,

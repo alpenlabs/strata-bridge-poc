@@ -22,7 +22,10 @@ pub struct KickoffTxData {
 pub struct KickOffTx(Psbt);
 
 impl KickOffTx {
-    pub async fn new<Db: PublicDb>(data: KickoffTxData, connector_k: ConnectorK<Db>) -> Self {
+    pub async fn new<Db: PublicDb + Clone>(
+        data: KickoffTxData,
+        connector_k: ConnectorK<Db>,
+    ) -> Self {
         let tx_ins = create_tx_ins(data.funding_inputs);
 
         let commitment_script = connector_k

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bitcoin::{
     hashes::Hash,
     psbt::Input,
@@ -26,7 +28,7 @@ use crate::transactions::constants::SUPERBLOCK_PERIOD;
 pub struct ConnectorA31<DB: PublicDb> {
     network: Network,
 
-    db: DB,
+    db: Arc<DB>,
 }
 
 #[derive(Debug, Clone)]
@@ -163,8 +165,8 @@ impl ConnectorA31Leaf {
     }
 }
 
-impl<DB: PublicDb> ConnectorA31<DB> {
-    pub fn new(network: Network, db: DB) -> Self {
+impl<Db: PublicDb> ConnectorA31<Db> {
+    pub fn new(network: Network, db: Arc<Db>) -> Self {
         Self { network, db }
     }
 

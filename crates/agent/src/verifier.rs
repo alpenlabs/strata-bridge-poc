@@ -1,10 +1,12 @@
+use std::sync::Arc;
+
 use bitcoin::{hashes::Hash, Transaction, TxOut, Txid};
 use bitvm::{
     groth16::g16,
     signatures::wots::{wots256, wots32, SignatureImpl},
     treepp::*,
 };
-use strata_bridge_db::{inmemory::prelude::*, public::PublicDb};
+use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext},
     helpers::hash_to_bn254_fq,
@@ -53,17 +55,20 @@ pub enum VerifierDuty {
 pub type VerifierIdx = u32;
 
 #[derive(Debug)]
-pub struct Verifier {
+pub struct Verifier<P: PublicDb> {
     pub agent: Agent, // required for broadcasting tx
 
     build_context: TxBuildContext,
 
-    public_db: PublicDbInMemory,
+    public_db: Arc<P>,
 }
 
-impl Verifier {
+impl<P> Verifier<P>
+where
+    P: PublicDb + Clone,
+{
     #[allow(clippy::too_many_arguments)]
-    pub fn new(public_db: PublicDbInMemory, build_context: TxBuildContext, agent: Agent) -> Self {
+    pub fn new(public_db: Arc<P>, build_context: TxBuildContext, agent: Agent) -> Self {
         Self {
             public_db,
             build_context,
@@ -2940,7 +2945,7 @@ mod tests {
             0,
         );
 
-        let mut verifier = Verifier::new(db.clone(), context, agent);
+        let mut verifier = Verifier::new(db.clone().into(), context, agent);
 
         println!("generating assertions");
         // let assertions = {
@@ -3030,7 +3035,7 @@ mod tests {
         let context =
             TxBuildContext::new(Network::Regtest, PublickeyTable::from(BTreeMap::new()), 0);
 
-        let mut verifier = Verifier::new(db.clone(), context, agent);
+        let mut verifier = Verifier::new(db.clone().into(), context, agent);
 
         fn invalidate_groth16_assertions(assertions: &mut Assertions, i: usize, j: u8) {
             match i {

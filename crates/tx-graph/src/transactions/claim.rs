@@ -22,7 +22,7 @@ pub struct ClaimTx {
 }
 
 impl ClaimTx {
-    pub async fn new<Db: PublicDb>(
+    pub async fn new<Db: PublicDb + Clone>(
         data: ClaimData,
         connector_k: ConnectorK<Db>,
         connector_c0: ConnectorC0,

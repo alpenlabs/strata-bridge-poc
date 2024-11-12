@@ -1,5 +1,5 @@
 use core::fmt;
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use anyhow::bail;
 #[cfg(not(feature = "mock"))]
@@ -22,7 +22,6 @@ use secp256k1::XOnlyPublicKey;
 use strata_bridge_btcio::traits::Reader;
 use strata_bridge_btcio::traits::{Broadcaster, Signer};
 use strata_bridge_db::{
-    inmemory::prelude::*,
     operator::{KickoffInfo, OperatorDb},
     public::PublicDb,
 };
@@ -58,16 +57,16 @@ use crate::{
 pub type OperatorIdx = u32;
 
 #[derive(Debug)]
-pub struct Operator {
+pub struct Operator<O: OperatorDb, P: PublicDb> {
     pub agent: Agent,
 
     msk: String,
 
     build_context: TxBuildContext,
 
-    db: OperatorDbInMemory,
+    db: Arc<O>,
 
-    public_db: PublicDbInMemory,
+    public_db: Arc<P>,
 
     is_faulty: bool,
 
@@ -84,14 +83,18 @@ pub struct Operator {
     covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
 }
 
-impl Operator {
+impl<O, P> Operator<O, P>
+where
+    O: OperatorDb,
+    P: PublicDb + Clone,
+{
     #[allow(clippy::too_many_arguments)]
     pub async fn new(
         agent: Agent,
         build_context: TxBuildContext,
         is_faulty: bool,
-        db: OperatorDbInMemory,
-        public_db: PublicDbInMemory,
+        db: Arc<O>,
+        public_db: Arc<P>,
         deposit_signal_sender: broadcast::Sender<DepositSignal>,
         deposit_signal_receiver: broadcast::Receiver<DepositSignal>,
         covenant_nonce_sender: broadcast::Sender<CovenantNonceSignal>,
@@ -257,7 +260,7 @@ impl Operator {
             deposit_txid,
             peg_out_graph_connectors,
             own_index,
-            &self.public_db,
+            self.public_db.clone(),
         )
         .await;
 
@@ -472,7 +475,7 @@ impl Operator {
                         deposit_txid,
                         connectors,
                         sender_id,
-                        &self.public_db,
+                        self.public_db.clone(),
                     )
                     .await;
                     let AssertChain {
@@ -840,7 +843,7 @@ impl Operator {
                         deposit_txid,
                         connectors,
                         sender_id,
-                        &self.public_db,
+                        self.public_db.clone(),
                     )
                     .await;
                     let AssertChain {
@@ -1416,7 +1419,7 @@ impl Operator {
             deposit_txid,
             connectors.clone(),
             own_index,
-            &self.public_db,
+            self.public_db.clone(),
         )
         .await;
 
@@ -1553,7 +1556,7 @@ impl Operator {
 
     async fn broadcast_kickoff_and_claim(
         &self,
-        connectors: &PegOutGraphConnectors<PublicDbInMemory>,
+        connectors: &PegOutGraphConnectors<P>,
         own_index: u32,
         deposit_txid: Txid,
         kickoff_tx: KickOffTx,

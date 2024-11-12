@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bitcoin::{
     hashes::Hash,
     psbt::Input,
@@ -24,7 +26,7 @@ pub struct ConnectorK<Db: PublicDb> {
 
     pub operator_idx: OperatorIdx,
 
-    pub db: Db,
+    pub db: Arc<Db>,
 }
 
 impl<Db: PublicDb> ConnectorK<Db> {
@@ -32,7 +34,7 @@ impl<Db: PublicDb> ConnectorK<Db> {
         n_of_n_agg_pubkey: XOnlyPublicKey,
         network: Network,
         operator_idx: OperatorIdx,
-        db: Db,
+        db: Arc<Db>,
     ) -> Self {
         Self {
             n_of_n_agg_pubkey,

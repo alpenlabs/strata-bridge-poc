@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bitcoin::{
     psbt::Input,
     taproot::{ControlBlock, LeafVersion, Signature, TaprootSpendInfo},
@@ -14,7 +16,7 @@ pub struct ConnectorA30<Db: PublicDb> {
 
     network: Network,
 
-    db: Db,
+    db: Arc<Db>,
 }
 
 #[derive(Debug, Clone)]
@@ -24,7 +26,7 @@ pub enum ConnectorA30Leaf {
 }
 
 impl<Db: PublicDb> ConnectorA30<Db> {
-    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Db) -> Self {
+    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Arc<Db>) -> Self {
         Self {
             n_of_n_agg_pubkey,
             network,

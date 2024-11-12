@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bitcoin::{Amount, Network, Txid};
 use secp256k1::XOnlyPublicKey;
 use serde::{Deserialize, Serialize};
@@ -44,7 +46,7 @@ impl PegOutGraph {
         deposit_txid: Txid,
         connectors: PegOutGraphConnectors<Db>,
         operator_idx: OperatorIdx,
-        db: &Db,
+        db: Arc<Db>,
     ) -> Self {
         let kickoff_tx = KickOffTx::new(input.kickoff_data, connectors.kickoff.clone()).await;
         let kickoff_txid = kickoff_tx.compute_txid();
@@ -156,7 +158,7 @@ impl PegOutGraph {
 }
 
 #[derive(Debug, Clone)]
-pub struct PegOutGraphConnectors<Db: PublicDb + Clone> {
+pub struct PegOutGraphConnectors<Db: PublicDb> {
     pub kickoff: ConnectorK<Db>,
 
     pub claim_out_0: ConnectorC0,
@@ -174,9 +176,9 @@ pub struct PegOutGraphConnectors<Db: PublicDb + Clone> {
     pub assert_data256_factory: ConnectorA256Factory<NUM_PKS_A256_PER_CONNECTOR, NUM_PKS_A256>,
 }
 
-impl<Db: PublicDb + Clone> PegOutGraphConnectors<Db> {
+impl<Db: PublicDb> PegOutGraphConnectors<Db> {
     pub async fn new(
-        db: Db,
+        db: Arc<Db>,
         build_context: &impl BuildContext,
         deposit_txid: Txid,
         operator_idx: OperatorIdx,
