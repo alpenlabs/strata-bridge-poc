@@ -76,13 +76,21 @@ CREATE TABLE sec_nonces (
     PRIMARY KEY (txid, input_index)
 );
 
--- Table to store collected signatures (message hash and operator ID to partial signature)
+-- Table to store unique message hashes per (txid, input_index)
+CREATE TABLE collected_messages (
+    txid TEXT NOT NULL,
+    input_index INTEGER NOT NULL,
+    msg_hash BLOB NOT NULL,             -- Hash is the same no matter who signs it
+    PRIMARY KEY (txid, input_index)
+);
+
+-- Table to store partial signatures per operator for each (txid, input_index)
 CREATE TABLE collected_signatures (
     txid TEXT NOT NULL,
     input_index INTEGER NOT NULL,
-    msg_hash BLOB NOT NULL,
     operator_id INTEGER NOT NULL,
-    partial_signature TEXT NOT NULL, -- Signature is stored as hex string
+    partial_signature TEXT NOT NULL, -- Signature stored as hex string (different for each operator)
+    FOREIGN KEY (txid, input_index) REFERENCES collected_messages(txid, input_index) ON DELETE CASCADE,
     PRIMARY KEY (txid, input_index, operator_id)
 );
 

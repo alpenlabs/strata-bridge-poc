@@ -51,7 +51,7 @@ where
         let mut status_receiver = status_receiver;
         handles.spawn(async move {
             loop {
-                if let Some((txid, status)) = status_receiver.recv().await {
+                if let Some((_txid, _status)) = status_receiver.recv().await {
                     todo!();
                 }
 
@@ -90,10 +90,8 @@ where
                                 }
                             };
 
-                            if db
-                                .fetch_duty_status(txid)
-                                .await
-                                .is_some_and(|status| status.is_done())
+                            if db.fetch_duty_status(txid).await.is_some()
+                            // .is_some_and(|status| status.is_done())
                             {
                                 debug!(action = "ignoring duplicate duty", %txid);
                                 continue;

@@ -8524,6 +8524,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
+ "bincode",
  "bitcoin 0.31.0",
  "chrono",
  "clap",

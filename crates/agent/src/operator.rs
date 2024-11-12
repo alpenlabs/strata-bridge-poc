@@ -73,7 +73,7 @@ pub struct Operator<O: OperatorDb, P: PublicDb> {
 
     is_faulty: bool,
 
-    duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
+    _duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
 
     deposit_signal_sender: broadcast::Sender<DepositSignal>,
 
@@ -125,7 +125,7 @@ where
             db,
             public_db,
             is_faulty,
-            duty_status_sender,
+            _duty_status_sender: duty_status_sender,
             deposit_signal_sender,
             deposit_signal_receiver,
             covenant_nonce_sender,
@@ -210,7 +210,10 @@ where
             .await;
 
         info!(action = "generating kickoff", %deposit_txid, %own_index);
+
         let reserved_outpoints = self.db.selected_outpoints().await;
+        info!(event = "got reserved outpoints", ?reserved_outpoints);
+
         let (change_address, funding_input, total_amount, funding_utxo) = self
             .agent
             .select_utxo(OPERATOR_STAKE, reserved_outpoints)
@@ -241,7 +244,7 @@ where
             },
         };
 
-        info!(action = "adding kickoff info to db", %deposit_txid, %own_index);
+        info!(action = "adding kickoff info to db", %deposit_txid, %own_index, ?funding_inputs, ?funding_utxos);
         self.db
             .add_kickoff_info(
                 deposit_txid,
@@ -942,7 +945,7 @@ where
                                     .await
                                     .is_some_and(|v| {
                                         let sig_count = v.1.len();
-                                        trace!(event = "got sig count", %sig_count, %txid, %input_index, %own_index);
+                                        debug!(event = "got sig count", %sig_count, %txid, %input_index, %own_index);
 
                                         sig_count == num_signers
                                     });
@@ -1590,6 +1593,7 @@ where
         debug!(event = "got current timestamp (T_s)", %superblock_period_start_ts, %own_index);
 
         let unsigned_kickoff = &kickoff_tx.psbt().unsigned_tx;
+        info!(action = "funding kickoff tx with wallet", ?unsigned_kickoff);
         let funded_kickoff = self
             .agent
             .client
@@ -1599,7 +1603,10 @@ where
         let funded_kickoff_tx: Transaction =
             consensus::encode::deserialize_hex(&funded_kickoff.hex)
                 .expect("must be able to decode kickoff tx");
+        info!(event = "funded kickoff tx with wallet", ?funded_kickoff_tx);
 
+        let kickoff_txid = funded_kickoff_tx.compute_txid();
+        info!(action = "broadcasting kickoff tx", %deposit_txid, %kickoff_txid, %own_index);
         let kickoff_txid = self
             .agent
             .client
@@ -1659,7 +1666,7 @@ where
             .expect("at least one funding utxo must be present in wallet");
 
         let change_amount = total_amount - net_payment - MIN_RELAY_FEE;
-        debug!(%change_address, %change_amount, %total_amount, %net_payment, ?prevout, "found funding utxo for bridge out");
+        debug!(%change_address, %change_amount, %outpoint, %total_amount, %net_payment, ?prevout, "found funding utxo for bridge out");
 
         let bridge_out = BridgeOut::new(
             network,

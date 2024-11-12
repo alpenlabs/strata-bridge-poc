@@ -197,10 +197,10 @@ run:
 		--btc-url http://localhost:18443 \
 		--btc-user rpcuser \
 		--btc-pass rpcpassword \
-		--btc-genesis-height 210 \
-		--btc-scan-interval 390 \
+		--btc-genesis-height 200 \
+		--btc-scan-interval 800 \
 		--fault-tolerance 0 \
-		--duty-interval 30000 \
+		--duty-interval 5000 \
 		--num-threads 4 \
 		--stack-size 512 \
 		--xpriv-file .secrets/xprivs.bin 2>&1 | tee run.log.$(TIMESTAMP)

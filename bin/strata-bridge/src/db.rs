@@ -3,14 +3,23 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use sqlx::{migrate::Migrator, SqlitePool};
+use sqlx::{
+    migrate::Migrator,
+    sqlite::{SqliteConnectOptions, SqliteJournalMode},
+    SqlitePool,
+};
 use strata_bridge_db::persistent::sqlite::SqliteDb;
+use tracing::info;
 
 pub async fn create_db(datadir: impl AsRef<Path>, db_name: &str) -> SqliteDb {
     let db_path = create_db_file(datadir, db_name);
-    let url = format!("sqlite://{}", db_path.to_string_lossy());
 
-    let pool = SqlitePool::connect(url.as_ref())
+    let connect_options = SqliteConnectOptions::new()
+        .filename(db_path)
+        .create_if_missing(true)
+        .foreign_keys(true)
+        .journal_mode(SqliteJournalMode::Wal);
+    let pool = SqlitePool::connect_with(connect_options)
         .await
         .expect("should be able to connect to db");
 
@@ -21,6 +30,7 @@ pub async fn create_db(datadir: impl AsRef<Path>, db_name: &str) -> SqliteDb {
         .await
         .expect("should be able to initialize migrator");
 
+    info!(action = "running migrations", %db_name);
     migrator
         .run(&pool)
         .await

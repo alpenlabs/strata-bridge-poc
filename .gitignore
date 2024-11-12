@@ -275,3 +275,9 @@ provers/sp1/proofs/
 
 # database files
 *.db
+
+# data files
+.data/
+
+# binary dumps
+*.bin

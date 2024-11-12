@@ -54,11 +54,10 @@ pub(crate) async fn bootstrap(args: Cli) {
     );
 
     // create dbs
-    let (duty_tracker_db, btc_block_tracker_db, public_db): (SqliteDb, SqliteDb, SqliteDb) = tokio::join!(
-        create_db(args.data_dir.as_path(), DUTY_TRACKER_DB_NAME),
-        create_db(args.data_dir.as_path(), BITCOIN_BLOCK_TRACKER_DB_NAME),
-        create_db(args.data_dir.as_path(), PUBLIC_DB_NAME),
-    );
+    let duty_tracker_db = create_db(args.data_dir.as_path(), DUTY_TRACKER_DB_NAME).await;
+    let btc_block_tracker_db =
+        create_db(args.data_dir.as_path(), BITCOIN_BLOCK_TRACKER_DB_NAME).await;
+    let public_db = create_db(args.data_dir.as_path(), PUBLIC_DB_NAME).await;
 
     let network = bitcoin_rpc_client
         .network()

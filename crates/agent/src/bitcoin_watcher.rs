@@ -1,6 +1,6 @@
-use std::{sync::Arc, time::Duration};
+use std::{fs, sync::Arc, time::Duration};
 
-use bitcoin::{Transaction, Txid};
+use bitcoin::{Block, Transaction, Txid};
 use strata_bridge_btcio::traits::Reader;
 use strata_bridge_db::{public::PublicDb, tracker::BitcoinBlockTrackerDb};
 use strata_bridge_tx_graph::transactions::constants::NUM_ASSERT_DATA_TX;
@@ -46,6 +46,10 @@ where
 
     pub async fn start(&self, notifier: broadcast::Sender<VerifierDuty>) {
         info!(action = "starting bitcoin watcher", %self.genesis_height);
+        let mut blocks: Vec<Block> = vec![];
+
+        let mut claim_height = u32::MAX;
+        let mut dumped = false;
 
         let mut height = self.genesis_height;
         loop {
@@ -61,6 +65,7 @@ where
             }
 
             let block = block.unwrap();
+            blocks.push(block.clone());
 
             for tx in block.txdata {
                 let txid = tx.compute_txid();
@@ -75,6 +80,7 @@ where
                     warn!(action = "not dispatching challenge duty for now as it is unimplemented");
 
                     self.db.add_relevant_tx(tx).await;
+                    claim_height = height;
 
                     // FIXME: uncomment when `handle_claim()` is updated
                     // let duty = self.handle_claim().await;
@@ -114,6 +120,15 @@ where
 
             if height % 10 == 0 {
                 info!(event = "block scanned", cur_height=%height);
+            }
+
+            if height > (claim_height.saturating_add(100)) && !dumped {
+                let data = bincode::serialize(&blocks).expect("bincode serialization should work");
+
+                fs::write("blocks.bin", data).expect("should be able to dump blocks");
+
+                info!(msg = "FINISHED DUMPING BLOCKS", %claim_height, %height);
+                dumped = true;
             }
         }
     }

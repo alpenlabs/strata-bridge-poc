@@ -497,6 +497,7 @@ impl OperatorDb for SqliteDb {
             .map(|record| SecNonce::from_bytes(&record.sec_nonce).expect("Invalid SecNonce format"))
     }
 
+    // Add or update a message hash and associated partial signature
     async fn add_message_hash_and_signature(
         &self,
         txid: Txid,
@@ -505,31 +506,47 @@ impl OperatorDb for SqliteDb {
         operator_idx: OperatorIdx,
         signature: PartialSignature,
     ) {
+        let txid_str = consensus::encode::serialize_hex(&txid);
         let partial_signature = signature.serialize().to_lower_hex_string();
-        let txid = consensus::encode::serialize_hex(&txid);
+
+        trace!(msg = "adding own partial signature", %txid_str, %input_index, %operator_idx, %partial_signature);
 
         let mut tx = self
             .pool
             .begin()
             .await
             .expect("should be able to start a transaction");
+
+        // Insert or ignore into `collected_messages` to avoid overwriting `msg_hash`
         sqlx::query!(
-            "INSERT OR REPLACE INTO collected_signatures (txid, input_index, msg_hash, operator_id, partial_signature) VALUES (?, ?, ?, ?, ?)",
-            txid,
+            "INSERT OR IGNORE INTO collected_messages (txid, input_index, msg_hash) VALUES (?, ?, ?)",
+            txid_str,
             input_index,
-            message_sighash,
-            operator_idx,
-            partial_signature,
+            message_sighash
         )
         .execute(&mut *tx)
         .await
-        .expect("should be able to insert message hash and signature into the db");
+        .expect("should be able to insert or ignore message entry");
+
+        // Insert or replace the partial signature in `collected_signatures`
+        sqlx::query!(
+            "INSERT OR REPLACE INTO collected_signatures (txid, input_index, operator_id, partial_signature)
+            VALUES (?, ?, ?, ?)",
+            txid_str,
+            input_index,
+            operator_idx,
+            partial_signature
+        )
+        .execute(&mut *tx)
+        .await
+        .expect("should be able to insert or replace partial signature");
 
         tx.commit()
             .await
             .expect("should be able to commit message hash and signature");
     }
 
+    // Add or update a partial signature for an existing `(txid, input_index, operator_id)`
     async fn add_partial_signature(
         &self,
         txid: Txid,
@@ -537,51 +554,53 @@ impl OperatorDb for SqliteDb {
         operator_idx: OperatorIdx,
         signature: PartialSignature,
     ) {
+        let txid_str = consensus::encode::serialize_hex(&txid);
         let partial_signature = signature.serialize().to_lower_hex_string();
-        let txid = consensus::encode::serialize_hex(&txid);
 
-        let mut tx = self
-            .pool
-            .begin()
-            .await
-            .expect("should be able to start a transaction");
+        trace!(msg = "adding collected partial signature", %txid_str, %input_index, %operator_idx, %partial_signature);
+
         sqlx::query!(
-            "UPDATE collected_signatures SET partial_signature = ? WHERE txid = ? AND input_index = ? AND operator_id = ?",
-            partial_signature,
-            txid,
+            "INSERT OR REPLACE INTO collected_signatures (txid, input_index, operator_id, partial_signature)
+            VALUES (?, ?, ?, ?)",
+            txid_str,
             input_index,
-            operator_idx
+            operator_idx,
+            partial_signature
         )
-        .execute(&mut *tx)
+        .execute(&self.pool)
         .await
-        .expect("should be able to insert partial sigature");
-
-        tx.commit()
-            .await
-            .expect("shoule be able to commit partial sig")
+        .expect("should be able to insert or replace partial signature");
     }
 
+    // Fetch all collected signatures for a given `(txid, input_index)`, along with the message hash
     async fn collected_signatures_per_msg(
         &self,
         txid: Txid,
         input_index: u32,
     ) -> Option<MsgHashAndOpIdToSigMap> {
-        // Fetch all records that match the txid and input_index
-        let txid = consensus::encode::serialize_hex(&txid);
+        // Convert `txid` to a hex string for querying
+        let txid_str = consensus::encode::serialize_hex(&txid);
+        trace!(msg = "getting collected signatures", %txid_str, %input_index);
+
+        // Fetch `msg_hash` from `collected_messages` and associated signatures from
+        // `collected_signatures`
         let results = sqlx::query!(
-            "SELECT msg_hash, operator_id, partial_signature FROM collected_signatures WHERE txid = ? AND input_index = ?",
-            txid,
+            "SELECT m.msg_hash, s.operator_id, s.partial_signature
+            FROM collected_messages m
+            JOIN collected_signatures s ON m.txid = s.txid AND m.input_index = s.input_index
+            WHERE m.txid = ? AND m.input_index = ?",
+            txid_str,
             input_index
         )
         .fetch_all(&self.pool)
         .await
         .expect("Failed to fetch collected signatures");
 
-        // Return None if no results found
+        // Return None if no results are found
         if results.is_empty() {
             None
         } else {
-            // Retrieve the first message hash and initialize the BTreeMap for signatures
+            // Use the first record's `msg_hash` and initialize the BTreeMap for signatures
             let msg_hash = results[0].msg_hash.clone();
             let mut op_id_to_sig_map = BTreeMap::new();
 
@@ -589,6 +608,10 @@ impl OperatorDb for SqliteDb {
                 let operator_id = record.operator_id as OperatorIdx;
                 let signature = PartialSignature::from_str(&record.partial_signature)
                     .expect("Invalid signature format");
+
+                let signature_str = signature.serialize().to_lower_hex_string();
+                trace!(action = "getting partial signature", %signature_str, %txid, %input_index, %operator_id);
+
                 op_id_to_sig_map.insert(operator_id, signature);
             }
 
@@ -629,7 +652,8 @@ impl OperatorDb for SqliteDb {
         results
             .into_iter()
             .map(|record| OutPoint {
-                txid: record.txid.parse().expect("Invalid txid format"),
+                txid: consensus::encode::deserialize_hex(&record.txid)
+                    .expect("should be able to deserialize outpoint txid"),
                 vout: record.vout as u32,
             })
             .collect()
@@ -738,7 +762,8 @@ impl OperatorDb for SqliteDb {
             // Process funding input
             if let (Some(input_txid), Some(vout)) = (&row.fi_input_txid, row.fi_vout) {
                 funding_inputs.push(OutPoint {
-                    txid: Txid::from_str(input_txid).expect("Invalid input txid format"),
+                    txid: consensus::encode::deserialize_hex(input_txid)
+                        .expect("should be able to deserialize input txid"),
                     vout: vout as u32,
                 });
             }
