@@ -4,6 +4,7 @@ name = "strata-prover-manager"
 version = "0.1.0"
 
 [dependencies]
+rs_merkle = { version = "1.4.2", default-features = false }
 anyhow.workspace = true
 bincode.workspace = true
 bitcoin = { version = "=0.32.3", features = ["serde"] }

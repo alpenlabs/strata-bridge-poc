@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 bitcoin = { version = "=0.32.3", features = ["serde"] }
+rs_merkle = { version = "1.4.2", default-features = false }
 hex.workspace = true
 borsh.workspace = true
 serde = { workspace = true, features = ["derive"] }

@@ -36,7 +36,7 @@ fn parse_wots256_sig(digits: [u8; 64]) -> [u8; 32] {
     std::array::from_fn(|i| (digits[2 * i + 1] << 4) + digits[2 * i])
 }
 
-fn parse_claim_witness(data: Vec<Vec<u8>>) -> (u32, [u8; 32]) {
+pub fn parse_claim_witness(data: Vec<Vec<u8>>) -> (u32, [u8; 32]) {
     let mut digits = data
         .chunks_exact(2)
         .map(|chunk| {

@@ -5161,7 +5161,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -6678,6 +6678,15 @@ dependencies = [
  "downcast-rs",
  "num_enum 0.5.11",
  "paste",
+]
+
+[[package]]
+name = "rs_merkle"
+version = "1.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3b241d2e59b74ef9e98d94c78c47623d04c8392abaf82014dfd372a16041128f"
+dependencies = [
+ "sha2",
 ]
 
 [[package]]
@@ -8204,7 +8213,7 @@ dependencies = [
 [[package]]
 name = "strata-bridge-tx-builder"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "bitcoin 0.32.3",
  "lazy_static",
@@ -8240,7 +8249,7 @@ dependencies = [
 [[package]]
 name = "strata-btcio"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8273,7 +8282,7 @@ dependencies = [
 [[package]]
 name = "strata-common"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -8282,7 +8291,7 @@ dependencies = [
 [[package]]
 name = "strata-crypto"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "borsh",
  "secp256k1 0.29.1",
@@ -8293,7 +8302,7 @@ dependencies = [
 [[package]]
 name = "strata-db"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -8314,7 +8323,7 @@ dependencies = [
 [[package]]
 name = "strata-mmr"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "arbitrary",
  "borsh",
@@ -8327,7 +8336,7 @@ dependencies = [
 [[package]]
 name = "strata-primitives"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -8356,6 +8365,7 @@ dependencies = [
  "borsh",
  "hex",
  "prover-test-utils",
+ "rs_merkle",
  "serde",
  "sp1-verifier",
  "strata-btcio",
@@ -8371,7 +8381,7 @@ dependencies = [
 [[package]]
 name = "strata-proofimpl-btc-blockspace"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "bitcoin 0.32.3",
  "borsh",
@@ -8394,6 +8404,7 @@ dependencies = [
  "hex",
  "num-bigint 0.4.6",
  "num-traits",
+ "rs_merkle",
  "serde",
  "sp1-sdk",
  "strata-bridge-guest-builder",
@@ -8432,7 +8443,7 @@ dependencies = [
 [[package]]
 name = "strata-rpc-types"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "bitcoin 0.32.3",
  "hex",
@@ -8448,7 +8459,7 @@ dependencies = [
 [[package]]
 name = "strata-sp1-adapter"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "anyhow",
  "bincode",
@@ -8467,7 +8478,7 @@ dependencies = [
 [[package]]
 name = "strata-state"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "arbitrary",
  "bitcoin 0.32.3",
@@ -8488,7 +8499,7 @@ dependencies = [
 [[package]]
 name = "strata-status"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "strata-primitives",
  "strata-rpc-types",
@@ -8501,7 +8512,7 @@ dependencies = [
 [[package]]
 name = "strata-storage"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8519,7 +8530,7 @@ dependencies = [
 [[package]]
 name = "strata-tasks"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -8541,7 +8552,7 @@ dependencies = [
 [[package]]
 name = "strata-tx-parser"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -8559,7 +8570,7 @@ dependencies = [
 [[package]]
 name = "strata-zkvm"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#d3aeb2ae2496035f4ca988e08cbf8c713e1c8f56"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
 dependencies = [
  "anyhow",
  "arbitrary",
