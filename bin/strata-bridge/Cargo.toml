@@ -28,6 +28,7 @@ hex.workspace = true
 jsonrpsee = { workspace = true, features = ["client", "server"] }
 rand.workspace = true
 secp256k1 = { workspace = true, features = ["global-context", "rand-std"] }
+sqlx.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true

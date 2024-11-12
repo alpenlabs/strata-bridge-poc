@@ -29,7 +29,7 @@ use strata_bridge_primitives::{
     bitcoin::BitcoinAddress,
     build_context::{BuildContext, TxBuildContext, TxKind},
     deposit::DepositInfo,
-    duties::BridgeDuty,
+    duties::{BridgeDuty, BridgeDutyStatus},
     params::prelude::*,
     scripts::{
         taproot::{create_message_hash, finalize_input, TaprootWitness},
@@ -43,7 +43,10 @@ use strata_bridge_tx_graph::{
     peg_out_graph::{PegOutGraph, PegOutGraphConnectors, PegOutGraphInput},
     transactions::prelude::*,
 };
-use tokio::sync::broadcast::{self, error::RecvError};
+use tokio::sync::{
+    broadcast::{self, error::RecvError},
+    mpsc,
+};
 use tracing::{debug, error, info, trace, warn};
 
 use crate::{
@@ -70,6 +73,8 @@ pub struct Operator<O: OperatorDb, P: PublicDb> {
 
     is_faulty: bool,
 
+    duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
+
     deposit_signal_sender: broadcast::Sender<DepositSignal>,
 
     deposit_signal_receiver: broadcast::Receiver<DepositSignal>,
@@ -95,6 +100,7 @@ where
         is_faulty: bool,
         db: Arc<O>,
         public_db: Arc<P>,
+        duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
         deposit_signal_sender: broadcast::Sender<DepositSignal>,
         deposit_signal_receiver: broadcast::Receiver<DepositSignal>,
         covenant_nonce_sender: broadcast::Sender<CovenantNonceSignal>,
@@ -119,6 +125,7 @@ where
             db,
             public_db,
             is_faulty,
+            duty_status_sender,
             deposit_signal_sender,
             deposit_signal_receiver,
             covenant_nonce_sender,
@@ -169,6 +176,11 @@ where
                 let assignee_id = cooperative_withdrawal_info.assigned_operator_idx();
 
                 info!(event = "received withdrawal", dt_txid = %txid, assignee = %assignee_id, %own_index);
+
+                info!(action = "getting the latest checkpoint info");
+
+                self.
+
 
                 if assignee_id != own_index {
                     warn!(action = "ignoring withdrawal duty unassigned to this operator", %assignee_id, %own_index);

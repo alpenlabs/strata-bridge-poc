@@ -1,11 +1,8 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    sync::Arc,
-};
+use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use bitcoin::Txid;
-use secp256k1::{schnorr::Signature, PublicKey};
+use secp256k1::schnorr::Signature;
 use strata_bridge_primitives::{
     scripts::wots::{self},
     types::OperatorIdx,
@@ -21,8 +18,6 @@ pub type OperatorIdxToTxInputSigMap = HashMap<OperatorIdx, TxInputToSignatureMap
 // Assume that no node will update other nodes' data in this public db.
 #[derive(Debug, Default, Clone)]
 pub struct PublicDbInMemory {
-    musig_pubkey_table: Arc<RwLock<BTreeMap<OperatorIdx, PublicKey>>>,
-
     // operator_id -> deposit_txid -> WotsPublicKeys
     wots_public_keys: Arc<RwLock<HashMap<OperatorIdx, HashMap<Txid, wots::PublicKeys>>>>,
 
@@ -43,19 +38,6 @@ pub struct PublicDbInMemory {
 
     post_assert_txid_to_operator_index_and_deposit_txid:
         Arc<RwLock<HashMap<Txid, (OperatorIdx, Txid)>>>,
-}
-
-impl PublicDbInMemory {
-    pub async fn set_musig_pubkey_table(&self, pubkey_table: &BTreeMap<OperatorIdx, PublicKey>) {
-        self.musig_pubkey_table
-            .write()
-            .await
-            .clone_from(pubkey_table);
-    }
-
-    pub async fn get_musig_pubkey_table(&self) -> BTreeMap<OperatorIdx, PublicKey> {
-        self.musig_pubkey_table.read().await.clone()
-    }
 }
 
 #[async_trait]

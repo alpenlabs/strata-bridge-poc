@@ -8689,6 +8689,7 @@ dependencies = [
  "jsonrpsee",
  "rand",
  "secp256k1 0.28.2",
+ "sqlx",
  "strata-bridge-agent",
  "strata-bridge-btcio",
  "strata-bridge-db",

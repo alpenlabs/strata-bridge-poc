@@ -1,3 +1,5 @@
+PRAGMA foreign_keys = ON;
+
 -- Table for musig_pubkey_table
 CREATE TABLE IF NOT EXISTS musig_pubkey_table (
     operator_id INTEGER PRIMARY KEY,

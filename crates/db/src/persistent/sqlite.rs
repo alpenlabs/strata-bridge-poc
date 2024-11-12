@@ -12,6 +12,7 @@ use sqlx::SqlitePool;
 use strata_bridge_primitives::{
     bitcoin::BitcoinAddress, duties::BridgeDutyStatus, scripts::wots, types::OperatorIdx,
 };
+use tracing::trace;
 
 use crate::{
     operator::{KickoffInfo, MsgHashAndOpIdToSigMap, OperatorDb},
@@ -398,6 +399,8 @@ impl OperatorDb for SqliteDb {
         let txid = consensus::encode::serialize_hex(&txid);
         let pubnonce = pubnonce.to_string();
 
+        trace!(action = "adding pubnonce to db", %txid, %operator_idx);
+
         let mut tx = self
             .pool
             .begin()
@@ -417,6 +420,8 @@ impl OperatorDb for SqliteDb {
         tx.commit()
             .await
             .expect("should be able to commit pubnonce");
+
+        trace!(event = "added pubnonce to db", %txid, %operator_idx);
     }
 
     async fn collected_pubnonces(
@@ -641,6 +646,7 @@ impl OperatorDb for SqliteDb {
             .begin()
             .await
             .expect("should be able to start a transaction");
+
         sqlx::query!(
             "INSERT OR REPLACE INTO kickoff_info (txid, change_address, change_address_network, change_amount) VALUES (?, ?, ?, ?)",
             deposit_txid,
@@ -665,7 +671,6 @@ impl OperatorDb for SqliteDb {
             .expect("should be able to insert funding input");
         }
 
-        let deposit_txid = consensus::encode::serialize_hex(&deposit_txid);
         for utxo in kickoff_info.funding_utxos {
             let utxo_value = utxo.value.to_sat() as i64;
             let utxo_script_pubkey = consensus::encode::serialize_hex(&utxo.script_pubkey);

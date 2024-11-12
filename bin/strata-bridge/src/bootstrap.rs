@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use bitcoin::{Address, Network};
+use bitcoin::{Address, Network, Txid};
 use jsonrpsee::ws_client::WsClientBuilder;
 use rand::{rngs::OsRng, Rng};
 use secp256k1::{Keypair, SECP256K1};
@@ -15,25 +15,27 @@ use strata_bridge_agent::{
     verifier::{Verifier, VerifierDuty},
 };
 use strata_bridge_btcio::{traits::Reader, BitcoinClient};
-use strata_bridge_db::inmemory::{
-    prelude::*,
-    tracker::{BitcoinBlockTrackerInMemory, DutyTrackerInMemory},
-};
+use strata_bridge_db::persistent::sqlite::SqliteDb;
 use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext},
-    duties::BridgeDuty,
+    duties::{BridgeDuty, BridgeDutyStatus},
     types::PublickeyTable,
 };
 use strata_rpc::StrataApiClient;
-use tokio::{sync::broadcast, task::JoinSet};
+use tokio::{
+    sync::{broadcast, mpsc},
+    task::JoinSet,
+};
 use tracing::{debug, error, info};
 
 use crate::{
     cli::Cli,
     constants::{
-        COVENANT_QUEUE_MULTIPLIER, DEPOSIT_QUEUE_MULTIPLIER, DUTY_QUEUE_SIZE,
+        BITCOIN_BLOCK_TRACKER_DB_NAME, COVENANT_QUEUE_MULTIPLIER, DEPOSIT_QUEUE_MULTIPLIER,
+        DUTY_QUEUE_SIZE, DUTY_TRACKER_DB_NAME, OPERATOR_DB_PREFIX, PUBLIC_DB_NAME,
         VERIFIER_DUTY_QUEUE_SIZE,
     },
+    db::create_db,
     rpc_server::{self, BridgeRpc},
     xpriv::get_keypairs_and_load_xpriv,
 };
@@ -51,6 +53,13 @@ pub(crate) async fn bootstrap(args: Cli) {
             .expect("should be able to create bitcoin client"),
     );
 
+    // create dbs
+    let (duty_tracker_db, btc_block_tracker_db, public_db): (SqliteDb, SqliteDb, SqliteDb) = tokio::join!(
+        create_db(args.data_dir.as_path(), DUTY_TRACKER_DB_NAME),
+        create_db(args.data_dir.as_path(), BITCOIN_BLOCK_TRACKER_DB_NAME),
+        create_db(args.data_dir.as_path(), PUBLIC_DB_NAME),
+    );
+
     let network = bitcoin_rpc_client
         .network()
         .await
@@ -66,7 +75,6 @@ pub(crate) async fn bootstrap(args: Cli) {
         poll_interval: args.duty_interval,
     };
 
-    let duty_tracker_db = DutyTrackerInMemory::default();
     let mut duty_watcher = DutyWatcher::new(
         duty_watcher_config,
         Arc::new(strata_rpc_client),
@@ -74,22 +82,30 @@ pub(crate) async fn bootstrap(args: Cli) {
     );
 
     let (duty_sender, _duty_receiver) = broadcast::channel::<BridgeDuty>(DUTY_QUEUE_SIZE);
+    let (duty_status_sender, duty_status_receiver) =
+        mpsc::channel::<(Txid, BridgeDutyStatus)>(DUTY_QUEUE_SIZE);
 
     // initialize public database
-    let public_db = Arc::new(PublicDbInMemory::default());
+    let public_db = Arc::new(public_db);
     debug!(event = "initialized public db");
 
-    public_db.set_musig_pubkey_table(&pubkey_table.0).await;
-
-    let operators: Vec<Operator<OperatorDbInMemory, PublicDbInMemory>> =
-        generate_operator_set(&args, pubkey_table.clone(), public_db.clone(), network).await;
+    let operators: Vec<Operator<SqliteDb, SqliteDb>> = generate_operator_set(
+        &args,
+        pubkey_table.clone(),
+        public_db.clone(),
+        duty_status_sender,
+        network,
+    )
+    .await;
 
     let mut tasks = JoinSet::new();
 
     let duty_sender_copy = duty_sender.clone();
     info!(action = "starting duty watcher", poll_interval=?args.duty_interval);
     tasks.spawn(async move {
-        duty_watcher.start(duty_sender_copy.clone()).await;
+        duty_watcher
+            .start(duty_sender_copy.clone(), duty_status_receiver)
+            .await;
     });
 
     info!(action = "starting operators");
@@ -106,7 +122,7 @@ pub(crate) async fn bootstrap(args: Cli) {
     let (notification_sender, mut notification_receiver) =
         broadcast::channel::<VerifierDuty>(VERIFIER_DUTY_QUEUE_SIZE);
 
-    let bitcoin_tracker_db = Arc::new(BitcoinBlockTrackerInMemory::default());
+    let bitcoin_tracker_db = Arc::new(btc_block_tracker_db);
 
     let bitcoin_watcher = BitcoinWatcher::new(
         bitcoin_tracker_db,
@@ -149,9 +165,10 @@ pub(crate) async fn bootstrap(args: Cli) {
 pub async fn generate_operator_set(
     args: &Cli,
     pubkey_table: PublickeyTable,
-    public_db: Arc<PublicDbInMemory>,
+    public_db: Arc<SqliteDb>,
+    duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
     network: Network,
-) -> Vec<Operator<OperatorDbInMemory, PublicDbInMemory>> {
+) -> Vec<Operator<SqliteDb, SqliteDb>> {
     let operator_indexes_and_keypairs =
         get_keypairs_and_load_xpriv(&args.xpriv_file, &pubkey_table);
 
@@ -174,8 +191,7 @@ pub async fn generate_operator_set(
         broadcast::channel::<CovenantSignatureSignal>(covenant_queue_size);
 
     let mut faulty_idxs = Vec::new();
-    let mut operator_set: Vec<Operator<OperatorDbInMemory, PublicDbInMemory>> =
-        Vec::with_capacity(num_operators);
+    let mut operator_set: Vec<Operator<SqliteDb, SqliteDb>> = Vec::with_capacity(num_operators);
 
     for (operator_idx, keypair) in operator_indexes_and_keypairs {
         let agent = Agent::new(keypair, &args.btc_url, &args.btc_user, &args.btc_pass);
@@ -192,13 +208,19 @@ pub async fn generate_operator_set(
             faulty_idxs.push(operator_idx);
         }
 
-        let operator_db = Arc::new(OperatorDbInMemory::default());
+        let operator_db = create_db(
+            args.data_dir.as_path(),
+            format!("{}{}.db", OPERATOR_DB_PREFIX, build_context.own_index()).as_str(),
+        )
+        .await;
+        let operator_db = Arc::new(operator_db);
         let operator = Operator::new(
             agent,
             build_context,
             is_faulty,
             operator_db,
             public_db.clone(),
+            duty_status_sender.clone(),
             deposit_signal_sender.clone(),
             deposit_signal_sender.subscribe(),
             covenant_nonce_signal_sender.clone(),

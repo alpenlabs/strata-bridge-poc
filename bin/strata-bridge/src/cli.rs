@@ -75,6 +75,9 @@ pub(crate) struct Cli {
 
     #[clap(long, help = "The stack size per thread (in MB)", default_value_t = DEFAULT_STACK_SIZE_MB)]
     pub stack_size: usize,
+
+    #[clap(long, help = "The directory for databases", default_value = ".data")]
+    pub data_dir: PathBuf,
 }
 
 fn parse_duration(arg: &str) -> Result<Duration, std::num::ParseIntError> {

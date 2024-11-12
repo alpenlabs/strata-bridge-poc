@@ -6,6 +6,7 @@
 mod bootstrap;
 mod cli;
 mod constants;
+pub mod db;
 mod rpc_server;
 pub mod xpriv;
 
