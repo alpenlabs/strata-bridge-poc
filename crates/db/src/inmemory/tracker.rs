@@ -1,13 +1,13 @@
 use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
-use bitcoin::{consensus, Txid};
+use bitcoin::{Transaction, Txid};
 use strata_bridge_primitives::duties::BridgeDutyStatus;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
-use crate::tracker::{BitcoinBlockTracker, DutyTracker};
+use crate::tracker::{BitcoinBlockTrackerDb, DutyTrackerDb};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DutyTrackerInMemory {
     last_fetched_duty_index: Arc<RwLock<u64>>,
 
@@ -15,7 +15,7 @@ pub struct DutyTrackerInMemory {
 }
 
 #[async_trait]
-impl DutyTracker for DutyTrackerInMemory {
+impl DutyTrackerDb for DutyTrackerInMemory {
     async fn get_last_fetched_duty_index(&self) -> u64 {
         *self.last_fetched_duty_index.read().await
     }
@@ -26,17 +26,11 @@ impl DutyTracker for DutyTrackerInMemory {
         *new_duty_index = duty_index;
     }
 
-    async fn fetch_status(&self, duty_id: String) -> Option<BridgeDutyStatus> {
-        let txid: Txid =
-            consensus::encode::deserialize_hex(&duty_id).expect("duty id must be hex-encoded txid");
-
-        self.duty_status.read().await.get(&txid).cloned()
+    async fn fetch_duty_status(&self, duty_id: Txid) -> Option<BridgeDutyStatus> {
+        self.duty_status.read().await.get(&duty_id).cloned()
     }
 
-    async fn update_duty_status(&self, duty_id: String, status: BridgeDutyStatus) {
-        let duty_id: Txid =
-            consensus::encode::deserialize_hex(&duty_id).expect("duty id must be hex-encoded txid");
-
+    async fn update_duty_status(&self, duty_id: Txid, status: BridgeDutyStatus) {
         let mut duty_status = self.duty_status.write().await;
 
         if let Some(duty_status) = duty_status.get_mut(&duty_id) {
@@ -47,13 +41,15 @@ impl DutyTracker for DutyTrackerInMemory {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct BitcoinBlockTrackerInMemory {
     last_scanned_block_height: Arc<RwLock<u64>>,
+
+    relevant_txs: Arc<RwLock<HashMap<Txid, Transaction>>>,
 }
 
 #[async_trait]
-impl BitcoinBlockTracker for BitcoinBlockTrackerInMemory {
+impl BitcoinBlockTrackerDb for BitcoinBlockTrackerInMemory {
     async fn get_last_scanned_block_height(&self) -> u64 {
         *self.last_scanned_block_height.read().await
     }
@@ -62,5 +58,15 @@ impl BitcoinBlockTracker for BitcoinBlockTrackerInMemory {
         let mut height = self.last_scanned_block_height.write().await;
 
         *height = block_height;
+    }
+
+    async fn get_relevant_tx(&self, txid: &Txid) -> Option<Transaction> {
+        self.relevant_txs.read().await.get(txid).cloned()
+    }
+
+    async fn add_relevant_tx(&self, tx: Transaction) {
+        let txid = tx.compute_txid();
+
+        self.relevant_txs.write().await.insert(txid, tx);
     }
 }

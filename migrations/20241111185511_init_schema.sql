@@ -118,12 +118,18 @@ CREATE TABLE funding_utxos (
 
 -- Table to store duty status information with JSON serialization for the status
 CREATE TABLE IF NOT EXISTS duty_tracker (
-    duty_id TEXT PRIMARY KEY,              -- Unique identifier for each duty as an encoded txid
-    status TEXT NOT NULL                   -- Status of the duty as JSON
+    duty_id TEXT PRIMARY KEY,             -- Unique identifier for each duty as an encoded txid
+    status TEXT NOT NULL                  -- Status of the duty as JSON
+);
+
+-- Table to store relevant transactions observed on bitcoin
+CREATE TABLE IF NOT EXISTS bitcoin_tx_index (
+    txid TEXT PRIMARY KEY,                -- Unique identifier for each tx as an encoded txid
+    tx TEXT NOT NULL                      -- The transaction stored as hex-encoded bytes
 );
 
 -- Table to store the last scanned Bitcoin block height
-CREATE TABLE IF NOT EXISTS bitcoin_block_tracker (
+CREATE TABLE IF NOT EXISTS bitcoin_block_index_tracker (
     id INTEGER PRIMARY KEY CHECK (id = 1), -- Singleton table to store the latest block height
     block_height INTEGER NOT NULL          -- Last scanned block height
 );

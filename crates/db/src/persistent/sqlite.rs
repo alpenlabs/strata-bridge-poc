@@ -4,7 +4,7 @@ use std::{
 };
 
 use async_trait::async_trait;
-use bitcoin::{consensus, hex::DisplayHex, Amount, Network, OutPoint, TxOut, Txid};
+use bitcoin::{consensus, hex::DisplayHex, Amount, Network, OutPoint, Transaction, TxOut, Txid};
 use musig2::{BinaryEncoding, PartialSignature, PubNonce, SecNonce};
 use rkyv::{from_bytes, rancor::Error as RkyvError, to_bytes};
 use secp256k1::schnorr::Signature;
@@ -16,7 +16,7 @@ use strata_bridge_primitives::{
 use crate::{
     operator::{KickoffInfo, MsgHashAndOpIdToSigMap, OperatorDb},
     public::PublicDb,
-    tracker::{BitcoinBlockTracker, DutyTracker},
+    tracker::{BitcoinBlockTrackerDb, DutyTrackerDb},
 };
 
 #[derive(Debug, Clone)]
@@ -762,7 +762,7 @@ impl OperatorDb for SqliteDb {
 }
 
 #[async_trait]
-impl DutyTracker for SqliteDb {
+impl DutyTrackerDb for SqliteDb {
     async fn get_last_fetched_duty_index(&self) -> u64 {
         // Retrieve last fetched duty index from duty_index_tracker table
         let row =
@@ -784,8 +784,7 @@ impl DutyTracker for SqliteDb {
             .expect("should be able to start a transaction");
 
         sqlx::query!(
-            "INSERT INTO duty_index_tracker (id, last_fetched_duty_index) VALUES (1, ?)
-             ON CONFLICT(id) DO UPDATE SET last_fetched_duty_index = excluded.last_fetched_duty_index",
+            "INSERT OR REPLACE INTO duty_index_tracker (id, last_fetched_duty_index) VALUES (1, ?)",
             duty_index
         )
         .execute(&mut *tx)
@@ -797,7 +796,8 @@ impl DutyTracker for SqliteDb {
             .expect("should be able to commit last fetch duty index");
     }
 
-    async fn fetch_status(&self, duty_id: String) -> Option<BridgeDutyStatus> {
+    async fn fetch_duty_status(&self, duty_id: Txid) -> Option<BridgeDutyStatus> {
+        let duty_id = consensus::encode::serialize_hex(&duty_id);
         let row = sqlx::query!("SELECT status FROM duty_tracker WHERE duty_id = ?", duty_id)
             .fetch_optional(&self.pool)
             .await
@@ -806,7 +806,8 @@ impl DutyTracker for SqliteDb {
         row.map(|r| serde_json::from_str(&r.status).expect("Failed to parse duty status JSON"))
     }
 
-    async fn update_duty_status(&self, duty_id: String, status: BridgeDutyStatus) {
+    async fn update_duty_status(&self, duty_id: Txid, status: BridgeDutyStatus) {
+        let duty_id = consensus::encode::serialize_hex(&duty_id);
         let status_json =
             serde_json::to_string(&status).expect("Failed to serialize duty status to JSON");
 
@@ -817,8 +818,7 @@ impl DutyTracker for SqliteDb {
             .expect("should be able to start a transaction");
 
         sqlx::query!(
-            "INSERT INTO duty_tracker (duty_id, status) VALUES (?, ?)
-             ON CONFLICT(duty_id) DO UPDATE SET status = excluded.status",
+            "INSERT OR REPLACE INTO duty_tracker (duty_id, status) VALUES (?, ?)",
             duty_id,
             status_json
         )
@@ -833,9 +833,9 @@ impl DutyTracker for SqliteDb {
 }
 
 #[async_trait]
-impl BitcoinBlockTracker for SqliteDb {
+impl BitcoinBlockTrackerDb for SqliteDb {
     async fn get_last_scanned_block_height(&self) -> u64 {
-        let row = sqlx::query!("SELECT block_height FROM bitcoin_block_tracker WHERE id = 1")
+        let row = sqlx::query!("SELECT block_height FROM bitcoin_block_index_tracker WHERE id = 1")
             .fetch_optional(&self.pool)
             .await
             .expect("Failed to fetch last scanned block height");
@@ -853,7 +853,7 @@ impl BitcoinBlockTracker for SqliteDb {
             .expect("should be able to start a transaction");
 
         sqlx::query!(
-            "INSERT OR REPLACE INTO bitcoin_block_tracker (id, block_height) VALUES (1, ?)",
+            "INSERT OR REPLACE INTO bitcoin_block_index_tracker (id, block_height) VALUES (1, ?)",
             block_height
         )
         .execute(&mut *tx)
@@ -863,5 +863,44 @@ impl BitcoinBlockTracker for SqliteDb {
         tx.commit()
             .await
             .expect("should be able to commit last scanned block height");
+    }
+
+    async fn get_relevant_tx(&self, txid: &Txid) -> Option<Transaction> {
+        let txid = consensus::encode::serialize_hex(txid);
+
+        let row = sqlx::query!("SELECT tx FROM bitcoin_tx_index WHERE txid = ?", txid)
+            .fetch_optional(&self.pool)
+            .await
+            .expect("should be able to fetch tx from db");
+
+        row.map(|btc_tx| {
+            consensus::encode::deserialize_hex(&btc_tx.tx)
+                .expect("should be able to deserialize transaction")
+        })
+    }
+
+    async fn add_relevant_tx(&self, tx: Transaction) {
+        let txid = tx.compute_txid();
+        let txid = consensus::encode::serialize_hex(&txid);
+        let tx = consensus::encode::serialize_hex(&tx);
+
+        let mut sqlx_tx = self
+            .pool
+            .begin()
+            .await
+            .expect("should be able to start a transaction");
+        sqlx::query!(
+            "INSERT OR REPLACE INTO bitcoin_tx_index (txid, tx) VALUES (?, ?)",
+            txid,
+            tx
+        )
+        .execute(&mut *sqlx_tx)
+        .await
+        .expect("should be able to insert relevant tx to db");
+
+        sqlx_tx
+            .commit()
+            .await
+            .expect("should be able to commit relevant tx to db");
     }
 }

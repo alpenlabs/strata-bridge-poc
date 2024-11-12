@@ -207,6 +207,6 @@ run:
 
 .PHONY: migrate
 migrate:
-	rm operator.db && \
+	rm -f operator.db && \
 	touch operator.db && \
 	sqlx migrate run

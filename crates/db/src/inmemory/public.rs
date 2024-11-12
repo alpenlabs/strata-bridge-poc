@@ -19,7 +19,7 @@ pub type TxInputToSignatureMap = HashMap<(Txid, u32), Signature>;
 pub type OperatorIdxToTxInputSigMap = HashMap<OperatorIdx, TxInputToSignatureMap>;
 
 // Assume that no node will update other nodes' data in this public db.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct PublicDbInMemory {
     musig_pubkey_table: Arc<RwLock<BTreeMap<OperatorIdx, PublicKey>>>,
 
