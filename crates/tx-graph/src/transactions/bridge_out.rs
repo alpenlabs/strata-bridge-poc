@@ -39,9 +39,9 @@ impl BridgeOut {
             let op_return_script = op_return_nonce(nonce);
 
             let scripts_and_amounts = [
+                (op_return_script, op_return_amount),
                 (recipient_pubkey.clone(), amount),
                 (change_pubkey.clone(), change_amount),
-                (op_return_script, op_return_amount),
             ];
 
             let tx_outs = create_tx_outs(scripts_and_amounts);
