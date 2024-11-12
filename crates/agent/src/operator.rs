@@ -1545,13 +1545,18 @@ where
 
         info!(action = "trying to get reimbursement", payout_txid=%signed_payout_tx.compute_txid(), %own_index);
 
-        let txid = self
+        match self
             .agent
             .wait_and_broadcast(&signed_payout_tx, BTC_CONFIRM_PERIOD)
             .await
-            .expect("should be able to broadcast payout tx");
-
-        info!(event = "successfully received reimbursement", %txid, %own_index);
+        {
+            Ok(txid) => {
+                info!(event = "successfully received reimbursement", %txid, %own_index);
+            }
+            Err(e) => {
+                error!(msg = "unable to get reimbursement :(", %e, %txid, %own_index);
+            }
+        }
     }
 
     async fn broadcast_kickoff_and_claim(
