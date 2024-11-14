@@ -9,3 +9,6 @@ pub const NUM_PKS_A160_PER_CONNECTOR: usize = 11;
 pub const NUM_PKS_A160: usize = 574;
 pub const NUM_CONNECTOR_A160: usize = NUM_PKS_A160 / NUM_PKS_A160_PER_CONNECTOR;
 pub const NUM_PKS_A160_RESIDUAL: usize = NUM_PKS_A160 % NUM_PKS_A160_PER_CONNECTOR;
+
+pub const TOTAL_CONNECTORS: usize = NUM_CONNECTOR_A256 + NUM_CONNECTOR_A160 + 1; // +1 for the
+                                                                                 // residual A160(2 scripts) connectors

@@ -1,3 +1,4 @@
+use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use crate::{deposit::DepositInfo, types::OperatorIdx, withdrawal::WithdrawalInfo};
@@ -64,6 +65,35 @@ pub struct BridgeDuties {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BridgeDutyStatus {
+    Deposit(DepositStatus),
+
+    Withdrawal(WithdrawalStatus),
+}
+
+impl BridgeDutyStatus {
+    pub fn init(duty: &BridgeDuty) -> Self {
+        match duty {
+            BridgeDuty::SignDeposit(_) => BridgeDutyStatus::Deposit(DepositStatus::Received),
+            BridgeDuty::FulfillWithdrawal(_) => {
+                BridgeDutyStatus::Withdrawal(WithdrawalStatus::Received)
+            }
+        }
+    }
+
+    /// Checks if the [`BridgeDutyStatus`] is in its final state.
+    pub fn is_done(&self) -> bool {
+        matches!(
+            self,
+            BridgeDutyStatus::Deposit(DepositStatus::Executed)
+                | BridgeDutyStatus::Deposit(DepositStatus::Discarded(_))
+                | BridgeDutyStatus::Withdrawal(WithdrawalStatus::Executed)
+                | BridgeDutyStatus::Withdrawal(WithdrawalStatus::Discared(_))
+        )
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DepositStatus {
     /// The duty has been received.
     ///
     /// This usually entails collecting nonces before the corresponding transaction can be
@@ -127,15 +157,37 @@ pub enum BridgeDutyStatus {
     Discarded(String),
 }
 
-impl Default for BridgeDutyStatus {
-    fn default() -> Self {
-        Self::Received
-    }
-}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum WithdrawalStatus {
+    Received,
 
-impl BridgeDutyStatus {
-    /// Checks if the [`BridgeDutyStatus`] is in its final state.
-    pub fn is_done(&self) -> bool {
-        matches!(self, BridgeDutyStatus::Executed)
-    }
+    PaidUser,
+
+    Kickoff(Txid),
+
+    Claim {
+        txid: Txid,
+        superblock_start_time: u32,
+        bridge_out_txid: Txid,
+    },
+
+    PreAssert(Txid),
+
+    AssertData(Vec<Txid>), // dynamic to store as assert-data txs as they are posted to bitcoin
+
+    PostAssert(Txid),
+
+    Payout(Txid),
+
+    Executed,
+
+    Failed {
+        /// The error message.
+        error_msg: String,
+
+        /// The number of times a duty has been retried.
+        num_retries: u32,
+    },
+
+    Discared(String),
 }
