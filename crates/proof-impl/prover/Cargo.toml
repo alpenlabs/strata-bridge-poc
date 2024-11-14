@@ -1,10 +1,9 @@
 [package]
 edition = "2021"
-name = "strata-prover-manager"
+name = "strata-proofimpl-prover"
 version = "0.1.0"
 
 [dependencies]
-rs_merkle = { version = "1.4.2", default-features = false }
 anyhow.workspace = true
 bincode.workspace = true
 bitcoin = { version = "=0.32.3", features = ["serde"] }
@@ -12,16 +11,17 @@ borsh.workspace = true
 hex.workspace = true
 num-bigint = "0.4.6"
 num-traits = "0.2.19"
+rs_merkle = { version = "1.4.2", default-features = false }
 serde = { workspace = true, features = ["derive"] }
+sha2.workspace = true
 sp1-sdk = "3.0.0"
+sp1-verifier = { version = "3.2.1" }
 strata-bridge-guest-builder.workspace = true
 strata-primitives.workspace = true
 strata-proofimpl-bitvm-bridge.workspace = true
 strata-sp1-adapter.workspace = true
 strata-state.workspace = true
 strata-zkvm.workspace = true
-sha2.workspace = true
-sp1-verifier = { version = "3.2.1" }
 
 
 [features]

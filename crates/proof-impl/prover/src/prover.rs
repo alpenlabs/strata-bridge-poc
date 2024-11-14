@@ -6,6 +6,16 @@ use strata_proofimpl_bitvm_bridge::{BridgeProofInput, StrataBridgeState};
 use strata_sp1_adapter::SP1ProofInputBuilder;
 use strata_zkvm::ZKVMInputBuilder;
 
+pub fn prove_wrapper(
+    input: &[u8],
+    strata_bridge_state: &StrataBridgeState,
+) -> anyhow::Result<(SP1ProofWithPublicValues, SP1VerifyingKey)> {
+    let bridge_proof_input: BridgeProofInput =
+        bincode::deserialize(input).expect("should be able to deserialize proof input");
+
+    prove(bridge_proof_input, strata_bridge_state)
+}
+
 pub fn prove(
     bridge_proof_input: BridgeProofInput,
     strata_bridge_state: StrataBridgeState,

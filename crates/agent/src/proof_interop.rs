@@ -11,6 +11,7 @@ use bitcoin::{
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use strata_bridge_btcio::traits::Reader;
 use strata_primitives::buf::Buf32;
+use strata_proofimpl_bitvm_bridge::StrataBridgeState;
 use strata_state::{
     batch::{BatchCheckpoint, SignedBatchCheckpoint},
     l1::{
@@ -89,7 +90,7 @@ impl WithInclusionProof for Transaction {
         let txid = self.compute_txid();
         let wtxid = self.compute_wtxid().to_txid();
 
-        let (incl_txids, witness) = if txid == wtxid {
+        let (incl_txids, witness) = if txid == wtxid || self.is_coinbase() {
             // Non-Segwit
             (vec![txid], None)
         } else {
@@ -130,7 +131,7 @@ pub struct BridgeProofInput {
     pub headers: Vec<Header>,
 
     /// Deposit Txid
-    pub deposit_txid: [u8; 32],
+    pub deposit_txid: Txid,
 
     /// Block height of checkpoint tx, and it's inclusion proof
     pub checkpoint: (u32, TransactionWithInclusionProof),

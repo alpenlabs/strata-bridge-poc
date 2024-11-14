@@ -8588,6 +8588,7 @@ dependencies = [
  "strata-bridge-tx-graph",
  "strata-primitives",
  "strata-proofimpl-bitvm-bridge",
+ "strata-proofimpl-prover",
  "strata-rpc",
  "strata-state",
  "strata-tx-parser",
@@ -8899,7 +8900,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "strata-prover-manager"
+name = "strata-proofimpl-prover"
 version = "0.1.0"
 dependencies = [
  "anyhow",

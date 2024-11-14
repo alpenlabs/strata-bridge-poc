@@ -89,8 +89,8 @@ impl WithInclusionProof for Transaction {
         let txid = self.compute_txid();
         let wtxid = self.compute_wtxid().to_txid();
 
-        let (incl_txids, witness) = if txid == wtxid {
-            // Non-Segwit
+        let (incl_txids, witness) = if txid == wtxid || self.is_coinbase() {
+            // Non-Segwit or coinbase
             (vec![txid], None)
         } else {
             // Segwit
