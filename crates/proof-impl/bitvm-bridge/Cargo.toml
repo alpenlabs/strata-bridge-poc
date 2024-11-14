@@ -23,3 +23,4 @@ tower = { version = "0.4.13", features = ["util"] }
 strata-btcio = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
 prover-test-utils.workspace = true
 hex.workspace = true
+serde_json.workspace = true

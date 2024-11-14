@@ -6,6 +6,6 @@ fn main() {
     let strata_bridge_state = sp1_zkvm::io::read_vec();
     let strata_bridge_state: StrataBridgeState = borsh::from_slice(&strata_bridge_state).unwrap();
 
-    let public_params = process_bridge_proof(bridge_proof_input, strata_bridge_state);
+    let public_params = process_bridge_proof(bridge_proof_input, strata_bridge_state).unwrap();
     sp1_zkvm::io::commit(&public_params);
 }
