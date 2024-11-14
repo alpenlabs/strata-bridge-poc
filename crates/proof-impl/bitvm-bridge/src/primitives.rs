@@ -192,17 +192,20 @@ pub struct BridgeProofInput {
     /// Block height of bridge_out tx, and it's inclusion proof
     pub bridge_out: (u32, TransactionWithInclusionProof),
 
-    /// Header verification state until last verified l1 block
-    pub initial_header_state: HeaderVerificationState,
-
     /// superblock period start ts
     pub superblock_period_start_ts: u32,
 }
 
 #[derive(borsh::BorshSerialize, borsh::BorshDeserialize)]
 pub struct StrataBridgeState {
+    /// ChainState's deposit record table
     pub deposits_table: DepositsTable,
+
+    // Hashed ChainState for state root verification
     pub hashed_chain_state: HashedChainState,
+
+    /// Header verification state until last verified l1 block
+    pub initial_header_state: HeaderVerificationState,
 }
 
 impl StrataBridgeState {
@@ -521,16 +524,16 @@ mod tests {
             deposit_txid: deposit_txid.to_byte_array(),
             checkpoint: (checkpoint_height, checkpoint_tx),
             bridge_out: (bridge_out_height, bridge_out_tx),
-            initial_header_state,
             superblock_period_start_ts,
         };
 
         let strata_bridge_state = StrataBridgeState {
             deposits_table: data::chain_state().deposits_table().clone(),
             hashed_chain_state: data::chain_state().hashed_chain_state(),
+            initial_header_state,
         };
 
-        write_bridge_proof_input_and_state(&bridge_proof_input, &strata_bridge_state);
+        // write_bridge_proof_input_and_state(&bridge_proof_input, &strata_bridge_state);
 
         // verifying proof statements
         let res = process_bridge_proof(bridge_proof_input, strata_bridge_state);
