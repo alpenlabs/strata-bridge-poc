@@ -31,7 +31,7 @@ pub const SUPERBLOCK_PERIOD_BLOCK_INTERVAL: usize = 100;
 
 pub fn process_bridge_proof(
     input: BridgeProofInput,
-    strata_bridge_state: StrataBridgeState,
+    state: StrataBridgeState,
 ) -> Result<BridgeProofPublicParams, Box<dyn std::error::Error>> {
     let BridgeProofInput {
         headers,
@@ -39,7 +39,6 @@ pub fn process_bridge_proof(
         checkpoint: (checkpoint_height, checkpoint),
         bridge_out: (bridge_out_height, bridge_out),
         superblock_period_start_ts,
-        initial_header_state,
     } = input;
 
     let params = &get_btc_params();
@@ -48,18 +47,18 @@ pub fn process_bridge_proof(
         return Err("bridge_out before checkpoint".into());
     }
     let checkpoint_header_index =
-        (checkpoint_height - initial_header_state.last_verified_block_num - 1) as usize;
+        (checkpoint_height - state.initial_header_state.last_verified_block_num - 1) as usize;
     let bridge_out_header_index =
-        (bridge_out_height - initial_header_state.last_verified_block_num - 1) as usize;
+        (bridge_out_height - state.initial_header_state.last_verified_block_num - 1) as usize;
 
     // verify header chain
     let header_hashes = {
-        let mut state = initial_header_state.clone();
+        let mut hvs = state.initial_header_state.clone();
         headers
             .iter()
             .map(|header| {
-                state.check_and_update_full(header, params);
-                state.last_verified_block_hash
+                hvs.check_and_update_full(header, params);
+                hvs.last_verified_block_hash
             })
             .collect::<Vec<_>>()
     };
@@ -132,16 +131,12 @@ pub fn process_bridge_proof(
         }
 
         let batch_info = batch_checkpoint.batch_info();
-        if strata_bridge_state.compute_state_root() != *batch_info.final_l2_state_hash() {
+        if state.compute_state_root() != *batch_info.final_l2_state_hash() {
             return Err("checkpoint: strata state root mismatch".into());
         }
 
-        let StrataBridgeState {
-            deposits_table,
-            hashed_chain_state,
-        } = strata_bridge_state;
-
-        let entry = deposits_table
+        let entry = state
+            .deposits_table
             .deposits()
             .find(|&el| el.output().outpoint().txid.to_byte_array() == deposit_txid)
             .ok_or("checkpoint: deposit_txid does not exist in deposits_table")?;
@@ -160,7 +155,7 @@ pub fn process_bridge_proof(
             return Err("checkpoint: invalid operator or withdrawal address or amount".into());
         }
 
-        if batch_info.l1_transition.1 != initial_header_state.compute_hash().unwrap() {
+        if batch_info.l1_transition.1 != state.initial_header_state.compute_hash().unwrap() {
             return Err("checkpoint: invalid initial_header_state".into());
         }
     }
@@ -171,6 +166,14 @@ pub fn process_bridge_proof(
         bridge_out_txid: bridge_out.tx.0.compute_txid().to_byte_array(),
         superblock_period_start_ts,
     })
+}
+
+/// Wrapper to be called by the bridge operator
+pub fn process_bridge_proof_wrapper(
+    serialized_input: &[u8],
+    state: StrataBridgeState,
+) -> Result<BridgeProofPublicParams, Box<dyn std::error::Error>> {
+    process_bridge_proof(bincode::deserialize(serialized_input).unwrap(), state)
 }
 
 // #[cfg(test)]
