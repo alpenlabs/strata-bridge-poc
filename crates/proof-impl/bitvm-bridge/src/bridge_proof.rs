@@ -173,7 +173,9 @@ pub fn process_bridge_proof_wrapper(
     serialized_input: &[u8],
     state: StrataBridgeState,
 ) -> Result<BridgeProofPublicParams, Box<dyn std::error::Error>> {
-    process_bridge_proof(bincode::deserialize(serialized_input).unwrap(), state)
+    let input: BridgeProofInput =
+        bincode::deserialize(serialized_input).expect("should be able to deserialize input");
+    process_bridge_proof(input, state)
 }
 
 // #[cfg(test)]

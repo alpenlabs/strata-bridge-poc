@@ -9,15 +9,12 @@ use crate::{
 /// The various duties that can be assigned to an operator.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
-pub enum BridgeDuty {
+pub enum BridgeDutyRpcResponse {
     /// The duty to create and sign a Deposit Transaction so as to move funds from the user to the
     /// Bridge Address.
     ///
     /// This duty is created when a user deposit request comes in, and applies to all operators.
-    SignDeposit {
-        details: DepositInfo,
-        status: DepositStatus,
-    },
+    SignDeposit(DepositInfo),
 
     /// The duty to fulfill a withdrawal request that is assigned to a particular operator.
     ///
@@ -28,40 +25,39 @@ pub enum BridgeDuty {
     /// This kicks off the withdrawal process which involves cooperative signing by the operator
     /// set, or a more involved unilateral withdrawal process (in the future) if not all operators
     /// cooperate in the process.
-    FulfillWithdrawal {
+    FulfillWithdrawal(WithdrawalInfo),
+}
+
+impl BridgeDutyRpcResponse {
+    pub fn get_id(&self) -> Txid {
+        match self {
+            BridgeDutyRpcResponse::SignDeposit(deposit_info) => {
+                deposit_info.deposit_request_outpoint().txid
+            }
+            BridgeDutyRpcResponse::FulfillWithdrawal(withdrawal_info) => {
+                withdrawal_info.deposit_outpoint().txid
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type")]
+pub enum BridgeDuty {
+    Deposit {
+        details: DepositInfo,
+        status: DepositStatus,
+    },
+
+    Withdrawal {
         details: WithdrawalInfo,
         status: WithdrawalStatus,
     },
 }
 
-impl From<DepositInfo> for BridgeDuty {
-    fn from(value: DepositInfo) -> Self {
-        Self::SignDeposit {
-            details: value,
-            status: DepositStatus::Received,
-        }
-    }
-}
-
-impl From<WithdrawalInfo> for BridgeDuty {
-    fn from(value: WithdrawalInfo) -> Self {
-        Self::FulfillWithdrawal {
-            details: value,
-            status: WithdrawalStatus::Received,
-        }
-    }
-}
-
-impl BridgeDuty {
-    pub fn is_done(&self) -> bool {
-        matches!(self, BridgeDuty::SignDeposit { details: _, status } if status.is_done())
-            || matches!(self, BridgeDuty::FulfillWithdrawal { details: _, status } if status.is_done())
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeDuties {
-    pub duties: Vec<BridgeDuty>,
+    pub duties: Vec<BridgeDutyRpcResponse>,
 
     pub start_index: u64,
 

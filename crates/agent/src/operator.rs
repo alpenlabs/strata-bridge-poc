@@ -69,6 +69,7 @@ pub struct Operator<O: OperatorDb, P: PublicDb> {
     pub db: Arc<O>,
     pub public_db: Arc<P>,
     pub is_faulty: bool,
+    pub btc_poll_interval: Duration,
 
     pub duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
     pub deposit_signal_sender: broadcast::Sender<DepositSignal>,
@@ -114,28 +115,27 @@ where
         let own_index = self.build_context.own_index();
 
         match duty {
-            BridgeDuty::SignDeposit {
+            BridgeDuty::Deposit {
                 details: deposit_info,
                 status: _,
             } => {
                 let txid = deposit_info.deposit_request_outpoint().txid;
                 info!(event = "received deposit", %own_index, drt_txid = %txid);
 
-                let duty_id = deposit_info.deposit_request_outpoint().txid;
                 self.handle_deposit(deposit_info).await;
 
                 let duty_status = DepositStatus::Executed;
-                info!(action = "reporting deposit duty status", %duty_id, ?duty_status);
+                info!(action = "reporting deposit duty status", duty_id = %txid, ?duty_status);
 
                 if let Err(cause) = self
                     .duty_status_sender
-                    .send((duty_id, duty_status.into()))
+                    .send((txid, duty_status.into()))
                     .await
                 {
                     error!(msg = "could not report deposit duty status", %cause);
                 }
             }
-            BridgeDuty::FulfillWithdrawal {
+            BridgeDuty::Withdrawal {
                 details: withdrawal_info,
                 status,
             } => {
@@ -149,17 +149,27 @@ where
                     return;
                 }
 
+                let deposit_txid = withdrawal_info.deposit_outpoint().txid;
+
                 info!(action = "getting the latest checkpoint index");
-                let latest_checkpoint_idx = self
-                    .agent
-                    .strata_client
-                    .get_latest_checkpoint_index(Some(true))
-                    .await
-                    .expect("should be able to get latest checkpoint index")
-                    .expect("checkpoint index must exist");
+                let latest_checkpoint_idx = if let Some(checkpoint_idx) =
+                    self.db.get_checkpoint_index(deposit_txid).await
+                {
+                    info!(event = "found strata checkpoint index in db", %checkpoint_idx, %deposit_txid, %own_index);
+
+                    checkpoint_idx
+                } else {
+                    info!(event = "querying strata for latest checkpoint", %deposit_txid, %own_index);
+                    self.agent
+                        .strata_client
+                        .get_latest_checkpoint_index(Some(true))
+                        .await
+                        .expect("should be able to get latest checkpoint index")
+                        .expect("checkpoint index must exist")
+                };
+
                 info!(event = "received latest checkpoint index", %latest_checkpoint_idx);
 
-                let deposit_txid = withdrawal_info.deposit_outpoint().txid;
                 self.db
                     .set_checkpoint_index(deposit_txid, latest_checkpoint_idx)
                     .await;
@@ -1373,11 +1383,14 @@ where
                 .await
                 .expect("must be able to pay user");
 
+            let duty_status = WithdrawalStatus::PaidUser(bridge_out_txid).into();
+            info!(
+                action = "sending out duty update status for bridge out",
+                ?duty_status
+            );
+
             self.duty_status_sender
-                .send((
-                    deposit_txid,
-                    WithdrawalStatus::PaidUser(bridge_out_txid).into(),
-                ))
+                .send((deposit_txid, duty_status))
                 .await
                 .expect("should be able to send duty status");
 
@@ -1496,7 +1509,7 @@ where
         // been broadcasted yet.
         let should_assert = status.should_assert_data(NUM_ASSERT_DATA_TX - 1);
         if let Some((bridge_out_txid, superblock_start_ts)) = should_assert {
-            info!(action = "creating assertion signatures", %own_index);
+            info!(action = "creating assertion signatures", %bridge_out_txid, %superblock_start_ts, %own_index);
 
             let assert_data_signatures = {
                 let mut assertions: Assertions = self
@@ -1689,14 +1702,13 @@ where
                 .await
                 .expect("should be able to broadcast signed kickoff tx");
 
+            let duty_status = BridgeDutyStatus::Withdrawal(WithdrawalStatus::Kickoff {
+                bridge_out_txid,
+                kickoff_txid,
+            });
+            info!(action = "sending out duty status", ?duty_status);
             self.duty_status_sender
-                .send((
-                    deposit_txid,
-                    BridgeDutyStatus::Withdrawal(WithdrawalStatus::Kickoff {
-                        bridge_out_txid,
-                        kickoff_txid,
-                    }),
-                ))
+                .send((deposit_txid, duty_status))
                 .await
                 .expect("should be able to send duty status");
 
@@ -1736,19 +1748,21 @@ where
                 .await
                 .expect("should be able to publish claim tx with commitment to bridge_out_txid and superblock period start_ts");
 
-            info!(event = "broadcasted claim tx", %deposit_txid, %claim_txid, %own_index);
-
+            let duty_status = BridgeDutyStatus::Withdrawal(WithdrawalStatus::Claim {
+                bridge_out_txid,
+                superblock_start_ts,
+                claim_txid,
+            });
+            info!(
+                action = "sending out duty update status for claim",
+                ?duty_status
+            );
             self.duty_status_sender
-                .send((
-                    deposit_txid,
-                    BridgeDutyStatus::Withdrawal(WithdrawalStatus::Claim {
-                        bridge_out_txid,
-                        superblock_start_ts,
-                        claim_txid,
-                    }),
-                ))
+                .send((deposit_txid, duty_status))
                 .await
                 .expect("should be able to send duty status");
+
+            info!(event = "broadcasted claim tx", %deposit_txid, %claim_txid, %own_index);
 
             status.next(bridge_out_txid, Some(superblock_start_ts));
         } else {
@@ -1812,6 +1826,7 @@ where
         match self.agent.btc_client.send_raw_transaction(&signed_tx).await {
             Ok(txid) => {
                 info!(event = "paid the user successfully", %txid, %own_index);
+
                 Ok(txid)
             }
             Err(e) => {
@@ -1865,12 +1880,12 @@ where
             .expect("should be able to deserialize CL block witness")
             .0;
 
-        let l1_start_height = (1 + checkpoint_info.l1_range.1) as u32;
+        let l1_start_height = (checkpoint_info.l1_range.1 + 1) as u32;
         let mut superblock_period_blocks_count = 0;
 
         let btc_params = get_btc_params();
 
-        // FIXME: bring `get_verification_state` impl into the loop above
+        // FIXME: bring `get_verification_state` impl into the loop below
         let initial_header_state = get_verification_state(
             self.agent.btc_client.clone(),
             l1_start_height as u64,
@@ -1885,23 +1900,27 @@ where
         let mut bridge_out = None;
         let mut checkpoint = None;
 
+        info!(action = "scanning blocks...", %deposit_txid, %bridge_out_txid, %superblock_period_start_ts, start_height=%height);
+        let poll_interval = Duration::from_secs(self.btc_poll_interval.as_secs() / 2);
         loop {
-            let block = self
-                .agent
-                .btc_client
-                .get_block_at(height)
-                .await
-                .expect("should be able to get block at height");
+            let block = self.agent.btc_client.get_block_at(height).await;
+
+            if block.is_err() {
+                tokio::time::sleep(poll_interval).await;
+                continue;
+            }
+
+            let block = block.unwrap();
 
             if checkpoint.is_none() {
                 // check and get checkpoint idx with proof
                 if let Some(tx) = block.txdata.iter().find(|&tx| {
-                    checkpoint_last_verified_l1_height(tx).is_some_and(|h| h == l1_start_height)
+                    checkpoint_last_verified_l1_height(tx)
+                        .is_some_and(|h| h == initial_header_state.last_verified_block_num)
                 }) {
-                    checkpoint = Some((
-                        block.bip34_block_height().unwrap() as u32,
-                        tx.with_inclusion_proof(&block),
-                    ));
+                    let height = block.bip34_block_height().unwrap() as u32;
+                    info!(event = "found checkpoint", %height);
+                    checkpoint = Some((height, tx.with_inclusion_proof(&block)));
                 }
             }
 
@@ -1912,10 +1931,9 @@ where
                     .iter()
                     .find(|tx| tx.compute_txid() == bridge_out_txid)
                 {
-                    bridge_out = Some((
-                        block.bip34_block_height().unwrap() as u32,
-                        tx.with_inclusion_proof(&block),
-                    ));
+                    let height = block.bip34_block_height().unwrap() as u32;
+                    info!(event = "found bridge out", %height);
+                    bridge_out = Some((height, tx.with_inclusion_proof(&block)));
                 }
             }
 
@@ -1927,15 +1945,18 @@ where
                 superblock_period_blocks_count += 1;
             }
             if superblock_period_blocks_count >= SUPERBLOCK_MEASUREMENT_PERIOD {
+                info!(event = "superblock period complete", total_blocks = %headers.len());
                 break;
             }
+
+            tokio::time::sleep(poll_interval).await;
         }
 
         let input = proof_interop::BridgeProofInput {
             headers,
-            deposit_txid,
-            checkpoint: checkpoint.unwrap(),
-            bridge_out: bridge_out.unwrap(),
+            deposit_txid: deposit_txid.to_byte_array(),
+            checkpoint: checkpoint.expect("must be able to find checkpoint"),
+            bridge_out: bridge_out.expect("must be able to find bridge out txid"),
             superblock_period_start_ts,
         };
 

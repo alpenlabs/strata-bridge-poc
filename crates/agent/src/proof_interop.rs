@@ -130,7 +130,7 @@ pub struct BridgeProofInput {
     pub headers: Vec<Header>,
 
     /// Deposit Txid
-    pub deposit_txid: Txid,
+    pub deposit_txid: [u8; 32],
 
     /// Block height of checkpoint tx, and it's inclusion proof
     pub checkpoint: (u32, TransactionWithInclusionProof),

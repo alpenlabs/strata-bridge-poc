@@ -200,10 +200,11 @@ run:
 		--btc-genesis-height 200 \
 		--btc-scan-interval 800 \
 		--fault-tolerance 0 \
-		--duty-interval 5000 \
+		--duty-interval 60000 \
 		--num-threads 4 \
 		--stack-size 512 \
-		--xpriv-file .secrets/xprivs.bin 2>&1 | tee run.log.$(TIMESTAMP)
+		--xpriv-file .secrets/xprivs.bin \
+		--msks-file .secrets/msks.bin 2>&1 | tee run.log.$(TIMESTAMP)
 
 .PHONY: migrate
 migrate:

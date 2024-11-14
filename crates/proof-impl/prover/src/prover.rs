@@ -42,7 +42,7 @@ pub fn prove_wrapper(
     strata_bridge_state: StrataBridgeState,
 ) -> anyhow::Result<(g16::Proof, [Fr; 1], BridgeProofPublicParams)> {
     let bridge_proof_input: BridgeProofInput =
-        bincode::deserialize(input).context("cannot deserialize input")?;
+        bincode::deserialize(input).context("should be able to deserialize input")?;
 
     let (mut sp1prf, sp1vk) =
         prove(bridge_proof_input, &strata_bridge_state).context("cannot generate proof")?;

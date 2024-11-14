@@ -248,6 +248,7 @@ pub async fn generate_operator_set(
             msk,
             db: operator_db,
             public_db: public_db.clone(),
+            btc_poll_interval: args.btc_scan_interval,
 
             duty_status_sender: duty_status_sender.clone(),
             deposit_signal_sender: deposit_signal_sender.clone(),

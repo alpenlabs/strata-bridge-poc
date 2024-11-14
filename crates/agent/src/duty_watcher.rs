@@ -2,7 +2,10 @@ use std::{sync::Arc, time::Duration};
 
 use bitcoin::Txid;
 use strata_bridge_db::tracker::DutyTrackerDb;
-use strata_bridge_primitives::duties::{BridgeDuties, BridgeDuty, BridgeDutyStatus};
+use strata_bridge_primitives::duties::{
+    BridgeDuties, BridgeDuty, BridgeDutyRpcResponse, BridgeDutyStatus, DepositStatus,
+    WithdrawalStatus,
+};
 use strata_rpc::StrataApiClient;
 use tokio::{
     sync::{broadcast, mpsc},
@@ -48,19 +51,14 @@ where
     ) {
         let mut handles = JoinSet::new();
 
-        let duty_interval = self.config.poll_interval;
         let mut status_receiver = status_receiver;
         let db = self.db.clone();
 
         handles.spawn(async move {
-            loop {
-                if let Some((duty_id, status)) = status_receiver.recv().await {
-                    info!(event = "received duty report", %duty_id, ?status);
-                    db.update_duty_status(duty_id, status.clone()).await;
-                    info!(action = "updating duty status in db", %duty_id, ?status);
-                }
-
-                tokio::time::sleep(duty_interval).await;
+            while let Some((duty_id, status)) = status_receiver.recv().await {
+                info!(event = "received duty report", %duty_id, ?status);
+                db.update_duty_status(duty_id, status.clone()).await;
+                info!(event = "updated duty status in db", %duty_id, ?status);
             }
         });
 
@@ -86,31 +84,39 @@ where
                         info!(event = "fetched duties", %start_index, %stop_index, %num_duties);
 
                         for duty in duties {
-                            let txid = match &duty {
-                                BridgeDuty::SignDeposit {
-                                    details: deposit_info,
-                                    status: _,
-                                } => deposit_info.deposit_request_outpoint().txid,
-                                BridgeDuty::FulfillWithdrawal {
-                                    details: withdrawal_info,
-                                    status: _,
-                                } => withdrawal_info.deposit_outpoint().txid,
-                            };
+                            let txid = duty.get_id();
 
-                            if db
-                                .fetch_duty_status(txid)
-                                .await
-                                .is_some_and(|status| status.is_done())
-                            {
-                                debug!(action = "ignoring duplicate duty", %txid);
+                            // FIXME: store deposit and withdrawal duties to enforce type safety and
+                            // remove the ugly nested matches below
+                            let stored_status = db.fetch_duty_status(txid).await;
+                            if stored_status.as_ref().is_some_and(|status| status.is_done()) {
+                                debug!(action = "ignoring duty that has already been executed", %txid);
                                 continue;
                             }
 
-                            // db.update_duty_status(txid, BridgeDutyStatus::from(&duty))
-                            //     .await;
+                            let bridge_duty = match duty {
+                                BridgeDutyRpcResponse::SignDeposit(deposit_info) => {
+                                        let status = stored_status.unwrap_or(DepositStatus::Received.into());
 
-                            debug!(action = "dispatching duty", ?duty);
-                            duty_sender.send(duty).expect("should be able to send duty");
+                                        match status {
+                                            BridgeDutyStatus::Deposit(deposit_status) => BridgeDuty::Deposit { details: deposit_info, status: deposit_status },
+                                            _ => unreachable!("deposit duty must be tied to deposit status")
+                                        }
+                                    },
+                                BridgeDutyRpcResponse::FulfillWithdrawal(withdrawal_info) => {
+                                        let status = stored_status.unwrap_or(WithdrawalStatus::Received.into());
+
+                                        match status {
+                                            BridgeDutyStatus::Withdrawal(withdrawal_status) => BridgeDuty::Withdrawal { details: withdrawal_info, status: withdrawal_status },
+                                            _ => unreachable!("withdrawal duty must be tied to withdrawal status"),
+                                        }
+                                    },
+                            };
+
+                            debug!(action = "dispatching duty", ?bridge_duty);
+                            duty_sender
+                                .send(bridge_duty)
+                                .expect("should be able to send duty");
                         }
 
                         db.set_last_fetched_duty_index(stop_index).await;
