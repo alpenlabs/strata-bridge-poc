@@ -22,7 +22,13 @@ strata-proofimpl-bitvm-bridge.workspace = true
 strata-sp1-adapter.workspace = true
 strata-state.workspace = true
 strata-zkvm.workspace = true
-
+strata-bridge-primitives.workspace = true
+lazy_static.workspace = true
+bitvm.workspace = true
+ark-groth16.workspace = true
+ark-bn254.workspace = true
+ark-ff.workspace = true
+ark-ec.workspace = true
 
 [features]
 prover = ["strata-sp1-adapter/prover", "strata-bridge-guest-builder/prover"]

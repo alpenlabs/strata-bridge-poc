@@ -9,6 +9,7 @@ use bitcoin::{
     sighash::{Prevouts, SighashCache},
     TapSighashType, Transaction, TxOut, Txid,
 };
+use bitvm::groth16::g16;
 use musig2::{
     aggregate_partial_signatures, sign_partial, AggNonce, KeyAggContext, PartialSignature, PubNonce,
 };
@@ -24,7 +25,7 @@ use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext, TxKind},
     deposit::DepositInfo,
     duties::{BridgeDuty, BridgeDutyStatus, DepositStatus, WithdrawalStatus},
-    params::{prelude::*, strata::STRATA_BTC_GENEISIS_HEIGHT},
+    params::{prelude::*, strata::STRATA_BTC_GENESIS_HEIGHT},
     scripts::{
         taproot::{create_message_hash, finalize_input, TaprootWitness},
         wots::{generate_wots_public_keys, generate_wots_signatures, Assertions},
@@ -37,7 +38,10 @@ use strata_bridge_tx_graph::{
     peg_out_graph::{PegOutGraph, PegOutGraphConnectors, PegOutGraphInput},
     transactions::prelude::*,
 };
-use strata_proofimpl_bitvm_bridge::{process_bridge_proof_wrapper, StrataBridgeState};
+use strata_proofimpl_bitvm_bridge::{
+    process_bridge_proof_wrapper, BridgeProofPublicParams, StrataBridgeState,
+};
+use strata_proofimpl_prover::prover::{self, BRIDGE_POC_GROTH16_VERIFICATION_KEY};
 use strata_rpc::StrataApiClient;
 use strata_state::{block::L2Block, chain_state::ChainState, l1::get_btc_params};
 use tokio::sync::{
@@ -1493,17 +1497,21 @@ where
         let should_assert = status.should_assert_data(NUM_ASSERT_DATA_TX - 1);
         if let Some((bridge_out_txid, superblock_start_ts)) = should_assert {
             info!(action = "creating assertion signatures", %own_index);
-            let mut assertions: Assertions = self
-                .generate_g16_proof(deposit_txid, bridge_out_txid, superblock_start_ts)
-                .await;
 
-            if self.am_i_faulty() {
-                warn!(action = "making a faulty assertion");
-                assertions.groth16.0[0] = [0u8; 32];
-            }
-
-            let assert_data_signatures =
-                generate_wots_signatures(&self.msk, deposit_txid, assertions);
+            let assert_data_signatures = {
+                let mut assertions: Assertions = self
+                    .prove_and_generate_assertions(
+                        deposit_txid,
+                        bridge_out_txid,
+                        superblock_start_ts,
+                    )
+                    .await;
+                if self.am_i_faulty() {
+                    warn!(action = "making a faulty assertion");
+                    assertions.groth16.0[0] = [0u8; 32];
+                }
+                generate_wots_signatures(&self.msk, deposit_txid, assertions)
+            };
 
             let signed_assert_data_txs = assert_data.finalize(
                 connectors.assert_data160_factory,
@@ -1814,7 +1822,7 @@ where
         }
     }
 
-    async fn generate_g16_proof(
+    async fn prove_and_generate_assertions(
         &self,
         deposit_txid: Txid,
         bridge_out_txid: Txid,
@@ -1866,7 +1874,7 @@ where
         let initial_header_state = get_verification_state(
             self.agent.btc_client.clone(),
             l1_start_height as u64,
-            STRATA_BTC_GENEISIS_HEIGHT,
+            STRATA_BTC_GENESIS_HEIGHT,
             &btc_params,
         )
         .await
@@ -1939,13 +1947,29 @@ where
 
         let input = bincode::serialize(&input).expect("should serialize BridgeProofInput");
 
-        let bridge_proof_public_params = process_bridge_proof_wrapper(&input, strata_bridge_state);
-        dbg!(&bridge_proof_public_params);
+        // check if proof is valid
+        process_bridge_proof_wrapper(&input, strata_bridge_state.clone())
+            .expect("failed to assert proof statements");
 
-        if let Ok(_params) = bridge_proof_public_params {
-            // let proof = prove(&input, strata_bridge_state);
+        let (proof, public_inputs, public_params) =
+            prover::prove_wrapper(&input, strata_bridge_state).unwrap();
+
+        let BridgeProofPublicParams {
+            deposit_txid: _,
+            superblock_hash,
+            bridge_out_txid,
+            superblock_period_start_ts,
+        } = public_params;
+
+        Assertions {
+            bridge_out_txid,
+            superblock_hash,
+            superblock_period_start_ts: superblock_period_start_ts.to_le_bytes(),
+            groth16: g16::generate_proof_assertions(
+                BRIDGE_POC_GROTH16_VERIFICATION_KEY.clone(),
+                proof,
+                public_inputs,
+            ),
         }
-
-        todo!()
     }
 }

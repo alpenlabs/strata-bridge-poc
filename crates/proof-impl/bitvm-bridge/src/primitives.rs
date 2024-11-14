@@ -196,7 +196,7 @@ pub struct BridgeProofInput {
     pub superblock_period_start_ts: u32,
 }
 
-#[derive(borsh::BorshSerialize, borsh::BorshDeserialize)]
+#[derive(borsh::BorshSerialize, borsh::BorshDeserialize, Clone)]
 pub struct StrataBridgeState {
     /// ChainState's deposit record table
     pub deposits_table: DepositsTable,
@@ -541,7 +541,7 @@ mod tests {
         assert!(res.is_ok());
     }
 
-    fn write_bridge_proof_input_and_state(input: &BridgeProofInput, state: &StrataBridgeState) {
+    fn _write_bridge_proof_input_and_state(input: &BridgeProofInput, state: &StrataBridgeState) {
         fs::write(
             "inputs/bridge_proof_input.bin",
             bincode::serialize(input).unwrap(),
