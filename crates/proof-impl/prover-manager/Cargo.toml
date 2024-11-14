@@ -20,6 +20,8 @@ strata-proofimpl-bitvm-bridge.workspace = true
 strata-sp1-adapter.workspace = true
 strata-state.workspace = true
 strata-zkvm.workspace = true
+sha2.workspace = true
+sp1-verifier = { version = "3.2.1" }
 
 
 [features]

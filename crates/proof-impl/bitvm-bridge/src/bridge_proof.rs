@@ -27,47 +27,52 @@ use crate::{
 };
 
 pub const ROLLUP_NAME: &str = "alpenstrata";
-pub const SUPERBLOCK_PERIOD_BLOCK_INTERVAL: usize = 1;
+pub const SUPERBLOCK_PERIOD_BLOCK_INTERVAL: usize = 100;
 
 pub fn process_bridge_proof(
     input: BridgeProofInput,
     strata_bridge_state: StrataBridgeState,
-) -> BridgeProofPublicParams {
+) -> Result<BridgeProofPublicParams, Box<dyn std::error::Error>> {
     let BridgeProofInput {
         headers,
-        checkpoint: (checkpoint_header_index, checkpoint, deposit_txid),
-        bridge_out: (bridge_out_header_index, bridge_out),
+        deposit_txid,
+        checkpoint: (checkpoint_height, checkpoint),
+        bridge_out: (bridge_out_height, bridge_out),
         superblock_period_start_ts,
         initial_header_state,
     } = input;
 
     let params = &get_btc_params();
 
+    if bridge_out_height <= checkpoint_height {
+        return Err("bridge_out before checkpoint".into());
+    }
+    let checkpoint_header_index =
+        (checkpoint_height - initial_header_state.last_verified_block_num - 1) as usize;
+    let bridge_out_header_index =
+        (bridge_out_height - initial_header_state.last_verified_block_num - 1) as usize;
+
+    // verify header chain
     let header_hashes = {
-        // verify header chain
         let mut state = initial_header_state.clone();
-        let header_hashes = headers
+        headers
             .iter()
             .map(|header| {
-                state = state.check_and_update_continuity_new(header, params);
+                state.check_and_update_full(header, params);
                 state.last_verified_block_hash
             })
-            .collect::<Vec<_>>();
-
-        // verify checkpoint < bridge_out
-        assert!(checkpoint_header_index < bridge_out_header_index);
-
-        // verify checkpoint and bridge_out inclusion proofs
-        assert!(
-            checkpoint.verify(&headers[checkpoint_header_index]),
-            "Checkpoint: non-inclusion!"
-        );
-        assert!(
-            bridge_out.verify(&headers[bridge_out_header_index]),
-            "Bridge-out: non-inclusion"
-        );
-        header_hashes
+            .collect::<Vec<_>>()
     };
+
+    // verify checkpoint inclusion proof
+    checkpoint
+        .verify(&headers[checkpoint_header_index])
+        .map_err(|err| "invalid checkpoint tx: non-inclusion")?;
+
+    // verify bridge_out inclusion proof
+    bridge_out
+        .verify(&headers[bridge_out_header_index])
+        .map_err(|err| "invalid bridge_out tx: non-inclusion")?;
 
     // superblock hash and blocks count
     let (superblock_hash, superblock_period_blocks_count) = headers.iter().zip(header_hashes).fold(
@@ -84,32 +89,28 @@ pub fn process_bridge_proof(
             (superblock_hash, superblock_period_blocks_count)
         },
     );
-    assert!(superblock_period_blocks_count >= SUPERBLOCK_PERIOD_BLOCK_INTERVAL);
+    if superblock_period_blocks_count < SUPERBLOCK_PERIOD_BLOCK_INTERVAL {
+        return Err("not enough headers in superblock period".into());
+    }
 
     // TODO: parse and validate bridge out tx
     let (operator_id, withdrawal_address, withdrawal_amount) = {
-        assert!(
-            bridge_out.tx.output.len() >= 2,
-            "bridge-out: not enough outputs!"
-        );
         let operator_id = u32::from_be_bytes(
-            bridge_out.tx.output[0].script_pubkey.as_bytes()[2..6]
+            bridge_out.tx.0.output[0].script_pubkey.as_bytes()[2..6]
                 .try_into()
-                .expect("invalid operator id"),
+                .map_err(|_| "bridge_out: invalid operator id")?,
         );
-        let withdrawal_amount = BitcoinAmount::from_sat(bridge_out.tx.output[1].value.to_sat());
+        let withdrawal_amount = BitcoinAmount::from_sat(bridge_out.tx.0.output[1].value.to_sat());
         let withdrawal_address =
-            XOnlyPk::try_from_slice(&bridge_out.tx.output[1].script_pubkey.as_bytes()[2..])
-                .expect("invalid withdrawal address");
+            XOnlyPk::try_from_slice(&bridge_out.tx.0.output[1].script_pubkey.as_bytes()[2..])
+                .map_err(|_| "bridge_out: invalid withdrawal address")?;
         (operator_id, withdrawal_address, withdrawal_amount)
     };
 
     // verify checkpoint proof and withdrawal state
     {
-        assert!(!checkpoint.tx.input.is_empty());
-
         // extract batch checkpoint from checkpoint tx
-        let script = checkpoint.tx.input[0].witness.tapscript().unwrap();
+        let script = checkpoint.tx.0.input[0].witness.tapscript().unwrap();
         let inscription = parse_inscription_data(&script.into(), ROLLUP_NAME).unwrap();
         let batch_checkpoint: BatchCheckpoint =
             borsh::from_slice::<SignedBatchCheckpoint>(inscription.batch_data())
@@ -129,10 +130,11 @@ pub fn process_bridge_proof(
                 "Invalid checkpoint proof!"
             );
         }
-        assert_eq!(
-            batch_checkpoint.batch_info().final_l2_state_hash().clone(),
-            strata_bridge_state.compute_state_root()
-        );
+
+        let batch_info = batch_checkpoint.batch_info();
+        if strata_bridge_state.compute_state_root() != *batch_info.final_l2_state_hash() {
+            return Err("checkpoint: strata state root mismatch".into());
+        }
 
         let StrataBridgeState {
             deposits_table,
@@ -142,34 +144,33 @@ pub fn process_bridge_proof(
         let entry = deposits_table
             .deposits()
             .find(|&el| el.output().outpoint().txid.to_byte_array() == deposit_txid)
-            .expect("Deposit entry not found for the given deposit_txid");
+            .ok_or("checkpoint: deposit_txid does not exist in deposits_table")?;
 
-        // We need the deposit state in `DepositState::Dispatched`
         let dispatched_state = match entry.deposit_state() {
             DepositState::Dispatched(dispatched_state) => dispatched_state,
-            _ => panic!("Invalid withdrawal!"),
+            _ => return Err("checkpoint: withdrawal not dispatched for given deposit".into()),
         };
 
         let withdrawal = dispatched_state.cmd().withdraw_outputs().first().unwrap();
 
-        assert_eq!(operator_id, dispatched_state.assignee());
-        assert_eq!(withdrawal_address, withdrawal.dest_addr().clone());
-        assert_eq!(withdrawal_amount, BitcoinAmount::from_sat(800000000));
+        if operator_id != dispatched_state.assignee()
+            || withdrawal_address != *withdrawal.dest_addr()
+            || withdrawal_amount != BitcoinAmount::from_sat(800000000)
+        {
+            return Err("checkpoint: invalid operator or withdrawal address or amount".into());
+        }
 
-        let batch_info = batch_checkpoint.batch_info();
-        assert_eq!(
-            batch_info.l1_transition.1,
-            initial_header_state.compute_hash().unwrap(),
-            "Invalid initial_header_state"
-        );
+        if batch_info.l1_transition.1 != initial_header_state.compute_hash().unwrap() {
+            return Err("checkpoint: invalid initial_header_state".into());
+        }
     }
 
-    BridgeProofPublicParams {
+    Ok(BridgeProofPublicParams {
         deposit_txid,
         superblock_hash,
-        bridge_out_txid: bridge_out.tx.compute_txid().to_byte_array(),
+        bridge_out_txid: bridge_out.tx.0.compute_txid().to_byte_array(),
         superblock_period_start_ts,
-    }
+    })
 }
 
 // #[cfg(test)]

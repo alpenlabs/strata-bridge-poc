@@ -1,45 +1,30 @@
-use anyhow::Context;
+use std::fs;
+
 use sp1_sdk::{HashableKey, ProverClient, SP1ProofWithPublicValues, SP1VerifyingKey};
 use strata_bridge_guest_builder::GUEST_BRIDGE_ELF;
-use strata_proofimpl_bitvm_bridge::BridgeProofInput;
+use strata_proofimpl_bitvm_bridge::{BridgeProofInput, StrataBridgeState};
 use strata_sp1_adapter::SP1ProofInputBuilder;
-use strata_state::chain_state::ChainState;
-use strata_zkvm::{Proof, ZKVMInputBuilder};
+use strata_zkvm::ZKVMInputBuilder;
 
-pub fn make_proof(
-    proof_input: BridgeProofInput,
-    chain_state: ChainState,
-) -> anyhow::Result<(SP1ProofWithPublicValues, String, SP1VerifyingKey, Proof)> {
-    let mut input_builder = SP1ProofInputBuilder::new();
-    input_builder.write(&proof_input).unwrap();
-    input_builder.write_borsh(&chain_state).unwrap();
-    let input = input_builder.build()?;
+pub fn prove(
+    bridge_proof_input: BridgeProofInput,
+    strata_bridge_state: StrataBridgeState,
+) -> anyhow::Result<(SP1ProofWithPublicValues, SP1VerifyingKey)> {
+    let input = {
+        let mut input_builder = SP1ProofInputBuilder::new();
+        input_builder.write(&bridge_proof_input)?;
+        input_builder.write_borsh(&strata_bridge_state)?;
+        input_builder.build()?
+    };
 
     let prover_client = ProverClient::new();
-    let (proving_key, vkey) = prover_client.setup(GUEST_BRIDGE_ELF);
+    let (sp1pk, sp1vk) = prover_client.setup(GUEST_BRIDGE_ELF);
 
-    let prover = prover_client
-        .prove(&proving_key, input)
-        .compressed()
-        .groth16();
+    let prover = prover_client.prove(&sp1pk, input).compressed().groth16();
 
     let proof = prover.run()?;
 
-    let sp1_groth16_proof_bytes = hex::decode(
-        &proof
-            .clone()
-            .proof
-            .try_as_groth_16()
-            .context("Failed to convert proof to Groth16")?
-            .raw_proof,
-    )
-    .context("Failed to decode Groth16 proof")?;
-    anyhow::Ok((
-        proof,
-        vkey.bytes32(),
-        vkey,
-        Proof::new(sp1_groth16_proof_bytes),
-    ))
+    anyhow::Ok((proof, sp1vk))
 }
 
 #[cfg(test)]
@@ -47,10 +32,11 @@ mod test {
     use std::{
         fs::File,
         io::{self, Write},
-        ops::Index,
     };
 
     use bitcoin::{block::Header, Block};
+    use sha2::{Digest, Sha256};
+    use sp1_verifier::Groth16Verifier;
     use strata_primitives::l1::OutputRef;
     use strata_proofimpl_bitvm_bridge::{BridgeProofInput, WithInclusionProof};
     use strata_state::{chain_state::ChainState, l1::HeaderVerificationState};
@@ -73,6 +59,41 @@ mod test {
         pub ts_block_header: Header,
         pub headers: Vec<Header>,
         pub start_header_state: HeaderVerificationState,
+    }
+
+    #[test]
+    fn test_prove() {
+        sp1_sdk::utils::setup_logger();
+
+        let bridge_proof_input: BridgeProofInput = bincode::deserialize(include_bytes!(
+            "../../bitvm-bridge/inputs/bridge_proof_input.bin"
+        ))
+        .unwrap();
+        let strata_bridge_state: StrataBridgeState = borsh::from_slice(include_bytes!(
+            "../../bitvm-bridge/inputs/strata_bridge_state.bin"
+        ))
+        .unwrap();
+
+        let proof_data = prove(bridge_proof_input, strata_bridge_state).unwrap();
+
+        fs::write(
+            "proof_data/proof_data.bin",
+            bincode::serialize(&proof_data).unwrap(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn test_verify() {
+        let (sp1prf, sp1vk): (SP1ProofWithPublicValues, SP1VerifyingKey) =
+            bincode::deserialize(include_bytes!("../proof_data/proof_data.bin")).unwrap();
+        Groth16Verifier::verify(
+            &sp1prf.bytes(),
+            sp1prf.public_values.as_slice(),
+            &sp1vk.bytes32(),
+            &sp1_verifier::GROTH16_VK_BYTES,
+        )
+        .expect("Invalid groth16 proof");
     }
 
     #[test]

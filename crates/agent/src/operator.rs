@@ -1810,7 +1810,7 @@ where
     async fn generate_g16_proof(
         &self,
         deposit_txid: Txid,
-        bridge_out_txid: Txid,
+        _bridge_out_txid: Txid,
         superblock_period_start_ts: u32,
     ) {
         info!(action = "getting latest checkpoint at the time of withdrawal duty reception");
