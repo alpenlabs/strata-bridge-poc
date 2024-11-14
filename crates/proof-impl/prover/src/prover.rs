@@ -1,19 +1,65 @@
-use std::fs;
-
+use anyhow::Context;
+use ark_bn254::Fr;
+use ark_ec::CurveGroup;
+use ark_ff::{Field, PrimeField};
+use bitvm::groth16::g16;
+use lazy_static::lazy_static;
 use sp1_sdk::{HashableKey, ProverClient, SP1ProofWithPublicValues, SP1VerifyingKey};
+use sp1_verifier::Groth16Verifier;
 use strata_bridge_guest_builder::GUEST_BRIDGE_ELF;
-use strata_proofimpl_bitvm_bridge::{BridgeProofInput, StrataBridgeState};
+use strata_bridge_primitives::scripts::sp1g16;
+use strata_proofimpl_bitvm_bridge::{BridgeProofInput, BridgeProofPublicParams, StrataBridgeState};
 use strata_sp1_adapter::SP1ProofInputBuilder;
 use strata_zkvm::ZKVMInputBuilder;
 
+lazy_static! {
+    pub static ref BRIDGE_POC_GROTH16_VERIFICATION_KEY: g16::VerifyingKey = {
+        let pc = ProverClient::new();
+        let (_, sp1vk) = pc.setup(GUEST_BRIDGE_ELF);
+
+        let vkey_hash = hex::decode(sp1vk.bytes32().strip_prefix("0x").unwrap()).unwrap();
+
+        let compile_time_public_inputs = [Fr::from_be_bytes_mod_order(&vkey_hash)];
+
+        // embed first public input to the groth16 vk
+        let mut vk = sp1g16::load_groth16_verifying_key_from_bytes(sp1g16::GROTH16_VK_BYTES);
+        let mut vk_gamma_abc_g1_0 = vk.gamma_abc_g1[0] * Fr::ONE;
+        for (i, public_input) in compile_time_public_inputs.iter().enumerate() {
+            vk_gamma_abc_g1_0 += vk.gamma_abc_g1[i + 1] * public_input;
+        }
+        let mut vk_gamma_abc_g1 = vec![vk_gamma_abc_g1_0.into_affine()];
+        vk_gamma_abc_g1.extend(&vk.gamma_abc_g1[1 + compile_time_public_inputs.len()..]);
+        vk.gamma_abc_g1 = vk_gamma_abc_g1;
+
+        vk
+    };
+}
+
 pub fn prove_wrapper(
     input: &[u8],
-    strata_bridge_state: &StrataBridgeState,
-) -> anyhow::Result<(SP1ProofWithPublicValues, SP1VerifyingKey)> {
+    strata_bridge_state: StrataBridgeState,
+) -> anyhow::Result<(g16::Proof, BridgeProofPublicParams)> {
     let bridge_proof_input: BridgeProofInput =
-        bincode::deserialize(input).expect("should be able to deserialize proof input");
+        bincode::deserialize(input).context("cannot deserialize input")?;
 
-    prove(bridge_proof_input, strata_bridge_state)
+    let (mut sp1prf, sp1vk) =
+        prove(bridge_proof_input, strata_bridge_state).context("cannot generate proof")?;
+
+    Groth16Verifier::verify(
+        &sp1prf.bytes(),
+        sp1prf.public_values.as_slice(),
+        &sp1vk.bytes32(),
+        &sp1_verifier::GROTH16_VK_BYTES,
+    )
+    .context("proof verification failed")?;
+
+    let groth16_proof_bytes =
+        hex::decode(sp1prf.proof.try_as_groth_16().unwrap().raw_proof).unwrap();
+    let proof = sp1g16::load_groth16_proof_from_bytes(&groth16_proof_bytes);
+
+    let bridge_proof_public_params: BridgeProofPublicParams = sp1prf.public_values.read();
+
+    Ok((proof, bridge_proof_public_params))
 }
 
 pub fn prove(
@@ -40,12 +86,11 @@ pub fn prove(
 #[cfg(test)]
 mod test {
     use std::{
-        fs::File,
+        fs::{self, File},
         io::{self, Write},
     };
 
     use bitcoin::{block::Header, Block};
-    use sha2::{Digest, Sha256};
     use sp1_verifier::Groth16Verifier;
     use strata_primitives::l1::OutputRef;
     use strata_proofimpl_bitvm_bridge::{BridgeProofInput, WithInclusionProof};
@@ -69,6 +114,54 @@ mod test {
         pub ts_block_header: Header,
         pub headers: Vec<Header>,
         pub start_header_state: HeaderVerificationState,
+    }
+
+    #[test]
+    fn test_bridge_poc_groth16_vk() {
+        dbg!(BRIDGE_POC_GROTH16_VERIFICATION_KEY.clone());
+    }
+
+    #[test]
+    fn test_bridge_poc_groth16_prove() {
+        sp1_sdk::utils::setup_logger();
+        let bridge_proof_input: BridgeProofInput = bincode::deserialize(include_bytes!(
+            "../../bitvm-bridge/inputs/bridge_proof_input.bin"
+        ))
+        .unwrap();
+        let strata_bridge_state: StrataBridgeState = borsh::from_slice(include_bytes!(
+            "../../bitvm-bridge/inputs/strata_bridge_state.bin"
+        ))
+        .unwrap();
+
+        let input = bincode::serialize(&bridge_proof_input).unwrap();
+        let (proof, params) = prove_wrapper(&input, strata_bridge_state).unwrap();
+
+        dbg!(&proof, &params);
+    }
+
+    #[test]
+    fn test_bridge_poc_groth16_verify() {
+        let (mut sp1prf, sp1vk): (SP1ProofWithPublicValues, SP1VerifyingKey) =
+            bincode::deserialize(include_bytes!("../proof_data/proof_data.bin")).unwrap();
+
+        Groth16Verifier::verify(
+            &sp1prf.bytes(),
+            sp1prf.public_values.as_slice(),
+            &sp1vk.bytes32(),
+            &sp1_verifier::GROTH16_VK_BYTES,
+        )
+        .context("proof verification failed")
+        .unwrap();
+
+        let bridge_proof_public_params: BridgeProofPublicParams = sp1prf.public_values.read();
+
+        let g16_proof_bytes =
+            hex::decode(sp1prf.proof.try_as_groth_16().unwrap().raw_proof).unwrap();
+
+        let proof = sp1g16::load_groth16_proof_from_bytes(&g16_proof_bytes);
+
+        dbg!(&bridge_proof_public_params);
+        dbg!(&proof);
     }
 
     #[test]
