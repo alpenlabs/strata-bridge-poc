@@ -70,6 +70,13 @@ pub(crate) struct Cli {
     )]
     pub xpriv_file: PathBuf,
 
+    #[clap(
+        long,
+        help = "The file containing the list of client WOTS master key to use (one per line)",
+        default_value = "msks.bin"
+    )]
+    pub msks_file: PathBuf,
+
     #[clap(long, help = "The number of tokio threads to use", default_value_t = DEFAULT_NUM_THREADS)]
     pub num_threads: usize,
 

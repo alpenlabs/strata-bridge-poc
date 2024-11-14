@@ -1,3 +1,4 @@
+use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -170,15 +171,30 @@ impl DepositStatus {
 pub enum WithdrawalStatus {
     Received,
 
-    PaidUser,
+    PaidUser(Txid),
 
-    Kickoff,
+    Kickoff {
+        bridge_out_txid: Txid,
+        kickoff_txid: Txid,
+    },
 
-    Claim,
+    Claim {
+        bridge_out_txid: Txid,
+        superblock_start_ts: u32,
+        claim_txid: Txid,
+    },
 
-    PreAssert,
+    PreAssert {
+        bridge_out_txid: Txid,
+        superblock_start_ts: u32,
+        pre_assert_txid: Txid,
+    },
 
-    AssertData(usize), // number of assert data txs that have been broadcasted
+    AssertData {
+        bridge_out_txid: Txid,
+        superblock_start_ts: u32,
+        assert_data_txids: Vec<Txid>, // dynamic for assert data txs that have been broadcasted
+    },
 
     PostAssert,
 
@@ -196,17 +212,60 @@ pub enum WithdrawalStatus {
 }
 
 impl WithdrawalStatus {
-    pub fn next(&self) -> Self {
+    pub fn next(&mut self, txid: Txid, superblock_start_ts: Option<u32>) {
         match self {
-            Self::Received => Self::PaidUser,
-            Self::PaidUser => Self::Kickoff,
-            Self::Kickoff => Self::Claim,
-            Self::Claim => Self::PreAssert,
-            Self::PreAssert => Self::AssertData(0),
-            Self::AssertData(i) if *i == NUM_ASSERT_DATA_TX => Self::PostAssert,
-            Self::AssertData(i) => Self::AssertData(i + 1),
-            Self::PostAssert => Self::Executed,
-            _ => self.clone(),
+            Self::Received => *self = Self::PaidUser(txid),
+            Self::PaidUser(bridge_out_txid) => {
+                *self = Self::Kickoff {
+                    bridge_out_txid: *bridge_out_txid,
+                    kickoff_txid: txid,
+                }
+            }
+            Self::Kickoff {
+                bridge_out_txid,
+                kickoff_txid: _,
+            } => {
+                *self = Self::Claim {
+                    bridge_out_txid: *bridge_out_txid,
+                    superblock_start_ts: superblock_start_ts.unwrap_or(0),
+                    claim_txid: txid,
+                }
+            }
+            Self::Claim {
+                bridge_out_txid,
+                superblock_start_ts,
+                claim_txid: _,
+            } => {
+                *self = Self::PreAssert {
+                    bridge_out_txid: *bridge_out_txid,
+                    superblock_start_ts: *superblock_start_ts,
+                    pre_assert_txid: txid,
+                }
+            }
+            Self::PreAssert {
+                bridge_out_txid,
+                superblock_start_ts,
+                pre_assert_txid: _,
+            } => {
+                *self = Self::AssertData {
+                    bridge_out_txid: *bridge_out_txid,
+                    superblock_start_ts: *superblock_start_ts,
+                    assert_data_txids: vec![],
+                }
+            }
+            Self::AssertData {
+                bridge_out_txid: _,
+                superblock_start_ts: _,
+                assert_data_txids,
+            } => {
+                if assert_data_txids.len() == NUM_ASSERT_DATA_TX {
+                    *self = Self::PostAssert
+                } else {
+                    assert_data_txids.push(txid);
+                }
+            }
+            Self::PostAssert => *self = Self::Executed,
+            _ => {}
         }
     }
 
@@ -214,25 +273,54 @@ impl WithdrawalStatus {
         matches!(self, WithdrawalStatus::Received)
     }
 
-    pub fn should_kickoff(&self) -> bool {
-        matches!(self, WithdrawalStatus::PaidUser)
+    pub fn should_kickoff(&self) -> Option<Txid> {
+        match self {
+            WithdrawalStatus::PaidUser(txid) => Some(*txid),
+            _ => None,
+        }
     }
 
-    pub fn should_claim(&self) -> bool {
-        matches!(self, WithdrawalStatus::Kickoff)
+    pub fn should_claim(&self) -> Option<Txid> {
+        match self {
+            WithdrawalStatus::Kickoff {
+                bridge_out_txid,
+                kickoff_txid: _,
+            } => Some(*bridge_out_txid),
+            _ => None,
+        }
     }
 
-    pub fn should_pre_assert(&self) -> bool {
-        matches!(self, WithdrawalStatus::Claim)
+    pub fn should_pre_assert(&self) -> Option<(Txid, u32)> {
+        match self {
+            WithdrawalStatus::Claim {
+                bridge_out_txid,
+                superblock_start_ts,
+                claim_txid: _,
+            } => Some((*bridge_out_txid, *superblock_start_ts)),
+            _ => None,
+        }
     }
 
-    pub fn should_assert_data(&self, assert_data_index: usize) -> bool {
-        matches!(self, WithdrawalStatus::PreAssert)
-            || matches!(self, WithdrawalStatus::AssertData(count) if *count < assert_data_index)
+    pub fn should_assert_data(&self, assert_data_index: usize) -> Option<(Txid, u32)> {
+        match self {
+            WithdrawalStatus::PreAssert {
+                bridge_out_txid,
+                superblock_start_ts,
+                pre_assert_txid: _,
+            } => Some((*bridge_out_txid, *superblock_start_ts)),
+            WithdrawalStatus::AssertData {
+                bridge_out_txid,
+                superblock_start_ts,
+                assert_data_txids,
+            } if assert_data_txids.len() < assert_data_index + 1 => {
+                Some((*bridge_out_txid, *superblock_start_ts))
+            }
+            _ => None,
+        }
     }
 
     pub fn should_post_assert(&self) -> bool {
-        matches!(self, WithdrawalStatus::AssertData(count) if *count == NUM_ASSERT_DATA_TX)
+        matches!(self, WithdrawalStatus::AssertData { bridge_out_txid: _, superblock_start_ts: _, assert_data_txids } if assert_data_txids.len() == NUM_ASSERT_DATA_TX)
     }
 
     pub fn should_get_payout(&self) -> bool {

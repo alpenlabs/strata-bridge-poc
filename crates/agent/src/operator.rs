@@ -6,14 +6,13 @@ use bitcoin::{
     block::Header,
     consensus,
     hashes::Hash,
-    hex::DisplayHex,
     sighash::{Prevouts, SighashCache},
     TapSighashType, Transaction, TxOut, Txid,
 };
 use musig2::{
     aggregate_partial_signatures, sign_partial, AggNonce, KeyAggContext, PartialSignature, PubNonce,
 };
-use rand::{rngs::OsRng, Rng, RngCore};
+use rand::{rngs::OsRng, Rng};
 use secp256k1::{schnorr::Signature, XOnlyPublicKey};
 use strata_bridge_btcio::traits::{Broadcaster, Reader, Signer};
 use strata_bridge_db::{
@@ -30,7 +29,7 @@ use strata_bridge_primitives::{
         taproot::{create_message_hash, finalize_input, TaprootWitness},
         wots::{generate_wots_public_keys, generate_wots_signatures, Assertions},
     },
-    types::TxSigningData,
+    types::{OperatorIdx, TxSigningData},
     withdrawal::WithdrawalInfo,
 };
 use strata_bridge_tx_graph::{
@@ -39,7 +38,6 @@ use strata_bridge_tx_graph::{
     transactions::prelude::*,
 };
 use strata_proofimpl_bitvm_bridge::{process_bridge_proof_wrapper, StrataBridgeState};
-use strata_proofimpl_prover::prover::prove;
 use strata_rpc::StrataApiClient;
 use strata_state::{block::L2Block, chain_state::ChainState, l1::get_btc_params};
 use tokio::sync::{
@@ -59,24 +57,22 @@ use crate::{
     },
 };
 
-pub type OperatorIdx = u32;
-
 #[derive(Debug)]
 pub struct Operator<O: OperatorDb, P: PublicDb> {
     pub agent: Agent,
-    msk: String,
-    build_context: TxBuildContext,
-    db: Arc<O>,
-    public_db: Arc<P>,
-    is_faulty: bool,
+    pub msk: String,
+    pub build_context: TxBuildContext,
+    pub db: Arc<O>,
+    pub public_db: Arc<P>,
+    pub is_faulty: bool,
 
-    duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
-    deposit_signal_sender: broadcast::Sender<DepositSignal>,
-    deposit_signal_receiver: broadcast::Receiver<DepositSignal>,
-    covenant_nonce_sender: broadcast::Sender<CovenantNonceSignal>,
-    covenant_nonce_receiver: broadcast::Receiver<CovenantNonceSignal>,
-    covenant_sig_sender: broadcast::Sender<CovenantSignatureSignal>,
-    covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
+    pub duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
+    pub deposit_signal_sender: broadcast::Sender<DepositSignal>,
+    pub deposit_signal_receiver: broadcast::Receiver<DepositSignal>,
+    pub covenant_nonce_sender: broadcast::Sender<CovenantNonceSignal>,
+    pub covenant_nonce_receiver: broadcast::Receiver<CovenantNonceSignal>,
+    pub covenant_sig_sender: broadcast::Sender<CovenantSignatureSignal>,
+    pub covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
 }
 
 impl<O, P> Operator<O, P>
@@ -84,45 +80,6 @@ where
     O: OperatorDb,
     P: PublicDb + Clone,
 {
-    #[allow(clippy::too_many_arguments)]
-    pub async fn new(
-        agent: Agent,
-        build_context: TxBuildContext,
-        is_faulty: bool,
-        db: Arc<O>,
-        public_db: Arc<P>,
-        duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
-        deposit_signal_sender: broadcast::Sender<DepositSignal>,
-        deposit_signal_receiver: broadcast::Receiver<DepositSignal>,
-        covenant_nonce_sender: broadcast::Sender<CovenantNonceSignal>,
-        covenant_nonce_receiver: broadcast::Receiver<CovenantNonceSignal>,
-        covenant_sig_sender: broadcast::Sender<CovenantSignatureSignal>,
-        covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
-    ) -> Self {
-        let msk = {
-            let mut msk_bytes: [u8; 32] = [0u8; 32];
-            rand::thread_rng().fill_bytes(&mut msk_bytes);
-            msk_bytes.to_lower_hex_string()
-        };
-
-        Self {
-            agent,
-            msk,
-            build_context,
-            db,
-            public_db,
-            is_faulty,
-
-            duty_status_sender,
-            deposit_signal_sender,
-            deposit_signal_receiver,
-            covenant_nonce_sender,
-            covenant_nonce_receiver,
-            covenant_sig_sender,
-            covenant_sig_receiver,
-        }
-    }
-
     pub fn am_i_faulty(&self) -> bool {
         self.is_faulty
     }
@@ -163,16 +120,20 @@ where
                 let duty_id = deposit_info.deposit_request_outpoint().txid;
                 self.handle_deposit(deposit_info).await;
 
-                let duty_status = BridgeDutyStatus::Deposit(DepositStatus::Executed);
+                let duty_status = DepositStatus::Executed;
                 info!(action = "reporting deposit duty status", %duty_id, ?duty_status);
 
-                if let Err(cause) = self.duty_status_sender.send((duty_id, duty_status)).await {
+                if let Err(cause) = self
+                    .duty_status_sender
+                    .send((duty_id, duty_status.into()))
+                    .await
+                {
                     error!(msg = "could not report deposit duty status", %cause);
                 }
             }
             BridgeDuty::FulfillWithdrawal {
                 details: withdrawal_info,
-                status: _,
+                status,
             } => {
                 let txid = withdrawal_info.deposit_outpoint().txid;
                 let assignee_id = withdrawal_info.assigned_operator_idx();
@@ -199,7 +160,7 @@ where
                     .set_checkpoint_index(deposit_txid, latest_checkpoint_idx)
                     .await;
 
-                self.handle_withdrawal(withdrawal_info).await;
+                self.handle_withdrawal(withdrawal_info, status).await;
 
                 let duty_status = BridgeDutyStatus::Withdrawal(WithdrawalStatus::Executed);
                 info!(action = "reporting withdrawal duty status", duty_id=%deposit_txid, ?duty_status);
@@ -1382,7 +1343,13 @@ where
         }
     }
 
-    pub async fn handle_withdrawal(&self, withdrawal_info: WithdrawalInfo) {
+    pub async fn handle_withdrawal(
+        &self,
+        withdrawal_info: WithdrawalInfo,
+        status: WithdrawalStatus,
+    ) {
+        let mut status = status;
+
         // 0. get context
         let network = self.build_context.network();
         let own_index = self.build_context.own_index();
@@ -1392,22 +1359,28 @@ where
         let own_pubkey = self.agent.public_key().x_only_public_key().0;
 
         // 1. pay the user with PoW transaction
-        let user_pk = withdrawal_info.user_pk();
+        if status.should_pay() {
+            let user_pk = withdrawal_info.user_pk();
 
-        info!(action = "paying out the user", %user_pk, %own_index);
+            info!(action = "paying out the user", %user_pk, %own_index);
 
-        let bridge_out_txid = self
-            .pay_user(user_pk, network, own_index)
-            .await
-            .expect("must be able to pay user");
+            let bridge_out_txid = self
+                .pay_user(user_pk, network, own_index)
+                .await
+                .expect("must be able to pay user");
 
-        self.duty_status_sender
-            .send((
-                deposit_txid,
-                BridgeDutyStatus::Withdrawal(WithdrawalStatus::PaidUser),
-            ))
-            .await
-            .expect("should be able to send duty status");
+            self.duty_status_sender
+                .send((
+                    deposit_txid,
+                    WithdrawalStatus::PaidUser(bridge_out_txid).into(),
+                ))
+                .await
+                .expect("should be able to send duty status");
+
+            status.next(bridge_out_txid, None);
+        } else {
+            info!(action = "already paid user, so skipping");
+        }
 
         // 2. create tx graph from public data
         info!(action = "reconstructing pegout graph", %deposit_txid, %own_index);
@@ -1459,176 +1432,220 @@ where
         .await;
 
         // 3. publish kickoff -> claim
-        let superblock_period_start_ts = self
-            .broadcast_kickoff_and_claim(
-                &connectors,
-                own_index,
-                deposit_txid,
-                kickoff_tx,
-                claim_tx,
-                bridge_out_txid,
-            )
-            .await;
+        self.broadcast_kickoff_and_claim(
+            &connectors,
+            own_index,
+            deposit_txid,
+            kickoff_tx,
+            claim_tx,
+            &mut status,
+        )
+        .await;
 
-        // 4. compute superblock and proof (skip)
-        info!(event = "challenge received, computing proof");
-        let mut assertions: Assertions = self
-            .generate_g16_proof(deposit_txid, bridge_out_txid, superblock_period_start_ts)
-            .await;
-
-        if self.am_i_faulty() {
-            warn!(action = "making a faulty assertion");
-            assertions.groth16.0[0] = [0u8; 32];
-        }
-
-        let assert_data_signatures = generate_wots_signatures(&self.msk, deposit_txid, assertions);
-
-        info!(action = "creating assertion signatures", %own_index);
-
-        // 5. publish assert chain
         let AssertChain {
             pre_assert,
             assert_data,
             post_assert,
         } = assert_chain;
 
-        let pre_assert_txid = pre_assert.compute_txid();
-        let n_of_n_sig = self
-            .public_db
-            .get_signature(own_index, pre_assert_txid, 0)
-            .await;
-        let signed_pre_assert = pre_assert.finalize(n_of_n_sig, connectors.claim_out_0);
-        let vsize = signed_pre_assert.vsize();
-        let total_size = signed_pre_assert.total_size();
-        let weight = signed_pre_assert.weight();
-        info!(event = "finalized pre-assert tx", %pre_assert_txid, %vsize, %total_size, %weight, %own_index);
+        if let Some((bridge_out_txid, superblock_start_ts)) = status.should_pre_assert() {
+            // 5. Publish pre-assert tx
+            info!(event = "challenge received, broadcasting pre-assert tx");
+            let pre_assert_txid = pre_assert.compute_txid();
+            let n_of_n_sig = self
+                .public_db
+                .get_signature(own_index, pre_assert_txid, 0)
+                .await;
+            let signed_pre_assert = pre_assert.finalize(n_of_n_sig, connectors.claim_out_0);
+            let vsize = signed_pre_assert.vsize();
+            let total_size = signed_pre_assert.total_size();
+            let weight = signed_pre_assert.weight();
+            info!(event = "finalized pre-assert tx", %pre_assert_txid, %vsize, %total_size, %weight, %own_index);
 
-        let txid = self
-            .agent
-            .wait_and_broadcast(&signed_pre_assert, BTC_CONFIRM_PERIOD)
-            .await
-            .expect("should settle pre-assert");
-        info!(event = "broadcasted pre-assert", %txid, %own_index);
-
-        self.duty_status_sender
-            .send((
-                deposit_txid,
-                BridgeDutyStatus::Withdrawal(WithdrawalStatus::PreAssert),
-            ))
-            .await
-            .expect("should be able to send duty status");
-
-        let signed_assert_data_txs = assert_data.finalize(
-            connectors.assert_data160_factory,
-            connectors.assert_data256_factory,
-            &self.msk,
-            assert_data_signatures,
-        );
-
-        let num_assert_data_txs = signed_assert_data_txs.len();
-        info!(
-            event = "finalized signed assert data txs",
-            num_assert_data_txs
-        );
-
-        info!(action = "estimating finalized assert data tx sizes", %own_index);
-        for (index, signed_assert_data_tx) in signed_assert_data_txs.iter().enumerate() {
-            let txid = signed_assert_data_tx.compute_txid();
-            let vsize = signed_assert_data_tx.vsize();
-            let total_size = signed_assert_data_tx.total_size();
-            let weight = signed_assert_data_tx.weight();
-            info!(event = "assert-data tx", %index, %txid, %vsize, %total_size, %weight, %own_index);
-        }
-
-        info!(action = "broadcasting finalized assert data txs", %own_index);
-        let mut broadcasted_assert_data_txids = Vec::with_capacity(TOTAL_CONNECTORS);
-        for (index, signed_assert_data_tx) in signed_assert_data_txs.iter().enumerate() {
-            info!(event = "broadcasting signed assert data tx", %index, %num_assert_data_txs);
-
-            let txid = self
+            let pre_assert_txid = self
                 .agent
-                .wait_and_broadcast(signed_assert_data_tx, Duration::from_secs(1))
+                .wait_and_broadcast(&signed_pre_assert, BTC_CONFIRM_PERIOD)
                 .await
-                .expect("should settle assert-data");
-
-            broadcasted_assert_data_txids.push(txid);
+                .expect("should settle pre-assert");
+            info!(event = "broadcasted pre-assert", %pre_assert_txid, %own_index);
 
             self.duty_status_sender
                 .send((
                     deposit_txid,
-                    BridgeDutyStatus::Withdrawal(WithdrawalStatus::AssertData(index)),
+                    WithdrawalStatus::PreAssert {
+                        bridge_out_txid,
+                        superblock_start_ts,
+                        pre_assert_txid,
+                    }
+                    .into(),
                 ))
                 .await
                 .expect("should be able to send duty status");
 
-            info!(event = "broadcasted signed assert data tx", %index, %num_assert_data_txs);
+            status.next(bridge_out_txid, Some(superblock_start_ts));
+        } else {
+            info!(action = "already broadcasted pre-assert, so skipping");
         }
 
-        let post_assert_txid = post_assert.compute_txid();
-        let mut signatures = Vec::new();
-        // num_assert_data_tx + 1 for stake
-        for input_index in 0..=num_assert_data_txs {
-            let n_of_n_sig = self
-                .public_db
-                .get_signature(own_index, post_assert_txid, input_index as u32)
+        // 6. compute superblock and proof
+        // check that at least one assert data is still left to broadcast i.e, the last one has not
+        // been broadcasted yet.
+        let should_assert = status.should_assert_data(NUM_ASSERT_DATA_TX - 1);
+        if let Some((bridge_out_txid, superblock_start_ts)) = should_assert {
+            info!(action = "creating assertion signatures", %own_index);
+            let mut assertions: Assertions = self
+                .generate_g16_proof(deposit_txid, bridge_out_txid, superblock_start_ts)
                 .await;
 
-            signatures.push(n_of_n_sig);
+            if self.am_i_faulty() {
+                warn!(action = "making a faulty assertion");
+                assertions.groth16.0[0] = [0u8; 32];
+            }
+
+            let assert_data_signatures =
+                generate_wots_signatures(&self.msk, deposit_txid, assertions);
+
+            let signed_assert_data_txs = assert_data.finalize(
+                connectors.assert_data160_factory,
+                connectors.assert_data256_factory,
+                &self.msk,
+                assert_data_signatures,
+            );
+
+            let num_assert_data_txs = signed_assert_data_txs.len();
+            info!(
+                event = "finalized signed assert data txs",
+                num_assert_data_txs
+            );
+
+            info!(action = "estimating finalized assert data tx sizes", %own_index);
+            for (index, signed_assert_data_tx) in signed_assert_data_txs.iter().enumerate() {
+                let txid = signed_assert_data_tx.compute_txid();
+                let vsize = signed_assert_data_tx.vsize();
+                let total_size = signed_assert_data_tx.total_size();
+                let weight = signed_assert_data_tx.weight();
+                info!(event = "assert-data tx", %index, %txid, %vsize, %total_size, %weight, %own_index);
+            }
+
+            info!(action = "broadcasting finalized assert data txs", %own_index);
+            let mut broadcasted_assert_data_txids = Vec::with_capacity(TOTAL_CONNECTORS);
+            for (index, signed_assert_data_tx) in signed_assert_data_txs.iter().enumerate() {
+                if let Some((bridge_out_txid, superblock_start_ts)) =
+                    status.should_assert_data(index)
+                {
+                    info!(event = "broadcasting signed assert data tx", %index, %num_assert_data_txs);
+                    let txid = self
+                        .agent
+                        .wait_and_broadcast(signed_assert_data_tx, Duration::from_secs(1))
+                        .await
+                        .expect("should settle assert-data");
+
+                    broadcasted_assert_data_txids.push(txid);
+
+                    self.duty_status_sender
+                        .send((
+                            deposit_txid,
+                            BridgeDutyStatus::Withdrawal(WithdrawalStatus::AssertData {
+                                bridge_out_txid,
+                                superblock_start_ts,
+                                assert_data_txids: broadcasted_assert_data_txids.clone(),
+                            }),
+                        ))
+                        .await
+                        .expect("should be able to send duty status");
+
+                    info!(event = "broadcasted signed assert data tx", %index, %num_assert_data_txs);
+
+                    status.next(txid, Some(superblock_start_ts));
+                } else {
+                    info!(action = "already broadcasted this assert data tx; so skipping", %index);
+                }
+            }
+        } else {
+            info!(action = "already broadcated all assert data txs, so skipping");
         }
 
-        let signed_post_assert = post_assert.finalize(&signatures);
-        let vsize = signed_pre_assert.vsize();
-        let total_size = signed_pre_assert.total_size();
-        let weight = signed_pre_assert.weight();
-        info!(event = "finalized post-assert tx", %post_assert_txid, %vsize, %total_size, %weight, %own_index);
+        // 7. Broadcast post assert tx
+        if status.should_post_assert() {
+            let post_assert_txid = post_assert.compute_txid();
+            let mut signatures = Vec::new();
+            // num_assert_data_tx + 1 for stake
+            for input_index in 0..=NUM_ASSERT_DATA_TX {
+                let n_of_n_sig = self
+                    .public_db
+                    .get_signature(own_index, post_assert_txid, input_index as u32)
+                    .await;
 
-        let txid = self
-            .agent
-            .btc_client
-            .send_raw_transaction(&signed_post_assert)
-            .await
-            .expect("should be able to finalize post-assert tx");
-
-        self.duty_status_sender
-            .send((
-                deposit_txid,
-                BridgeDutyStatus::Withdrawal(WithdrawalStatus::PostAssert),
-            ))
-            .await
-            .expect("should be able to send duty status");
-        info!(event = "broadcasted post-assert tx", %post_assert_txid, %own_index);
-
-        // 6. settle reimbursement tx after wait time
-        let wait_time = Duration::from_secs(PAYOUT_TIMELOCK as u64 + 20);
-        info!(action = "waiting for timeout period before seeking reimbursement", wait_time_secs=%wait_time.as_secs());
-        tokio::time::sleep(wait_time).await;
-
-        let n_of_n_signature = self
-            .public_db
-            .get_signature(own_index, payout_tx.compute_txid(), 0)
-            .await;
-        let signed_payout_tx = payout_tx.finalize(n_of_n_signature);
-
-        info!(action = "trying to get reimbursement", payout_txid=%signed_payout_tx.compute_txid(), %own_index);
-
-        match self
-            .agent
-            .wait_and_broadcast(&signed_payout_tx, BTC_CONFIRM_PERIOD)
-            .await
-        {
-            Ok(txid) => {
-                self.duty_status_sender
-                    .send((
-                        deposit_txid,
-                        BridgeDutyStatus::Withdrawal(WithdrawalStatus::Executed),
-                    ))
-                    .await
-                    .expect("should be able to send duty status");
-                info!(event = "successfully received reimbursement", %txid, %own_index);
+                signatures.push(n_of_n_sig);
             }
-            Err(e) => {
-                error!(msg = "unable to get reimbursement :(", %e, %txid, %own_index);
+
+            let signed_post_assert = post_assert.finalize(&signatures);
+            let vsize = signed_post_assert.vsize();
+            let total_size = signed_post_assert.total_size();
+            let weight = signed_post_assert.weight();
+            info!(event = "finalized post-assert tx", %post_assert_txid, %vsize, %total_size, %weight, %own_index);
+
+            let txid = self
+                .agent
+                .btc_client
+                .send_raw_transaction(&signed_post_assert)
+                .await
+                .expect("should be able to finalize post-assert tx");
+
+            self.duty_status_sender
+                .send((
+                    deposit_txid,
+                    BridgeDutyStatus::Withdrawal(WithdrawalStatus::PostAssert),
+                ))
+                .await
+                .expect("should be able to send duty status");
+
+            info!(event = "broadcasted post-assert tx", %post_assert_txid, %own_index);
+
+            status.next(txid, None);
+        } else {
+            info!(action = "already broadcasted post assert tx, so skipping");
+        }
+
+        // 8. settle reimbursement tx after wait time
+        if status.should_get_payout() {
+            let wait_time = Duration::from_secs(PAYOUT_TIMELOCK as u64);
+            info!(action = "waiting for timeout period before seeking reimbursement", wait_time_secs=%wait_time.as_secs());
+            tokio::time::sleep(wait_time).await;
+
+            let n_of_n_signature = self
+                .public_db
+                .get_signature(own_index, payout_tx.compute_txid(), 0)
+                .await;
+            let signed_payout_tx = payout_tx.finalize(n_of_n_signature);
+
+            info!(action = "trying to get reimbursement", payout_txid=%signed_payout_tx.compute_txid(), %own_index);
+
+            match self
+                .agent
+                .wait_and_broadcast(&signed_payout_tx, BTC_CONFIRM_PERIOD)
+                .await
+            {
+                Ok(txid) => {
+                    self.duty_status_sender
+                        .send((
+                            deposit_txid,
+                            BridgeDutyStatus::Withdrawal(WithdrawalStatus::Executed),
+                        ))
+                        .await
+                        .expect("should be able to send duty status");
+
+                    info!(event = "successfully received reimbursement", %txid, %own_index);
+
+                    // NOTE: no need to call next because it is not used later outside this if
+                    // clause
+                }
+                Err(e) => {
+                    error!(msg = "unable to get reimbursement :(", %e, %deposit_txid, %own_index);
+                }
             }
+        } else {
+            info!(action = "already received payout; so skipping");
         }
     }
 
@@ -1639,79 +1656,96 @@ where
         deposit_txid: Txid,
         kickoff_tx: KickOffTx,
         claim_tx: ClaimTx,
-        bridge_out_txid: Txid,
-    ) -> u32 {
-        let superblock_period_start_ts = self
-            .agent
-            .btc_client
-            .get_current_timestamp()
-            .await
-            .expect("should be able to get the latest timestamp from the best block");
-        debug!(event = "got current timestamp (T_s)", %superblock_period_start_ts, %own_index);
+        status: &mut WithdrawalStatus,
+    ) {
+        if let Some(bridge_out_txid) = status.should_kickoff() {
+            let unsigned_kickoff = &kickoff_tx.psbt().unsigned_tx;
+            info!(action = "funding kickoff tx with wallet", ?unsigned_kickoff);
+            let funded_kickoff = self
+                .agent
+                .btc_client
+                .sign_raw_transaction_with_wallet(unsigned_kickoff)
+                .await
+                .expect("should be able to sign kickoff tx with wallet");
+            let funded_kickoff_tx: Transaction =
+                consensus::encode::deserialize_hex(&funded_kickoff.hex)
+                    .expect("must be able to decode kickoff tx");
+            info!(event = "funded kickoff tx with wallet", ?funded_kickoff_tx);
 
-        let unsigned_kickoff = &kickoff_tx.psbt().unsigned_tx;
-        info!(action = "funding kickoff tx with wallet", ?unsigned_kickoff);
-        let funded_kickoff = self
-            .agent
-            .btc_client
-            .sign_raw_transaction_with_wallet(unsigned_kickoff)
-            .await
-            .expect("should be able to sign kickoff tx with wallet");
-        let funded_kickoff_tx: Transaction =
-            consensus::encode::deserialize_hex(&funded_kickoff.hex)
-                .expect("must be able to decode kickoff tx");
-        info!(event = "funded kickoff tx with wallet", ?funded_kickoff_tx);
+            let kickoff_txid = funded_kickoff_tx.compute_txid();
+            info!(action = "broadcasting kickoff tx", %deposit_txid, %kickoff_txid, %own_index);
+            let kickoff_txid = self
+                .agent
+                .btc_client
+                .send_raw_transaction(&funded_kickoff_tx)
+                .await
+                .expect("should be able to broadcast signed kickoff tx");
 
-        let kickoff_txid = funded_kickoff_tx.compute_txid();
-        info!(action = "broadcasting kickoff tx", %deposit_txid, %kickoff_txid, %own_index);
-        let kickoff_txid = self
-            .agent
-            .btc_client
-            .send_raw_transaction(&funded_kickoff_tx)
-            .await
-            .expect("should be able to broadcast signed kickoff tx");
+            self.duty_status_sender
+                .send((
+                    deposit_txid,
+                    BridgeDutyStatus::Withdrawal(WithdrawalStatus::Kickoff {
+                        bridge_out_txid,
+                        kickoff_txid,
+                    }),
+                ))
+                .await
+                .expect("should be able to send duty status");
 
-        self.duty_status_sender
-            .send((
-                deposit_txid,
-                BridgeDutyStatus::Withdrawal(WithdrawalStatus::Kickoff),
-            ))
-            .await
-            .expect("should be able to send duty status");
+            info!(event = "broadcasted kickoff tx", %deposit_txid, %kickoff_txid, %own_index);
 
-        info!(event = "broadcasted kickoff tx", %deposit_txid, %kickoff_txid, %own_index);
+            status.next(bridge_out_txid, None);
+        } else {
+            info!(action = "already broadcasted kickoff, so skipping");
+        }
 
-        let claim_tx_with_commitment = claim_tx
-            .finalize(
-                deposit_txid,
-                &connectors.kickoff,
-                &self.msk,
-                bridge_out_txid,
-                superblock_period_start_ts,
-            )
-            .await;
+        if let Some(bridge_out_txid) = status.should_claim() {
+            let superblock_start_ts = self
+                .agent
+                .btc_client
+                .get_current_timestamp()
+                .await
+                .expect("should be able to get the latest timestamp from the best block");
+            debug!(event = "got current timestamp (T_s)", %superblock_start_ts, %own_index);
 
-        let raw_claim_tx: String = consensus::encode::serialize_hex(&claim_tx_with_commitment);
-        trace!(event = "finalized claim tx", %deposit_txid, ?claim_tx_with_commitment, %raw_claim_tx, %own_index);
+            let claim_tx_with_commitment = claim_tx
+                .finalize(
+                    deposit_txid,
+                    &connectors.kickoff,
+                    &self.msk,
+                    bridge_out_txid,
+                    superblock_start_ts,
+                )
+                .await;
 
-        let claim_txid = self
-            .agent
-            .btc_client
-            .send_raw_transaction(&claim_tx_with_commitment)
-            .await
-            .expect("should be able to publish claim tx with commitment to bridge_out_txid and superblock period start_ts");
+            let raw_claim_tx: String = consensus::encode::serialize_hex(&claim_tx_with_commitment);
+            trace!(event = "finalized claim tx", %deposit_txid, ?claim_tx_with_commitment, %raw_claim_tx, %own_index);
 
-        info!(event = "broadcasted claim tx", %deposit_txid, %claim_txid, %own_index);
+            let claim_txid = self
+                .agent
+                .btc_client
+                .send_raw_transaction(&claim_tx_with_commitment)
+                .await
+                .expect("should be able to publish claim tx with commitment to bridge_out_txid and superblock period start_ts");
 
-        self.duty_status_sender
-            .send((
-                deposit_txid,
-                BridgeDutyStatus::Withdrawal(WithdrawalStatus::Claim),
-            ))
-            .await
-            .expect("should be able to send duty status");
+            info!(event = "broadcasted claim tx", %deposit_txid, %claim_txid, %own_index);
 
-        superblock_period_start_ts
+            self.duty_status_sender
+                .send((
+                    deposit_txid,
+                    BridgeDutyStatus::Withdrawal(WithdrawalStatus::Claim {
+                        bridge_out_txid,
+                        superblock_start_ts,
+                        claim_txid,
+                    }),
+                ))
+                .await
+                .expect("should be able to send duty status");
+
+            status.next(bridge_out_txid, Some(superblock_start_ts));
+        } else {
+            info!(action = "already broadcasted claim tx, so skipping");
+        }
     }
 
     async fn pay_user(

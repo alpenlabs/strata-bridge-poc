@@ -1,6 +1,4 @@
-use std::fs;
-
-use sp1_sdk::{HashableKey, ProverClient, SP1ProofWithPublicValues, SP1VerifyingKey};
+use sp1_sdk::{ProverClient, SP1ProofWithPublicValues, SP1VerifyingKey};
 use strata_bridge_guest_builder::GUEST_BRIDGE_ELF;
 use strata_proofimpl_bitvm_bridge::{BridgeProofInput, StrataBridgeState};
 use strata_sp1_adapter::SP1ProofInputBuilder;
@@ -40,7 +38,7 @@ pub fn prove(
 #[cfg(test)]
 mod test {
     use std::{
-        fs::File,
+        fs::{self, File},
         io::{self, Write},
     };
 
@@ -84,7 +82,7 @@ mod test {
         ))
         .unwrap();
 
-        let proof_data = prove(bridge_proof_input, strata_bridge_state).unwrap();
+        let proof_data = prove(bridge_proof_input, &strata_bridge_state).unwrap();
 
         fs::write(
             "proof_data/proof_data.bin",

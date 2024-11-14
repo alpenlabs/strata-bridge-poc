@@ -1,6 +1,6 @@
 //! Module to bootstrap the operator node by hooking up all the required services.
 
-use std::sync::Arc;
+use std::{fs, sync::Arc};
 
 use bitcoin::{Address, Network, Txid};
 use jsonrpsee::ws_client::WsClientBuilder;
@@ -179,11 +179,22 @@ pub async fn generate_operator_set(
     let operator_indexes_and_keypairs =
         get_keypairs_and_load_xpriv(&args.xpriv_file, &pubkey_table);
 
-    let num_operators = operator_indexes_and_keypairs.len();
+    let msks = fs::read_to_string(&args.msks_file)
+        .expect("must be able to read msks file")
+        .lines()
+        .map(|msk| msk.to_string())
+        .collect::<Vec<_>>();
+
+    let num_operators = pubkey_table.0.len();
 
     assert!(
-        num_operators == pubkey_table.0.len(),
+        operator_indexes_and_keypairs.len() == num_operators,
         "operator count in strata and number of xprivs do not match"
+    );
+
+    assert!(
+        msks.len() == num_operators,
+        "operator count in strata and number of msks not match"
     );
 
     let deposit_queue_size = num_operators * DEPOSIT_QUEUE_MULTIPLIER; // buffer for nonces and signatures (overkill)
@@ -200,7 +211,7 @@ pub async fn generate_operator_set(
     let mut faulty_idxs = Vec::new();
     let mut operator_set: Vec<Operator<SqliteDb, SqliteDb>> = Vec::with_capacity(num_operators);
 
-    for (operator_idx, keypair) in operator_indexes_and_keypairs {
+    for ((operator_idx, keypair), msk) in operator_indexes_and_keypairs.into_iter().zip(msks) {
         let agent = Agent::new(
             keypair,
             &args.btc_url,
@@ -229,21 +240,23 @@ pub async fn generate_operator_set(
         )
         .await;
         let operator_db = Arc::new(operator_db);
-        let operator = Operator::new(
+
+        let operator = Operator {
             agent,
             build_context,
             is_faulty,
-            operator_db,
-            public_db.clone(),
-            duty_status_sender.clone(),
-            deposit_signal_sender.clone(),
-            deposit_signal_sender.subscribe(),
-            covenant_nonce_signal_sender.clone(),
-            covenant_nonce_signal_sender.subscribe(),
-            covenant_sig_signal_sender.clone(),
-            covenant_sig_signal_sender.subscribe(),
-        )
-        .await;
+            msk,
+            db: operator_db,
+            public_db: public_db.clone(),
+
+            duty_status_sender: duty_status_sender.clone(),
+            deposit_signal_sender: deposit_signal_sender.clone(),
+            deposit_signal_receiver: deposit_signal_sender.subscribe(),
+            covenant_nonce_sender: covenant_nonce_signal_sender.clone(),
+            covenant_nonce_receiver: covenant_nonce_signal_sender.subscribe(),
+            covenant_sig_sender: covenant_sig_signal_sender.clone(),
+            covenant_sig_receiver: covenant_sig_signal_sender.subscribe(),
+        };
 
         operator_set.push(operator);
     }
