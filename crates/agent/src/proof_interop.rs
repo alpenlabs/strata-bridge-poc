@@ -76,7 +76,7 @@ impl WithInclusionProof for Transaction {
         let txid = self.compute_txid();
         let wtxid = self.compute_wtxid().to_txid();
 
-        let (incl_txids, witness) = if txid == wtxid {
+        let (incl_txids, witness) = if txid == wtxid || self.is_coinbase() {
             // Non-Segwit
             (vec![txid], None)
         } else {
@@ -117,7 +117,7 @@ pub struct BridgeProofInput {
     pub headers: Vec<Header>,
 
     /// Deposit Txid
-    pub deposit_txid: [u8; 32],
+    pub deposit_txid: Txid,
 
     /// Block height of checkpoint tx, and it's inclusion proof
     pub checkpoint: (u32, TransactionWithInclusionProof),

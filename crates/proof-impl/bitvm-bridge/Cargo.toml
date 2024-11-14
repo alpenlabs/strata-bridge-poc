@@ -16,7 +16,6 @@ strata-proofimpl-btc-blockspace = { git = "https://github.com/alpenlabs/strata.g
 strata-state.workspace = true
 strata-tx-parser = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
 strata-zkvm.workspace = true
-bincode.workspace = true
 
 [dev-dependencies]
 bincode.workspace = true

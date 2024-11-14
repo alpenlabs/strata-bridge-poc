@@ -21,7 +21,7 @@ use secp256k1::schnorr::Signature;
 use secp256k1::XOnlyPublicKey;
 #[cfg(not(feature = "mock"))]
 use strata_bridge_btcio::traits::Reader;
-use strata_bridge_btcio::traits::{Broadcaster, Signer};
+use strata_bridge_btcio::traits::{Broadcaster, Reader, Signer};
 use strata_bridge_db::{
     operator::{KickoffInfo, OperatorDb},
     public::PublicDb,
@@ -47,7 +47,11 @@ use strata_bridge_tx_graph::{
     transactions::prelude::*,
 };
 use strata_rpc::StrataApiClient;
-use strata_state::{block::L2Block, chain_state::ChainState};
+use strata_state::{
+    batch::{BatchCheckpoint, SignedBatchCheckpoint},
+    block::L2Block,
+    chain_state::ChainState,
+};
 use tokio::sync::{
     broadcast::{self, error::RecvError},
     mpsc,
@@ -56,6 +60,7 @@ use tracing::{debug, error, info, trace, warn};
 
 use crate::{
     base::Agent,
+    proof_interop::{BridgeProofInput, WithInclusionProof},
     signal::{
         AggNonces, CovenantNonceRequest, CovenantNonceRequestFulfilled, CovenantNonceSignal,
         CovenantSigRequest, CovenantSigRequestFulfilled, CovenantSignatureSignal, DepositSignal,
@@ -1810,7 +1815,7 @@ where
     async fn generate_g16_proof(
         &self,
         deposit_txid: Txid,
-        _bridge_out_txid: Txid,
+        bridge_out_txid: Txid,
         superblock_period_start_ts: u32,
     ) {
         info!(action = "getting latest checkpoint at the time of withdrawal duty reception");
@@ -1850,13 +1855,14 @@ where
             .expect("should be able to deserialize CL block witness")
             .0;
 
-        let l1_start_height = checkpoint_info.l1_range.1 + 1;
-        let superblock_period_end_time = superblock_period_start_ts + SUPERBLOCK_MEASUREMENT_PERIOD;
+        let l1_start_height = 1 + checkpoint_info.l1_range.1 as u32;
+        let mut superblock_period_blocks_count = 0;
 
-        let mut height = l1_start_height as u32;
+        let mut height = l1_start_height;
         let mut headers: Vec<Header> = vec![];
-        let mut found_bridge_out = false;
-        let mut found_checkpoint = false;
+
+        let mut checkpoint = None;
+        let mut bridge_out = None;
 
         loop {
             let block = self
@@ -1866,35 +1872,69 @@ where
                 .await
                 .expect("should be able to get block at height");
 
-            if !found_bridge_out {
-                // check and get bridge out txid with proof
-                found_bridge_out = true;
+            if checkpoint.is_none() {
+                // check and get checkpoint idx with proof
+                if let Some(tx) = block.txdata.iter().find(|&tx| {
+                    self.checkpoint_l1_range_end(tx)
+                        .is_some_and(|h| h == l1_start_height)
+                }) {
+                    checkpoint = Some((
+                        block.bip34_block_height().unwrap() as u32,
+                        tx.with_inclusion_proof(&block),
+                    ));
+                }
             }
 
-            if !found_checkpoint {
-                // check and get checkpoint idx with proof
-                found_checkpoint = true;
+            if bridge_out.is_none() {
+                // check and get bridge out txid with proof
+                if let Some(tx) = block
+                    .txdata
+                    .iter()
+                    .find(|tx| tx.compute_txid() == bridge_out_txid)
+                {
+                    bridge_out = Some((
+                        block.bip34_block_height().unwrap() as u32,
+                        tx.with_inclusion_proof(&block),
+                    ));
+                }
             }
 
             let header = block.header;
-            if header.time > superblock_period_end_time {
+            headers.push(header);
+            height += 1;
+
+            if header.time > superblock_period_start_ts {
+                superblock_period_blocks_count += 1;
+            }
+            if superblock_period_blocks_count >= SUPERBLOCK_MEASUREMENT_PERIOD {
                 break;
             }
-
-            headers.push(header);
-
-            height += 1;
         }
 
-        // let input = BridgeProofInput {
-        //     headers,
-        //     checkpoint: todo!(),
-        //     bridge_out: todo!(),
-        //     initial_header_state: todo!(),
-        //     superblock_period_start_ts,
-        // };
+        let input = BridgeProofInput {
+            headers,
+            deposit_txid,
+            checkpoint: checkpoint.unwrap(),
+            bridge_out: bridge_out.unwrap(),
+            initial_header_state,
+            superblock_period_start_ts,
+        };
         //
         // let bridge_proof_public_params = process_bridge_proof(input, strata_bridge_state);
+    }
+
+    fn checkpoint_l1_range_end(&self, tx: &Transaction) -> Option<u32> {
+        if let Some(script) = tx.input[0].witness.tapscript() {
+            if let Ok(inscription) = parse_inscription_data(&script.into(), "alpenstrata") {
+                if let Ok(signed_batch_checkpoint) =
+                    borsh::from_slice::<SignedBatchCheckpoint>(inscription.batch_data())
+                {
+                    let batch_checkpoint: BatchCheckpoint = signed_batch_checkpoint.into();
+                    return Some(batch_checkpoint.batch_info().l1_range.1 as u32);
+                }
+            }
+        }
+        None
     }
 }
 
