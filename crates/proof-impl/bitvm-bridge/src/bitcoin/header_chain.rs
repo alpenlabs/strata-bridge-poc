@@ -48,23 +48,57 @@ pub fn verify_l1_chain(
 
 #[cfg(test)]
 mod test {
+    use borsh::BorshDeserialize as _;
     use prover_test_utils::{
         get_bitcoin_client, get_block_headers_hash, get_header_verification_data,
     };
     use strata_btcio::rpc::traits::Reader;
-    use strata_state::l1::{compute_block_hash, get_btc_params};
+    use strata_primitives::buf::Buf32;
+    use strata_state::l1::{
+        compute_block_hash, get_btc_params, HeaderVerificationState, L1BlockId, TimestampStore,
+    };
 
     use crate::bitcoin::header_chain::verify_l1_chain;
 
     #[tokio::test]
     async fn test_bitcoin_headers() {
-        let geneis_block = 0;
-        let start_block = 501;
-        let end_block = 508;
+        let genesis_block = 100;
+        let start_block = 606; // latest checkpoint at kickoff -> l1_range.1
+        let end_block = 765; // final block height in the l1 fragment provided to the prover
         let btc_client = get_bitcoin_client();
 
         let (block_hvs, headers) =
-            get_header_verification_data(start_block, end_block, geneis_block).await;
+            get_header_verification_data(start_block, end_block, genesis_block).await;
+        dbg!(&block_hvs);
+        dbg!(&block_hvs.compute_hash());
+
+        let test_block_hvs = HeaderVerificationState {
+            last_verified_block_num: 605,
+            last_verified_block_hash: L1BlockId::from(
+                Buf32::try_from_slice(
+                    &hex::decode(
+                        "228ea118e94f0c2e3464d506cb0a0b2f60be41c12deb7f4108062661682de620",
+                    )
+                    .unwrap(),
+                )
+                .unwrap(),
+            ),
+            next_block_target: 545259519,
+            interval_start_timestamp: 1296688602,
+            total_accumulated_pow: 0,
+            last_11_blocks_timestamps: TimestampStore::new_with_head(
+                [
+                    1731485492, 1731485493, 1731485494, 1731485495, 1731485496, 1731485497,
+                    1731485498, 1731485499, 1731485500, 1731485501, 1731485491,
+                ],
+                10,
+            ),
+        };
+
+        assert_eq!(block_hvs, test_block_hvs);
+
+        dbg!(&test_block_hvs);
+        dbg!(test_block_hvs.compute_hash());
 
         let params = get_btc_params();
 

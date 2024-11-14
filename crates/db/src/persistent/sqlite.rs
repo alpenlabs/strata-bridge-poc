@@ -789,6 +789,44 @@ impl OperatorDb for SqliteDb {
             funding_utxos,
         })
     }
+
+    async fn get_checkpoint_index(&self, deposit_txid: Txid) -> Option<u64> {
+        let txid = consensus::encode::serialize_hex(&deposit_txid);
+
+        let record = sqlx::query!(
+            "SELECT checkpoint_idx FROM strata_checkpoint WHERE txid = ?",
+            txid,
+        )
+        .fetch_optional(&self.pool)
+        .await
+        .expect("should be able to get checkpoint index from the db");
+
+        record.map(|v| v.checkpoint_idx as u64)
+    }
+
+    async fn set_checkpoint_index(&self, deposit_txid: Txid, checkpoint_index: u64) {
+        let txid = consensus::encode::serialize_hex(&deposit_txid);
+        let checkpoint_index = checkpoint_index as i64;
+
+        let mut tx = self
+            .pool
+            .begin()
+            .await
+            .expect("should be able to start a transaction");
+
+        sqlx::query!(
+            "INSERT OR REPLACE INTO strata_checkpoint (txid, checkpoint_idx) VALUES (?, ?)",
+            txid,
+            checkpoint_index,
+        )
+        .execute(&mut *tx)
+        .await
+        .expect("should be able to insert checkpoint index into db");
+
+        tx.commit()
+            .await
+            .expect("should be able to commit checkpoint index");
+    }
 }
 
 #[async_trait]

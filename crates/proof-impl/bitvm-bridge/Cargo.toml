@@ -4,10 +4,11 @@ name = "strata-proofimpl-bitvm-bridge"
 version = "0.1.0"
 
 [dependencies]
+bincode.workspace = true
 bitcoin = { version = "=0.32.3", features = ["serde"] }
-rs_merkle = { version = "1.4.2", default-features = false }
-hex.workspace = true
 borsh.workspace = true
+hex.workspace = true
+rs_merkle = { version = "1.4.2", default-features = false }
 serde = { workspace = true, features = ["derive"] }
 sp1-verifier = { git = "https://github.com/succinctlabs/sp1", rev = "2c7868364cb832531e8cafd258aa06fbab079459" } # Note: On new SP1 version, this will be available via SDK
 strata-primitives.workspace = true

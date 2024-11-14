@@ -1,11 +1,5 @@
 PRAGMA foreign_keys = ON;
 
--- Table for musig_pubkey_table
-CREATE TABLE IF NOT EXISTS musig_pubkey_table (
-    operator_id INTEGER PRIMARY KEY,
-    public_key TEXT NOT NULL  -- Store as hex string
-);
-
 -- Table for wots_public_keys with a compound index on (operator_id, deposit_txid)
 CREATE TABLE IF NOT EXISTS wots_public_keys (
     operator_id INTEGER NOT NULL,
@@ -148,4 +142,10 @@ CREATE TABLE IF NOT EXISTS bitcoin_block_index_tracker (
 CREATE TABLE IF NOT EXISTS duty_index_tracker (
     id INTEGER PRIMARY KEY CHECK (id = 1),      -- Singleton row with a fixed id
     last_fetched_duty_index INTEGER NOT NULL    -- Last fetched duty index
+);
+
+-- Table to store the checkpoint information when a withdrawal duty is received
+CREATE TABLE IF NOT EXISTS strata_checkpoint (
+    txid TEXT PRIMARY KEY,                      -- The deposit txid of the withdrawal duty for this checkpoint
+    checkpoint_idx INTEGER NOT NULL             -- The latest checkpoint index associated with the duty
 );

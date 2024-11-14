@@ -16,13 +16,12 @@ use bitvm::{
 };
 use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
+    params::prelude::*,
     partial_verifier_scripts::PARTIAL_VERIFIER_SCRIPTS,
     scripts::{prelude::*, wots},
     types::OperatorIdx,
 };
 use tracing::trace;
-
-use crate::transactions::constants::SUPERBLOCK_PERIOD;
 
 #[derive(Debug, Clone)]
 pub struct ConnectorA31<DB: PublicDb> {
