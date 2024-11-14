@@ -4,13 +4,13 @@ members = [
   "crates/btcio",
   "crates/db",
   "crates/primitives",
-  "crates/proof-impl/bitvm-bridge",
-  "crates/proof-impl/prover",
+  "crates/bridge-proof/protocol",
+  "crates/bridge-proof/snark",
   "crates/rpc/bridge",
   "crates/rpc/strata",
-  "crates/proof-impl/test-utils",
+  "crates/bridge-proof/test-utils",
   "crates/tx-graph",
-  "bridge-proofs",
+  "bridge-guest-builder",
 
   # binaries listed separately
   "bin/strata-bridge",
@@ -25,16 +25,16 @@ resolver = "2"
 
 [workspace.dependencies]
 # deps in this workspace
-prover-test-utils = { path = "crates/proof-impl/test-utils" }
+prover-test-utils = { path = "crates/bridge-proof/test-utils" }
 strata-bridge-agent = { path = "crates/agent" }
 strata-bridge-btcio = { path = "crates/btcio" }
 strata-bridge-db = { path = "crates/db" }
-strata-bridge-guest-builder = { path = "bridge-proofs" }
+strata-bridge-guest-builder = { path = "bridge-guest-builder" }
 strata-bridge-primitives = { path = "crates/primitives" }
 strata-bridge-rpc = { path = "crates/rpc/bridge" }
 strata-bridge-tx-graph = { path = "crates/tx-graph" }
-strata-proofimpl-bitvm-bridge = { path = "crates/proof-impl/bitvm-bridge" }
-strata-proofimpl-prover = { path = "crates/proof-impl/prover" }
+strata-bridge-proof-protocol = { path = "crates/bridge-proof/protocol" }
+strata-bridge-proof-snark = { path = "crates/bridge-proof/snark" }
 strata-rpc = { path = "crates/rpc/strata" }
 strata-test-utils = { path = "crates/test-utils" }
 

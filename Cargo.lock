@@ -8584,11 +8584,11 @@ dependencies = [
  "strata-bridge-btcio",
  "strata-bridge-db",
  "strata-bridge-primitives",
+ "strata-bridge-proof-protocol",
+ "strata-bridge-proof-snark",
  "strata-bridge-tx-builder",
  "strata-bridge-tx-graph",
  "strata-primitives",
- "strata-proofimpl-bitvm-bridge",
- "strata-proofimpl-prover",
  "strata-rpc",
  "strata-state",
  "strata-tx-parser",
@@ -8691,6 +8691,61 @@ dependencies = [
 ]
 
 [[package]]
+name = "strata-bridge-proof-protocol"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "bitcoin 0.32.3",
+ "borsh",
+ "hex",
+ "prover-test-utils",
+ "serde",
+ "serde_json",
+ "sp1-verifier 3.0.0",
+ "strata-btcio",
+ "strata-primitives",
+ "strata-proofimpl-btc-blockspace",
+ "strata-state",
+ "strata-tx-parser",
+ "strata-zkvm",
+ "tokio",
+ "tower 0.4.13",
+]
+
+[[package]]
+name = "strata-bridge-proof-snark"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-groth16",
+ "bincode",
+ "bitcoin 0.32.3",
+ "bitcoin-script 0.3.0",
+ "bitvm",
+ "borsh",
+ "hex",
+ "lazy_static",
+ "num-bigint 0.4.6",
+ "num-traits",
+ "rs_merkle",
+ "serde",
+ "sha2",
+ "sp1-sdk",
+ "sp1-verifier 3.2.1",
+ "strata-bridge-guest-builder",
+ "strata-bridge-primitives",
+ "strata-bridge-proof-protocol",
+ "strata-primitives",
+ "strata-sp1-adapter",
+ "strata-state",
+ "strata-zkvm",
+ "tracing",
+]
+
+[[package]]
 name = "strata-bridge-rpc"
 version = "0.1.0"
 dependencies = [
@@ -8733,6 +8788,7 @@ name = "strata-bridge-tx-graph"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bincode",
  "bitcoin 0.31.0",
  "bitcoin-script 0.3.0",
  "bitcoin-scriptexec",
@@ -8748,6 +8804,7 @@ dependencies = [
  "sha2",
  "strata-bridge-db",
  "strata-bridge-primitives",
+ "strata-bridge-proof-snark",
  "tracing",
 ]
 
@@ -8862,29 +8919,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "strata-proofimpl-bitvm-bridge"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "bitcoin 0.32.3",
- "borsh",
- "hex",
- "prover-test-utils",
- "rs_merkle",
- "serde",
- "serde_json",
- "sp1-verifier 3.0.0",
- "strata-btcio",
- "strata-primitives",
- "strata-proofimpl-btc-blockspace",
- "strata-state",
- "strata-tx-parser",
- "strata-zkvm",
- "tokio",
- "tower 0.4.13",
-]
-
-[[package]]
 name = "strata-proofimpl-btc-blockspace"
 version = "0.1.0"
 source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
@@ -8897,37 +8931,6 @@ dependencies = [
  "strata-primitives",
  "strata-state",
  "strata-tx-parser",
-]
-
-[[package]]
-name = "strata-proofimpl-prover"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ark-bn254",
- "ark-ec",
- "ark-ff 0.4.2",
- "ark-groth16",
- "bincode",
- "bitcoin 0.32.3",
- "bitvm",
- "borsh",
- "hex",
- "lazy_static",
- "num-bigint 0.4.6",
- "num-traits",
- "rs_merkle",
- "serde",
- "sha2",
- "sp1-sdk",
- "sp1-verifier 3.2.1",
- "strata-bridge-guest-builder",
- "strata-bridge-primitives",
- "strata-primitives",
- "strata-proofimpl-bitvm-bridge",
- "strata-sp1-adapter",
- "strata-state",
- "strata-zkvm",
 ]
 
 [[package]]

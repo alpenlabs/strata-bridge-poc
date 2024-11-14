@@ -6,7 +6,7 @@ use std::{
 use sp1_helper::build_program;
 
 const RISC_V_COMPILER: &str = "/opt/riscv/bin/riscv-none-elf-gcc";
-const ELF_FILE_PATH: &str = "guest-bridge/elf/riscv32im-succinct-zkvm-elf";
+const ELF_FILE_PATH: &str = "bridge-guest/elf/riscv32im-succinct-zkvm-elf";
 const MOCK_ELF_CONTENT: &str = r#"
     pub const GUEST_BRIDGE_ELF: &[u8] = &[];
 "#;
@@ -20,7 +20,7 @@ fn main() {
         && std::env::var("SKIP_GUEST_BUILD").is_err()
     {
         setup_compiler();
-        build_program("guest-bridge");
+        build_program("bridge-guest");
         let elf_content = generate_elf_content(ELF_FILE_PATH);
         fs::write(&methods_path, elf_content).expect("failed writing to methods path");
     } else {

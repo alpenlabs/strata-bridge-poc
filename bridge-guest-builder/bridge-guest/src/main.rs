@@ -1,4 +1,4 @@
-use strata_proofimpl_bitvm_bridge::{process_bridge_proof, BridgeProofInput, StrataBridgeState};
+use strata_bridge_proof_protocol::{process_bridge_proof, BridgeProofInput, StrataBridgeState};
 
 fn main() {
     let bridge_proof_input: BridgeProofInput = sp1_zkvm::io::read();

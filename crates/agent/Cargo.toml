@@ -15,8 +15,8 @@ strata-bridge-btcio.workspace = true
 strata-bridge-db.workspace = true
 strata-bridge-primitives.workspace = true
 strata-bridge-tx-graph.workspace = true
-strata-proofimpl-bitvm-bridge.workspace = true
-strata-proofimpl-prover = { workspace = true, features = ["prover"] }
+strata-bridge-proof-protocol.workspace = true
+strata-bridge-proof-snark = { workspace = true, features = ["prover"] }
 strata-rpc = { workspace = true, features = ["client"] }
 
 strata-bridge-tx-builder.workspace = true

@@ -1,21 +1,19 @@
 use std::fs;
 
 use bitcoin::ScriptBuf;
-use bitcoin_script::{script, Script};
-use bitvm::groth16::g16::{self, N_TAPLEAVES};
+use bitvm::{groth16::g16, treepp::*};
 use lazy_static::lazy_static;
+use strata_bridge_proof_snark::bridge_poc;
 use tracing::info;
 
-use crate::scripts::wots::bridge_poc_verification_key;
-
-const VK_SCRIPTS_FILE: &str = "strata-bridge-poc-vk.scripts";
+const PARTIAL_VERIFIER_SCRIPTS_PATH: &str = "strata-bridge-poc-vk.scripts";
 
 lazy_static! {
     pub static ref PARTIAL_VERIFIER_SCRIPTS: [Script; 579] = load_or_create_verifier_scripts();
 }
 
 pub fn load_or_create_verifier_scripts() -> [Script; 579] {
-    let verifier_scripts: [Script; N_TAPLEAVES] = if fs::exists(VK_SCRIPTS_FILE)
+    let verifier_scripts: [Script; g16::N_TAPLEAVES] = if fs::exists(PARTIAL_VERIFIER_SCRIPTS_PATH)
         .expect("should be able to check for existence of verifier scripts file")
     {
         info!(
@@ -23,8 +21,8 @@ pub fn load_or_create_verifier_scripts() -> [Script; 579] {
             estimated_time = "3 mins"
         );
 
-        let contents: Vec<u8> =
-            fs::read(VK_SCRIPTS_FILE).expect("should be able to read verifier scripts from file");
+        let contents: Vec<u8> = fs::read(PARTIAL_VERIFIER_SCRIPTS_PATH)
+            .expect("should be able to read verifier scripts from file");
         let deserialized: Vec<Vec<u8>> = bincode::deserialize(&contents)
             .expect("should be able to deserialize verifier scripts from file");
 
@@ -37,7 +35,10 @@ pub fn load_or_create_verifier_scripts() -> [Script; 579] {
         info!(event = "loaded verifier scripts", %num_scripts);
 
         verifier_scripts.try_into().unwrap_or_else(|_| {
-            panic!("number of scripts should be: {N_TAPLEAVES} not {num_scripts}",)
+            panic!(
+                "number of scripts should be: {} not {num_scripts}",
+                g16::N_TAPLEAVES
+            )
         })
     } else {
         info!(
@@ -45,7 +46,7 @@ pub fn load_or_create_verifier_scripts() -> [Script; 579] {
             estimated_time = "3 mins"
         );
 
-        let verifier_scripts = g16::compile_verifier(bridge_poc_verification_key());
+        let verifier_scripts = g16::compile_verifier(bridge_poc::GROTH16_VERIFICATION_KEY.clone());
 
         let serialized: Vec<Vec<u8>> = verifier_scripts
             .clone()
@@ -56,8 +57,8 @@ pub fn load_or_create_verifier_scripts() -> [Script; 579] {
         let serialized: Vec<u8> =
             bincode::serialize(&serialized).expect("should be able to serialize verifier scripts");
 
-        info!(action = "caching verifier scripts for later", cache_file=%VK_SCRIPTS_FILE);
-        fs::write(VK_SCRIPTS_FILE, serialized)
+        info!(action = "caching verifier scripts for later", cache_file=%PARTIAL_VERIFIER_SCRIPTS_PATH);
+        fs::write(PARTIAL_VERIFIER_SCRIPTS_PATH, serialized)
             .expect("should be able to write verifier scripts to file");
 
         verifier_scripts

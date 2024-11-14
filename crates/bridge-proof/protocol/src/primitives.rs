@@ -223,7 +223,7 @@ mod tests {
     use bitcoin::{Block, Txid};
 
     use super::*;
-    use crate::{bridge_proof::SUPERBLOCK_PERIOD_BLOCK_INTERVAL, process_bridge_proof};
+    use crate::{process_bridge_proof, statement::SUPERBLOCK_PERIOD_BLOCK_INTERVAL};
 
     #[test]
     fn test_tx_inclusion_proofs() {
