@@ -8573,6 +8573,7 @@ dependencies = [
  "strata-bridge-primitives",
  "strata-bridge-tx-builder",
  "strata-bridge-tx-graph",
+ "strata-proofimpl-bitvm-bridge",
  "strata-rpc",
  "strata-state",
  "tokio",

@@ -2,13 +2,11 @@ use bitcoin::{sighash::Prevouts, Amount, OutPoint, Psbt, Transaction, TxOut, Txi
 use secp256k1::schnorr::Signature;
 use serde::{Deserialize, Serialize};
 use strata_bridge_db::public::PublicDb;
-use strata_bridge_primitives::{
-    params::tx::MIN_RELAY_FEE, scripts::prelude::*, types::OperatorIdx,
-};
+use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*, types::OperatorIdx};
 use tracing::trace;
 
 use super::covenant_tx::CovenantTx;
-use crate::{connectors::prelude::*, transactions::constants::NUM_ASSERT_DATA_TX};
+use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PostAssertTxData {

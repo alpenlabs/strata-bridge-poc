@@ -87,12 +87,14 @@ where
 
                         for duty in duties {
                             let txid = match &duty {
-                                BridgeDuty::SignDeposit(deposit_info) => {
-                                    deposit_info.deposit_request_outpoint().txid
-                                }
-                                BridgeDuty::FulfillWithdrawal(withdrawal_info) => {
-                                    withdrawal_info.deposit_outpoint().txid
-                                }
+                                BridgeDuty::SignDeposit {
+                                    details: deposit_info,
+                                    status: _,
+                                } => deposit_info.deposit_request_outpoint().txid,
+                                BridgeDuty::FulfillWithdrawal {
+                                    details: withdrawal_info,
+                                    status: _,
+                                } => withdrawal_info.deposit_outpoint().txid,
                             };
 
                             if db
@@ -104,8 +106,8 @@ where
                                 continue;
                             }
 
-                            db.update_duty_status(txid, BridgeDutyStatus::init(&duty))
-                                .await;
+                            // db.update_duty_status(txid, BridgeDutyStatus::from(&duty))
+                            //     .await;
 
                             debug!(action = "dispatching duty", ?duty);
                             duty_sender.send(duty).expect("should be able to send duty");

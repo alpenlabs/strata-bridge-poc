@@ -1,11 +1,5 @@
 PRAGMA foreign_keys = ON;
 
--- Table for musig_pubkey_table
-CREATE TABLE IF NOT EXISTS musig_pubkey_table (
-    operator_id INTEGER PRIMARY KEY,
-    public_key TEXT NOT NULL  -- Store as hex string
-);
-
 -- Table for wots_public_keys with a compound index on (operator_id, deposit_txid)
 CREATE TABLE IF NOT EXISTS wots_public_keys (
     operator_id INTEGER NOT NULL,

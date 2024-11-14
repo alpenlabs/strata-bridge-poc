@@ -4,7 +4,7 @@ use bitcoin::{
     hashes::{sha256d, Hash},
     Transaction, WitnessCommitment, WitnessMerkleNode,
 };
-use borsh::BorshDeserialize;
+use borsh::{BorshDeserialize, BorshSerialize};
 use rs_merkle::{Hasher, MerkleProof, MerkleTree};
 use serde::{Deserialize, Serialize};
 use strata_primitives::{buf::Buf32, hash::compute_borsh_hash};
@@ -192,7 +192,7 @@ pub struct BridgeProofInput {
     pub superblock_period_start_ts: u32,
 }
 
-#[derive(BorshDeserialize)]
+#[derive(BorshSerialize, BorshDeserialize)]
 pub struct StrataBridgeState {
     pub deposits_table: DepositsTable,
     pub hashed_chain_state: HashedChainState,

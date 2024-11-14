@@ -5,6 +5,7 @@ use anyhow::bail;
 #[cfg(not(feature = "mock"))]
 use bitcoin::hex::DisplayHex;
 use bitcoin::{
+    block::Header,
     consensus,
     hashes::Hash,
     sighash::{Prevouts, SighashCache},
@@ -41,7 +42,7 @@ use strata_bridge_primitives::{
     withdrawal::WithdrawalInfo,
 };
 use strata_bridge_tx_graph::{
-    connectors::params::PAYOUT_TIMELOCK,
+    connectors::params::{PAYOUT_TIMELOCK, SUPERBLOCK_MEASUREMENT_PERIOD},
     peg_out_graph::{PegOutGraph, PegOutGraphConnectors, PegOutGraphInput},
     transactions::prelude::*,
 };
@@ -159,7 +160,10 @@ where
         let own_index = self.build_context.own_index();
 
         match duty {
-            BridgeDuty::SignDeposit(deposit_info) => {
+            BridgeDuty::SignDeposit {
+                details: deposit_info,
+                status: _,
+            } => {
                 let txid = deposit_info.deposit_request_outpoint().txid;
                 info!(event = "received deposit", %own_index, drt_txid = %txid);
 
@@ -173,9 +177,12 @@ where
                     error!(msg = "could not report deposit duty status", %cause);
                 }
             }
-            BridgeDuty::FulfillWithdrawal(cooperative_withdrawal_info) => {
-                let txid = cooperative_withdrawal_info.deposit_outpoint().txid;
-                let assignee_id = cooperative_withdrawal_info.assigned_operator_idx();
+            BridgeDuty::FulfillWithdrawal {
+                details: withdrawal_info,
+                status: _,
+            } => {
+                let txid = withdrawal_info.deposit_outpoint().txid;
+                let assignee_id = withdrawal_info.assigned_operator_idx();
 
                 info!(event = "received withdrawal", dt_txid = %txid, assignee = %assignee_id, %own_index);
 
@@ -194,12 +201,12 @@ where
                     .expect("checkpoint index must exist");
                 info!(event = "received latest checkpoint index", %latest_checkpoint_idx);
 
-                let deposit_txid = cooperative_withdrawal_info.deposit_outpoint().txid;
+                let deposit_txid = withdrawal_info.deposit_outpoint().txid;
                 self.db
                     .set_checkpoint_index(deposit_txid, latest_checkpoint_idx)
                     .await;
 
-                self.handle_withdrawal(cooperative_withdrawal_info).await;
+                self.handle_withdrawal(withdrawal_info).await;
 
                 let duty_status = BridgeDutyStatus::Withdrawal(WithdrawalStatus::Executed);
                 info!(action = "reporting withdrawal duty status", duty_id=%deposit_txid, ?duty_status);
@@ -1412,6 +1419,14 @@ where
             .await
             .expect("must be able to pay user");
 
+        self.duty_status_sender
+            .send((
+                deposit_txid,
+                BridgeDutyStatus::Withdrawal(WithdrawalStatus::PaidUser),
+            ))
+            .await
+            .expect("should be able to send duty status");
+
         // 2. create tx graph from public data
         info!(action = "reconstructing pegout graph", %deposit_txid, %own_index);
         let KickoffInfo {
@@ -1462,20 +1477,22 @@ where
         .await;
 
         // 3. publish kickoff -> claim
-        self.broadcast_kickoff_and_claim(
-            &connectors,
-            own_index,
-            deposit_txid,
-            kickoff_tx,
-            claim_tx,
-            bridge_out_txid,
-        )
-        .await;
+        let superblock_period_start_ts = self
+            .broadcast_kickoff_and_claim(
+                &connectors,
+                own_index,
+                deposit_txid,
+                kickoff_tx,
+                claim_tx,
+                bridge_out_txid,
+            )
+            .await;
 
         // 4. compute superblock and proof (skip)
         info!(event = "challenge received, computing proof");
         #[cfg(not(feature = "mock"))]
-        self.generate_g16_proof(deposit_txid).await;
+        self.generate_g16_proof(deposit_txid, bridge_out_txid, superblock_period_start_ts)
+            .await;
 
         info!(action = "creating assertion signatures", %own_index);
 
@@ -1514,6 +1531,14 @@ where
             .expect("should settle pre-assert");
         info!(event = "broadcasted pre-assert", %txid, %own_index);
 
+        self.duty_status_sender
+            .send((
+                deposit_txid,
+                BridgeDutyStatus::Withdrawal(WithdrawalStatus::PreAssert),
+            ))
+            .await
+            .expect("should be able to send duty status");
+
         let signed_assert_data_txs = assert_data.finalize(
             connectors.assert_data160_factory,
             connectors.assert_data256_factory,
@@ -1537,13 +1562,25 @@ where
         }
 
         info!(action = "broadcasting finalized assert data txs", %own_index);
+        let mut broadcasted_assert_data_txids = Vec::with_capacity(TOTAL_CONNECTORS);
         for (index, signed_assert_data_tx) in signed_assert_data_txs.iter().enumerate() {
             info!(event = "broadcasting signed assert data tx", %index, %num_assert_data_txs);
 
-            self.agent
+            let txid = self
+                .agent
                 .wait_and_broadcast(signed_assert_data_tx, Duration::from_secs(1))
                 .await
                 .expect("should settle assert-data");
+
+            broadcasted_assert_data_txids.push(txid);
+
+            self.duty_status_sender
+                .send((
+                    deposit_txid,
+                    BridgeDutyStatus::Withdrawal(WithdrawalStatus::AssertData(index)),
+                ))
+                .await
+                .expect("should be able to send duty status");
 
             info!(event = "broadcasted signed assert data tx", %index, %num_assert_data_txs);
         }
@@ -1566,12 +1603,20 @@ where
         let weight = signed_pre_assert.weight();
         info!(event = "finalized post-assert tx", %post_assert_txid, %vsize, %total_size, %weight, %own_index);
 
-        self.agent
+        let txid = self
+            .agent
             .btc_client
             .send_raw_transaction(&signed_post_assert)
             .await
             .expect("should be able to finalize post-assert tx");
 
+        self.duty_status_sender
+            .send((
+                deposit_txid,
+                BridgeDutyStatus::Withdrawal(WithdrawalStatus::PostAssert),
+            ))
+            .await
+            .expect("should be able to send duty status");
         info!(event = "broadcasted post-assert tx", %post_assert_txid, %own_index);
 
         // 6. settle reimbursement tx after wait time
@@ -1593,6 +1638,13 @@ where
             .await
         {
             Ok(txid) => {
+                self.duty_status_sender
+                    .send((
+                        deposit_txid,
+                        BridgeDutyStatus::Withdrawal(WithdrawalStatus::Executed),
+                    ))
+                    .await
+                    .expect("should be able to send duty status");
                 info!(event = "successfully received reimbursement", %txid, %own_index);
             }
             Err(e) => {
@@ -1609,7 +1661,7 @@ where
         kickoff_tx: KickOffTx,
         claim_tx: ClaimTx,
         bridge_out_txid: Txid,
-    ) {
+    ) -> u32 {
         #[cfg(feature = "mock")]
         let superblock_period_start_ts = mock::PUBLIC_INPUTS.3;
 
@@ -1644,6 +1696,14 @@ where
             .await
             .expect("should be able to broadcast signed kickoff tx");
 
+        self.duty_status_sender
+            .send((
+                deposit_txid,
+                BridgeDutyStatus::Withdrawal(WithdrawalStatus::Kickoff),
+            ))
+            .await
+            .expect("should be able to send duty status");
+
         info!(event = "broadcasted kickoff tx", %deposit_txid, %kickoff_txid, %own_index);
 
         let claim_tx_with_commitment = claim_tx
@@ -1667,6 +1727,16 @@ where
             .expect("should be able to publish claim tx with commitment to bridge_out_txid and superblock period start_ts");
 
         info!(event = "broadcasted claim tx", %deposit_txid, %claim_txid, %own_index);
+
+        self.duty_status_sender
+            .send((
+                deposit_txid,
+                BridgeDutyStatus::Withdrawal(WithdrawalStatus::Claim),
+            ))
+            .await
+            .expect("should be able to send duty status");
+
+        superblock_period_start_ts
     }
 
     #[cfg(not(feature = "mock"))]
@@ -1737,7 +1807,12 @@ where
     }
 
     // #[cfg(not(feature = "mock"))]
-    async fn generate_g16_proof(&self, deposit_txid: Txid) {
+    async fn generate_g16_proof(
+        &self,
+        deposit_txid: Txid,
+        bridge_out_txid: Txid,
+        superblock_period_start_ts: u32,
+    ) {
         info!(action = "getting latest checkpoint at the time of withdrawal duty reception");
         let latest_checkpoint_at_payout = self
             .db
@@ -1771,14 +1846,55 @@ where
             .expect("should be able to query for CL block witness")
             .expect("cl block witness must exist");
 
-        match borsh::from_slice::<(ChainState, L2Block)>(&cl_block_witness) {
-            Ok((chain_state, _)) => {
-                info!(event = "DUMPING CHAIN STATE", ?chain_state);
+        let _strata_bridge_state = borsh::from_slice::<(ChainState, L2Block)>(&cl_block_witness)
+            .expect("should be able to deserialize CL block witness")
+            .0;
+
+        let l1_start_height = checkpoint_info.l1_range.1 + 1;
+        let superblock_period_end_time = superblock_period_start_ts + SUPERBLOCK_MEASUREMENT_PERIOD;
+
+        let mut height = l1_start_height as u32;
+        let mut headers: Vec<Header> = vec![];
+        let mut found_bridge_out = false;
+        let mut found_checkpoint = false;
+
+        loop {
+            let block = self
+                .agent
+                .btc_client
+                .get_block_at(height)
+                .await
+                .expect("should be able to get block at height");
+
+            if !found_bridge_out {
+                // check and get bridge out txid with proof
+                found_bridge_out = true;
             }
-            Err(e) => {
-                error!(msg = "could not deserialize cl block witness", %e);
+
+            if !found_checkpoint {
+                // check and get checkpoint idx with proof
+                found_checkpoint = true;
             }
+
+            let header = block.header;
+            if header.time > superblock_period_end_time {
+                break;
+            }
+
+            headers.push(header);
+
+            height += 1;
         }
+
+        // let input = BridgeProofInput {
+        //     headers,
+        //     checkpoint: todo!(),
+        //     bridge_out: todo!(),
+        //     initial_header_state: todo!(),
+        //     superblock_period_start_ts,
+        // };
+        //
+        // let bridge_proof_public_params = process_bridge_proof(input, strata_bridge_state);
     }
 }
 

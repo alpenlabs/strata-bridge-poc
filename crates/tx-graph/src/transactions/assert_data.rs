@@ -5,24 +5,12 @@ use strata_bridge_primitives::{
         connectors::{
             NUM_PKS_A160_PER_CONNECTOR, NUM_PKS_A160_RESIDUAL, NUM_PKS_A256_PER_CONNECTOR,
         },
-        prelude::{
-            NUM_CONNECTOR_A160, NUM_CONNECTOR_A256, NUM_PKS_A160, NUM_PKS_A256,
-            NUM_PKS_A256_RESIDUAL,
-        },
+        prelude::*,
     },
     scripts::{prelude::*, wots},
 };
 
-use super::constants::{
-    NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1, NUM_ASSERT_DATA_TX1_A256_PK7,
-    NUM_ASSERT_DATA_TX2_A160_PK11,
-};
-use crate::{
-    connectors::prelude::*,
-    transactions::constants::{
-        NUM_ASSERT_DATA_TX2, NUM_ASSERT_DATA_TX3_A160_PK11, NUM_ASSERT_DATA_TX3_A160_PK2,
-    },
-};
+use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct AssertDataTxInput {

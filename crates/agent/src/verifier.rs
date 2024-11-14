@@ -11,7 +11,7 @@ use strata_bridge_primitives::{
     build_context::{BuildContext, TxBuildContext},
     helpers::hash_to_bn254_fq,
     params::{
-        prelude::{NUM_CONNECTOR_A160, NUM_CONNECTOR_A256},
+        prelude::*,
         tx::{BTC_CONFIRM_PERIOD, DISPROVER_REWARD},
     },
     partial_verifier_scripts::PARTIAL_VERIFIER_SCRIPTS,
@@ -23,10 +23,7 @@ use strata_bridge_primitives::{
 };
 use strata_bridge_tx_graph::{
     connectors::prelude::{ConnectorA30, ConnectorA31, ConnectorA31Leaf},
-    transactions::{
-        constants::{NUM_ASSERT_DATA_TX, NUM_ASSERT_DATA_TX1_A256_PK7},
-        prelude::{DisproveData, DisproveTx},
-    },
+    transactions::prelude::{DisproveData, DisproveTx},
 };
 use tokio::sync::broadcast::{self, error::RecvError};
 use tracing::{error, info, trace, warn};
@@ -352,6 +349,7 @@ mod tests {
     use strata_bridge_db::{inmemory::prelude::PublicDbInMemory, public::PublicDb};
     use strata_bridge_primitives::{
         build_context::TxBuildContext,
+        params::prelude::*,
         scripts::wots::{
             generate_wots_public_keys, generate_wots_signatures, mock, Assertions, Signatures,
         },
@@ -363,10 +361,7 @@ mod tests {
             connectors_a::{ConnectorA160Factory, ConnectorA256Factory},
         },
         mock_txid,
-        transactions::{
-            assert_data::{AssertDataTxBatch, AssertDataTxInput},
-            constants::NUM_ASSERT_DATA_TX,
-        },
+        transactions::assert_data::{AssertDataTxBatch, AssertDataTxInput},
     };
 
     use super::Verifier;

@@ -4,10 +4,7 @@ use serde::{Deserialize, Serialize};
 use strata_bridge_primitives::{params::prelude::*, scripts::prelude::*};
 use tracing::trace;
 
-use super::{
-    constants::{NUM_ASSERT_DATA_TX1_A256_PK7, NUM_ASSERT_DATA_TX2_A160_PK11},
-    covenant_tx::CovenantTx,
-};
+use super::covenant_tx::CovenantTx;
 use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

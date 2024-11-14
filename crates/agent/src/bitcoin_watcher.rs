@@ -3,7 +3,7 @@ use std::{fs, sync::Arc, time::Duration};
 use bitcoin::{Block, Transaction, Txid};
 use strata_bridge_btcio::traits::Reader;
 use strata_bridge_db::{public::PublicDb, tracker::BitcoinBlockTrackerDb};
-use strata_bridge_tx_graph::transactions::constants::NUM_ASSERT_DATA_TX;
+use strata_bridge_primitives::params::prelude::*;
 use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
