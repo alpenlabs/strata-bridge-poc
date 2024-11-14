@@ -1,0 +1,1 @@
+pub const STRATA_BTC_GENEISIS_HEIGHT: u64 = 100;

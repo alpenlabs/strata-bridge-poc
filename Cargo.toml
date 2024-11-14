@@ -50,6 +50,7 @@ strata-rpc-api = { git = "https://github.com/alpenlabs/strata.git", branch = "bi
 strata-rpc-types = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
 strata-sp1-adapter = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
 strata-state = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
+strata-tx-parser = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
 strata-zkvm = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
 
 # external deps

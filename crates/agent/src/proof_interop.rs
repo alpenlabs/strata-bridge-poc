@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use bitcoin::{
     block::Header,
     blockdata::block::Block,
@@ -9,9 +11,14 @@ use bitcoin::{
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use strata_bridge_btcio::traits::Reader;
 use strata_primitives::buf::Buf32;
-use strata_state::l1::{
-    get_difficulty_adjustment_height, BtcParams, HeaderVerificationState, L1BlockId, TimestampStore,
+use strata_state::{
+    batch::{BatchCheckpoint, SignedBatchCheckpoint},
+    l1::{
+        get_difficulty_adjustment_height, BtcParams, HeaderVerificationState, L1BlockId,
+        TimestampStore,
+    },
 };
+use strata_tx_parser::inscription::parse_inscription_data;
 use tracing::trace;
 
 #[derive(Debug, Clone)]
@@ -137,7 +144,7 @@ pub struct BridgeProofInput {
 
 /// Gets the [`HeaderVerificationState`] for the particular block
 pub async fn get_verification_state(
-    client: &impl Reader,
+    client: Arc<impl Reader>,
     height: u64,
     genesis_height: u64,
     params: &BtcParams,
@@ -196,4 +203,19 @@ pub async fn get_verification_state(
     trace!(%height, ?header_vs, "HeaderVerificationState");
 
     Ok(header_vs)
+}
+
+pub fn checkpoint_last_verified_l1_height(tx: &Transaction) -> Option<u32> {
+    if let Some(script) = tx.input[0].witness.tapscript() {
+        let script = script.to_bytes();
+        if let Ok(inscription) = parse_inscription_data(&script.into(), "alpenstrata") {
+            if let Ok(signed_batch_checkpoint) =
+                borsh::from_slice::<SignedBatchCheckpoint>(inscription.batch_data())
+            {
+                let batch_checkpoint: BatchCheckpoint = signed_batch_checkpoint.into();
+                return Some(batch_checkpoint.batch_info().l1_range.1 as u32);
+            }
+        }
+    }
+    None
 }

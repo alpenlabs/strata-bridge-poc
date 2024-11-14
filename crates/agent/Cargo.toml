@@ -21,6 +21,7 @@ strata-rpc = { workspace = true, features = ["client"] }
 strata-bridge-tx-builder.workspace = true
 strata-primitives.workspace = true
 strata-state.workspace = true
+strata-tx-parser.workspace = true
 
 anyhow.workspace = true
 bincode.workspace = true

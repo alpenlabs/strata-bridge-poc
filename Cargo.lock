@@ -8590,6 +8590,7 @@ dependencies = [
  "strata-proofimpl-bitvm-bridge",
  "strata-rpc",
  "strata-state",
+ "strata-tx-parser",
  "tokio",
  "tracing",
 ]
