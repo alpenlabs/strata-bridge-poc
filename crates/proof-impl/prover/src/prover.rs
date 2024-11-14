@@ -1,7 +1,9 @@
+use std::str::FromStr;
+
 use anyhow::Context;
 use ark_bn254::Fr;
 use ark_ec::CurveGroup;
-use ark_ff::{Field, PrimeField};
+use ark_ff::{BigInt, Field, PrimeField};
 use bitvm::groth16::g16;
 use lazy_static::lazy_static;
 use sp1_sdk::{HashableKey, ProverClient, SP1ProofWithPublicValues, SP1VerifyingKey};
@@ -38,7 +40,7 @@ lazy_static! {
 pub fn prove_wrapper(
     input: &[u8],
     strata_bridge_state: StrataBridgeState,
-) -> anyhow::Result<(g16::Proof, BridgeProofPublicParams)> {
+) -> anyhow::Result<(g16::Proof, [Fr; 1], BridgeProofPublicParams)> {
     let bridge_proof_input: BridgeProofInput =
         bincode::deserialize(input).context("cannot deserialize input")?;
 
@@ -53,13 +55,13 @@ pub fn prove_wrapper(
     )
     .context("proof verification failed")?;
 
-    let groth16_proof_bytes =
-        hex::decode(sp1prf.proof.try_as_groth_16().unwrap().raw_proof).unwrap();
-    let proof = sp1g16::load_groth16_proof_from_bytes(&groth16_proof_bytes);
-
     let bridge_proof_public_params: BridgeProofPublicParams = sp1prf.public_values.read();
+    let groth16 = sp1prf.proof.try_as_groth_16().unwrap();
+    let proof = sp1g16::load_groth16_proof_from_bytes(&hex::decode(groth16.raw_proof).unwrap());
+    let public_inputs =
+        [Fr::from_bigint(BigInt::from_str(&groth16.public_inputs[1]).unwrap()).unwrap()];
 
-    Ok((proof, bridge_proof_public_params))
+    Ok((proof, public_inputs, bridge_proof_public_params))
 }
 
 pub fn prove(
@@ -88,9 +90,12 @@ mod test {
     use std::{
         fs::{self, File},
         io::{self, Write},
+        str::FromStr,
     };
 
+    use ark_ff::BigInt;
     use bitcoin::{block::Header, Block};
+    use sha2::{Digest, Sha256};
     use sp1_verifier::Groth16Verifier;
     use strata_primitives::l1::OutputRef;
     use strata_proofimpl_bitvm_bridge::{BridgeProofInput, WithInclusionProof};
@@ -134,9 +139,9 @@ mod test {
         .unwrap();
 
         let input = bincode::serialize(&bridge_proof_input).unwrap();
-        let (proof, params) = prove_wrapper(&input, strata_bridge_state).unwrap();
+        let (proof, public_inputs, params) = prove_wrapper(&input, strata_bridge_state).unwrap();
 
-        dbg!(&proof, &params);
+        dbg!(&proof, &public_inputs, &params);
     }
 
     #[test]
@@ -154,14 +159,14 @@ mod test {
         .unwrap();
 
         let bridge_proof_public_params: BridgeProofPublicParams = sp1prf.public_values.read();
-
-        let g16_proof_bytes =
-            hex::decode(sp1prf.proof.try_as_groth_16().unwrap().raw_proof).unwrap();
-
-        let proof = sp1g16::load_groth16_proof_from_bytes(&g16_proof_bytes);
+        let groth16 = sp1prf.proof.try_as_groth_16().unwrap();
+        let proof = sp1g16::load_groth16_proof_from_bytes(&hex::decode(groth16.raw_proof).unwrap());
+        let public_inputs =
+            vec![Fr::from_bigint(BigInt::from_str(&groth16.public_inputs[1]).unwrap()).unwrap()];
 
         dbg!(&bridge_proof_public_params);
         dbg!(&proof);
+        dbg!(&public_inputs);
     }
 
     #[test]

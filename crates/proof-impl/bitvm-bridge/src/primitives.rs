@@ -196,7 +196,7 @@ pub struct BridgeProofInput {
     pub superblock_period_start_ts: u32,
 }
 
-#[derive(borsh::BorshSerialize, borsh::BorshDeserialize)]
+#[derive(borsh::BorshSerialize, borsh::BorshDeserialize, Clone)]
 pub struct StrataBridgeState {
     /// ChainState's deposit record table
     pub deposits_table: DepositsTable,

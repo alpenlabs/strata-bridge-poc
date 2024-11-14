@@ -39,7 +39,9 @@ use strata_bridge_tx_graph::{
     peg_out_graph::{PegOutGraph, PegOutGraphConnectors, PegOutGraphInput},
     transactions::prelude::*,
 };
-use strata_proofimpl_bitvm_bridge::{process_bridge_proof_wrapper, StrataBridgeState};
+use strata_proofimpl_bitvm_bridge::{
+    process_bridge_proof_wrapper, BridgeProofPublicParams, StrataBridgeState,
+};
 use strata_proofimpl_prover::prover::{self, prove, BRIDGE_POC_GROTH16_VERIFICATION_KEY};
 use strata_rpc::StrataApiClient;
 use strata_state::{block::L2Block, chain_state::ChainState, l1::get_btc_params};
@@ -1918,22 +1920,28 @@ where
         let input = bincode::serialize(&input).expect("should serialize BridgeProofInput");
 
         // check if proof is valid
-        // let bridge_proof_public_params =
-        //     process_bridge_proof_wrapper(&input, strata_bridge_state).unwrap();
-        // dbg!(&bridge_proof_public_params);
+        process_bridge_proof_wrapper(&input, strata_bridge_state.clone())
+            .expect("failed to assert proof statements");
 
-        if let Ok((sp1prf, sp1vk)) = prover::prove_wrapper(&input, strata_bridge_state) {
+        let (proof, public_inputs, public_params) =
+            prover::prove_wrapper(&input, strata_bridge_state).unwrap();
 
+        let BridgeProofPublicParams {
+            deposit_txid,
+            superblock_hash,
+            bridge_out_txid,
+            superblock_period_start_ts,
+        } = public_params;
+
+        Assertions {
+            bridge_out_txid,
+            superblock_hash,
+            superblock_period_start_ts: superblock_period_start_ts.to_le_bytes(),
+            groth16: g16::generate_proof_assertions(
+                BRIDGE_POC_GROTH16_VERIFICATION_KEY.clone(),
+                proof,
+                public_inputs,
+            ),
         }
-        g16::generate_proof_assertions(
-            BRIDGE_POC_GROTH16_VERIFICATION_KEY,
-            proof,
-            public_inputs,
-        )
-        // if let Ok(params) = bridge_proof_public_params {
-        //     // let proof = prove(&input, strata_bridge_state);
-        // }
-
-        todo!()
     }
 }
