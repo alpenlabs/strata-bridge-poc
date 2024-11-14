@@ -33,6 +33,8 @@ pub const OPERATOR_STAKE: Amount = Amount::from_int_btc(5);
 /// This has the type [`Amount`] for convenience.
 pub const OPERATOR_FEE: Amount = Amount::from_int_btc(2);
 
+pub const CHALLENGE_COST: Amount = Amount::from_int_btc(1);
+
 pub const DISPROVER_REWARD: Amount = Amount::from_int_btc(2);
 
 /// Magic bytes to add to the metadata output in transactions to help identify them.

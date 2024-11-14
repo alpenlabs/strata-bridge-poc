@@ -24,7 +24,7 @@ pub struct DutyWatcher<StrataClient: StrataApiClient, Db: DutyTrackerDb> {
     db: Arc<Db>,
 }
 
-impl<StrataClient, Db: DutyTrackerDb> DutyWatcher<StrataClient, Db>
+impl<StrataClient, Db> DutyWatcher<StrataClient, Db>
 where
     StrataClient: StrataApiClient + Send + Sync + 'static,
     Db: DutyTrackerDb + Send + Sync + 'static,
@@ -46,13 +46,18 @@ where
         duty_sender: broadcast::Sender<BridgeDuty>,
         status_receiver: mpsc::Receiver<(Txid, BridgeDutyStatus)>,
     ) {
-        let duty_interval = self.config.poll_interval;
         let mut handles = JoinSet::new();
+
+        let duty_interval = self.config.poll_interval;
         let mut status_receiver = status_receiver;
+        let db = self.db.clone();
+
         handles.spawn(async move {
             loop {
-                if let Some((_txid, _status)) = status_receiver.recv().await {
-                    todo!();
+                if let Some((duty_id, status)) = status_receiver.recv().await {
+                    info!(event = "received duty report", %duty_id, ?status);
+                    db.update_duty_status(duty_id, status.clone()).await;
+                    info!(action = "updating duty status in db", %duty_id, ?status);
                 }
 
                 tokio::time::sleep(duty_interval).await;
@@ -90,14 +95,16 @@ where
                                 }
                             };
 
-                            if db.fetch_duty_status(txid).await.is_some()
-                            // .is_some_and(|status| status.is_done())
+                            if db
+                                .fetch_duty_status(txid)
+                                .await
+                                .is_some_and(|status| status.is_done())
                             {
                                 debug!(action = "ignoring duplicate duty", %txid);
                                 continue;
                             }
 
-                            db.update_duty_status(txid, BridgeDutyStatus::Received)
+                            db.update_duty_status(txid, BridgeDutyStatus::init(&duty))
                                 .await;
 
                             debug!(action = "dispatching duty", ?duty);

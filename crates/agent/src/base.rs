@@ -6,6 +6,7 @@ use bitcoin::{
     sighash::{Prevouts, SighashCache},
     Address, Amount, Network, OutPoint, TapSighashType, Transaction, TxOut, Txid,
 };
+use jsonrpsee::ws_client::{WsClient, WsClientBuilder};
 use musig2::{KeyAggContext, SecNonce};
 use rand::{rngs::OsRng, RngCore};
 use secp256k1::{schnorr::Signature, Keypair, PublicKey, SecretKey, SECP256K1};
@@ -21,16 +22,36 @@ use tracing::trace;
 pub struct Agent {
     keypair: Keypair,
 
-    pub client: Arc<BitcoinClient>,
+    pub btc_client: Arc<BitcoinClient>,
+
+    pub strata_client: Arc<WsClient>,
 }
 
 impl Agent {
-    pub fn new(keypair: Keypair, btc_url: &str, btc_user: &str, btc_pass: &str) -> Self {
-        let client = BitcoinClient::new(btc_url, btc_user, btc_pass)
+    pub async fn new(
+        keypair: Keypair,
+        btc_url: &str,
+        btc_user: &str,
+        btc_pass: &str,
+        strata_url: &str,
+        ws_timeout: Duration,
+    ) -> Self {
+        let btc_client = BitcoinClient::new(btc_url, btc_user, btc_pass)
             .expect("should be able to create bitcoin client");
-        let client = Arc::new(client);
+        let btc_client = Arc::new(btc_client);
 
-        Self { keypair, client }
+        let strata_client = WsClientBuilder::new()
+            .request_timeout(ws_timeout)
+            .build(strata_url)
+            .await
+            .expect("should be able to create a strata RPC client");
+        let strata_client = Arc::new(strata_client);
+
+        Self {
+            keypair,
+            btc_client,
+            strata_client,
+        }
     }
 
     pub fn sign(&self, tx: &Transaction, prevouts: &[TxOut], input_index: usize) -> Signature {
@@ -55,7 +76,7 @@ impl Agent {
         // sleep to confirm parent
         tokio::time::sleep(wait_time).await;
 
-        self.client.send_raw_transaction(tx).await
+        self.btc_client.send_raw_transaction(tx).await
     }
 
     pub fn public_key(&self) -> PublicKey {
@@ -78,19 +99,19 @@ impl Agent {
         reserved_utxos: HashSet<OutPoint>,
     ) -> Option<(Address, OutPoint, Amount, TxOut)> {
         let unspent_utxos = self
-            .client
+            .btc_client
             .get_utxos()
             .await
             .expect("should be able to get unspent utxos");
 
         let change_address = self
-            .client
+            .btc_client
             .get_new_address()
             .await
             .expect("should get change address");
 
         let network = self
-            .client
+            .btc_client
             .network()
             .await
             .expect("should get network from node");

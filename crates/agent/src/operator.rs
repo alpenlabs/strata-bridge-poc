@@ -25,15 +25,17 @@ use strata_bridge_db::{
     operator::{KickoffInfo, OperatorDb},
     public::PublicDb,
 };
+#[cfg(feature = "mock")]
+use strata_bridge_primitives::scripts::wots::mock;
 use strata_bridge_primitives::{
     bitcoin::BitcoinAddress,
     build_context::{BuildContext, TxBuildContext, TxKind},
     deposit::DepositInfo,
-    duties::{BridgeDuty, BridgeDutyStatus},
+    duties::{BridgeDuty, BridgeDutyStatus, DepositStatus, WithdrawalStatus},
     params::prelude::*,
     scripts::{
         taproot::{create_message_hash, finalize_input, TaprootWitness},
-        wots::{generate_wots_public_keys, generate_wots_signatures, mock, Assertions},
+        wots::{generate_wots_public_keys, generate_wots_signatures, Assertions},
     },
     types::TxSigningData,
     withdrawal::WithdrawalInfo,
@@ -43,6 +45,8 @@ use strata_bridge_tx_graph::{
     peg_out_graph::{PegOutGraph, PegOutGraphConnectors, PegOutGraphInput},
     transactions::prelude::*,
 };
+use strata_rpc::StrataApiClient;
+use strata_state::{block::L2Block, chain_state::ChainState};
 use tokio::sync::{
     broadcast::{self, error::RecvError},
     mpsc,
@@ -62,29 +66,18 @@ pub type OperatorIdx = u32;
 #[derive(Debug)]
 pub struct Operator<O: OperatorDb, P: PublicDb> {
     pub agent: Agent,
-
     msk: String,
-
     build_context: TxBuildContext,
-
     db: Arc<O>,
-
     public_db: Arc<P>,
-
     is_faulty: bool,
 
-    _duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
-
+    duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
     deposit_signal_sender: broadcast::Sender<DepositSignal>,
-
     deposit_signal_receiver: broadcast::Receiver<DepositSignal>,
-
     covenant_nonce_sender: broadcast::Sender<CovenantNonceSignal>,
-
     covenant_nonce_receiver: broadcast::Receiver<CovenantNonceSignal>,
-
     covenant_sig_sender: broadcast::Sender<CovenantSignatureSignal>,
-
     covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
 }
 
@@ -125,7 +118,8 @@ where
             db,
             public_db,
             is_faulty,
-            _duty_status_sender: duty_status_sender,
+
+            duty_status_sender,
             deposit_signal_sender,
             deposit_signal_receiver,
             covenant_nonce_sender,
@@ -169,7 +163,15 @@ where
                 let txid = deposit_info.deposit_request_outpoint().txid;
                 info!(event = "received deposit", %own_index, drt_txid = %txid);
 
+                let duty_id = deposit_info.deposit_request_outpoint().txid;
                 self.handle_deposit(deposit_info).await;
+
+                let duty_status = BridgeDutyStatus::Deposit(DepositStatus::Executed);
+                info!(action = "reporting deposit duty status", %duty_id, ?duty_status);
+
+                if let Err(cause) = self.duty_status_sender.send((duty_id, duty_status)).await {
+                    error!(msg = "could not report deposit duty status", %cause);
+                }
             }
             BridgeDuty::FulfillWithdrawal(cooperative_withdrawal_info) => {
                 let txid = cooperative_withdrawal_info.deposit_outpoint().txid;
@@ -177,14 +179,38 @@ where
 
                 info!(event = "received withdrawal", dt_txid = %txid, assignee = %assignee_id, %own_index);
 
-                info!(action = "getting the latest checkpoint info");
-
                 if assignee_id != own_index {
                     warn!(action = "ignoring withdrawal duty unassigned to this operator", %assignee_id, %own_index);
                     return;
                 }
 
+                info!(action = "getting the latest checkpoint index");
+                let latest_checkpoint_idx = self
+                    .agent
+                    .strata_client
+                    .get_latest_checkpoint_index(Some(true))
+                    .await
+                    .expect("should be able to get latest checkpoint index")
+                    .expect("checkpoint index must exist");
+                info!(event = "received latest checkpoint index", %latest_checkpoint_idx);
+
+                let deposit_txid = cooperative_withdrawal_info.deposit_outpoint().txid;
+                self.db
+                    .set_checkpoint_index(deposit_txid, latest_checkpoint_idx)
+                    .await;
+
                 self.handle_withdrawal(cooperative_withdrawal_info).await;
+
+                let duty_status = BridgeDutyStatus::Withdrawal(WithdrawalStatus::Executed);
+                info!(action = "reporting withdrawal duty status", duty_id=%deposit_txid, ?duty_status);
+
+                if let Err(cause) = self
+                    .duty_status_sender
+                    .send((deposit_txid, duty_status))
+                    .await
+                {
+                    error!(msg = "could not report withdrawal duty status", %cause);
+                }
             }
         }
     }
@@ -307,7 +333,7 @@ where
         info!(action = "broadcasting deposit tx", operator_id=%own_index, %deposit_txid);
         match self
             .agent
-            .client
+            .btc_client
             .send_raw_transaction(&signed_deposit_tx)
             .await
         {
@@ -1447,9 +1473,13 @@ where
         .await;
 
         // 4. compute superblock and proof (skip)
+        info!(event = "challenge received, computing proof");
+        #[cfg(not(feature = "mock"))]
+        self.generate_g16_proof(deposit_txid).await;
+
         info!(action = "creating assertion signatures", %own_index);
 
-        #[cfg(feature = "mock")]
+        // #[cfg(feature = "mock")]
         let assert_data_signatures = {
             let mut assertions = mock_assertions();
             if self.am_i_faulty() {
@@ -1537,7 +1567,7 @@ where
         info!(event = "finalized post-assert tx", %post_assert_txid, %vsize, %total_size, %weight, %own_index);
 
         self.agent
-            .client
+            .btc_client
             .send_raw_transaction(&signed_post_assert)
             .await
             .expect("should be able to finalize post-assert tx");
@@ -1586,7 +1616,7 @@ where
         #[cfg(not(feature = "mock"))]
         let superblock_period_start_ts = self
             .agent
-            .client
+            .btc_client
             .get_current_timestamp()
             .await
             .expect("should be able to get the latest timestamp from the best block");
@@ -1596,7 +1626,7 @@ where
         info!(action = "funding kickoff tx with wallet", ?unsigned_kickoff);
         let funded_kickoff = self
             .agent
-            .client
+            .btc_client
             .sign_raw_transaction_with_wallet(unsigned_kickoff)
             .await
             .expect("should be able to sign kickoff tx with wallet");
@@ -1609,7 +1639,7 @@ where
         info!(action = "broadcasting kickoff tx", %deposit_txid, %kickoff_txid, %own_index);
         let kickoff_txid = self
             .agent
-            .client
+            .btc_client
             .send_raw_transaction(&funded_kickoff_tx)
             .await
             .expect("should be able to broadcast signed kickoff tx");
@@ -1631,7 +1661,7 @@ where
 
         let claim_txid = self
             .agent
-            .client
+            .btc_client
             .send_raw_transaction(&claim_tx_with_commitment)
             .await
             .expect("should be able to publish claim tx with commitment to bridge_out_txid and superblock period start_ts");
@@ -1680,7 +1710,7 @@ where
 
         let signed_tx_result = self
             .agent
-            .client
+            .btc_client
             .sign_raw_transaction_with_wallet(&bridge_out.tx())
             .await
             .expect("must be able to sign bridge out transaction");
@@ -1693,7 +1723,7 @@ where
         let signed_tx: Transaction = consensus::encode::deserialize_hex(&signed_tx_result.hex)
             .expect("should be able to deserialize signed tx");
 
-        match self.agent.client.send_raw_transaction(&signed_tx).await {
+        match self.agent.btc_client.send_raw_transaction(&signed_tx).await {
             Ok(txid) => {
                 info!(event = "paid the user successfully", %txid, %own_index);
                 Ok(txid)
@@ -1706,13 +1736,49 @@ where
         }
     }
 
-    pub async fn handle_withdrawal_faulty(&self) {
-        // for withdrawal duty (assigned and self.am_i_faulty()),
-        // 1. create tx graph from public data
-        // 2. publish kickoff -> claim
-        // 3. compute superblock and faulty proof
-        // 4. publish assert chain
-        // 5. try to settle reimbursement tx after wait time
+    // #[cfg(not(feature = "mock"))]
+    async fn generate_g16_proof(&self, deposit_txid: Txid) {
+        info!(action = "getting latest checkpoint at the time of withdrawal duty reception");
+        let latest_checkpoint_at_payout = self
+            .db
+            .get_checkpoint_index(deposit_txid)
+            .await
+            .expect("checkpoint index must exist");
+
+        info!(action = "getting the checkpoint info for the index", %latest_checkpoint_at_payout);
+        let checkpoint_info = self
+            .agent
+            .strata_client
+            .get_checkpoint_info(latest_checkpoint_at_payout)
+            .await
+            .expect("should be able to get checkpoint info")
+            .expect("checkpoit info must exist");
+
+        let l1_range = checkpoint_info.l1_range;
+        let l2_range = checkpoint_info.l2_range;
+        let l1_block_id = checkpoint_info.l1_blockid;
+        let l2_block_id = checkpoint_info.l2_blockid;
+
+        info!(event = "got checkpoint info", %latest_checkpoint_at_payout, ?l1_range, ?l2_range, %l1_block_id, %l2_block_id);
+
+        let l2_height_to_query = l2_range.1 + 1;
+        info!(action = "getting chain state", %l2_height_to_query);
+        let cl_block_witness = self
+            .agent
+            .strata_client
+            .get_cl_block_witness_raw(l2_height_to_query)
+            .await
+            .expect("should be able to query for CL block witness")
+            .expect("cl block witness must exist");
+
+        match borsh::from_slice::<(ChainState, L2Block)>(&cl_block_witness) {
+            Ok((chain_state, _)) => {
+                info!(event = "DUMPING CHAIN STATE", ?chain_state);
+            }
+            Err(e) => {
+                error!(msg = "could not deserialize cl block witness", %e);
+            }
+        }
     }
 }
 

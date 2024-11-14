@@ -26,8 +26,10 @@ bitcoin = { workspace = true, features = ["rand-std"] }
 bitcoin-script = { workspace = true }
 bitcoin-scriptexec = { workspace = true }
 bitvm = { workspace = true }
+borsh = { workspace = true }
 esplora-client.workspace = true
 hex.workspace = true
+jsonrpsee.workspace = true
 lazy_static.workspace = true
 musig2 = { workspace = true, features = ["serde"] }
 rand.workspace = true
@@ -39,5 +41,5 @@ tokio.workspace = true
 tracing.workspace = true
 
 [features]
-default = ["mock"]
+default = []
 mock = []

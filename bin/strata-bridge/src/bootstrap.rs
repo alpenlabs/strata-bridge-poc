@@ -132,7 +132,15 @@ pub(crate) async fn bootstrap(args: Cli) {
     );
 
     let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
-    let agent = Agent::new(keypair, &args.btc_url, &args.btc_user, &args.btc_pass);
+    let agent = Agent::new(
+        keypair,
+        &args.btc_url,
+        &args.btc_user,
+        &args.btc_pass,
+        &args.strata_url,
+        args.strata_ws_timeout,
+    )
+    .await;
 
     let verifier_build_context = TxBuildContext::new(network, pubkey_table, u32::MAX); // operator_id
                                                                                        // does not matter for verifier
@@ -193,7 +201,15 @@ pub async fn generate_operator_set(
     let mut operator_set: Vec<Operator<SqliteDb, SqliteDb>> = Vec::with_capacity(num_operators);
 
     for (operator_idx, keypair) in operator_indexes_and_keypairs {
-        let agent = Agent::new(keypair, &args.btc_url, &args.btc_user, &args.btc_pass);
+        let agent = Agent::new(
+            keypair,
+            &args.btc_url,
+            &args.btc_user,
+            &args.btc_pass,
+            &args.strata_url,
+            args.strata_ws_timeout,
+        )
+        .await;
 
         let build_context = TxBuildContext::new(network, pubkey_table.clone(), operator_idx);
 

@@ -337,7 +337,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
+    use std::{collections::BTreeMap, time::Duration};
 
     use bitcoin::{
         absolute::LockTime, hashes::Hash, transaction::Version, Amount, Network, OutPoint,
@@ -2938,7 +2938,15 @@ mod tests {
         .await;
 
         let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
-        let agent = Agent::new(keypair, "abc", "abc", "abc");
+        let agent = Agent::new(
+            keypair,
+            "abc",
+            "abc",
+            "abc",
+            "abc",
+            Duration::from_millis(10),
+        )
+        .await;
         let context = TxBuildContext::new(
             Network::Regtest,
             PublickeyTable::from(BTreeMap::from([(0, keypair.public_key())])),
@@ -3031,7 +3039,7 @@ mod tests {
         .await;
 
         let keypair = Keypair::new(SECP256K1, &mut rand::thread_rng());
-        let agent = Agent::new(keypair, "", "", "");
+        let agent = Agent::new(keypair, "", "", "", "", Duration::from_millis(10)).await;
         let context =
             TxBuildContext::new(Network::Regtest, PublickeyTable::from(BTreeMap::new()), 0);
 

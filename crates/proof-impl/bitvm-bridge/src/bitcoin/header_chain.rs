@@ -58,13 +58,15 @@ mod test {
 
     #[tokio::test]
     async fn test_bitcoin_headers() {
-        let geneis_block = 0;
-        let start_block = 501;
-        let end_block = 508;
+        let genesis_block = 100;
+        let start_block = 606; // latest checkpoint at kickoff -> l1_range.1
+        let end_block = 765; // final block height in the l1 fragment provided to the prover
         let btc_client = get_bitcoin_client();
 
         let (block_hvs, headers) =
-            get_header_verification_data(start_block, end_block, geneis_block).await;
+            get_header_verification_data(start_block, end_block, genesis_block).await;
+        dbg!(&block_hvs);
+        dbg!(&block_hvs.compute_hash());
 
         let params = get_btc_params();
 
