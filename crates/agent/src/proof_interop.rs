@@ -7,6 +7,12 @@ use bitcoin::{
     Transaction, Txid, Wtxid,
 };
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
+use strata_bridge_btcio::traits::Reader;
+use strata_primitives::buf::Buf32;
+use strata_state::l1::{
+    get_difficulty_adjustment_height, BtcParams, HeaderVerificationState, L1BlockId, TimestampStore,
+};
+use tracing::trace;
 
 #[derive(Debug, Clone)]
 pub struct InclusionProof(pub PartialMerkleTree);
@@ -127,4 +133,67 @@ pub struct BridgeProofInput {
 
     /// superblock period start ts
     pub superblock_period_start_ts: u32,
+}
+
+/// Gets the [`HeaderVerificationState`] for the particular block
+pub async fn get_verification_state(
+    client: &impl Reader,
+    height: u64,
+    genesis_height: u64,
+    params: &BtcParams,
+) -> anyhow::Result<HeaderVerificationState> {
+    // Get the difficulty adjustment block just before `block_height`
+    let h1 = get_difficulty_adjustment_height(0, height as u32, params);
+    let b1 = client.get_block_at(h1).await?;
+
+    // Consider the block before `block_height` to be the last verified block
+    let vh = height - 1; // verified_height
+    let vb = client.get_block_at(vh as u32).await?; // verified_block
+
+    const N: usize = 11;
+    let mut timestamps: [u32; N] = [0u32; N];
+
+    // Fetch the previous timestamps of block from `vh`
+    // This fetches timestamps of `vh-10`,`vh-9`, ... `vh-1`, `vh`
+    for i in 0..N {
+        if vh >= i as u64 {
+            let height_to_fetch = vh - i as u64;
+            let h = client.get_block_at(height_to_fetch as u32).await?;
+            timestamps[N - 1 - i] = h.header.time;
+        } else {
+            // No more blocks to fetch; the rest remain zero
+            timestamps[N - 1 - i] = 0;
+        }
+    }
+
+    // Calculate the 'head' index for the ring buffer based on the current block height.
+    // The 'head' represents the position in the buffer where the next timestamp will be inserted.
+
+    // If the current height is less than the genesis height, we haven't started processing blocks
+    // yet. In this case, set 'head' to 0.
+    let head = if height <= genesis_height {
+        0
+    } else {
+        // Calculate the 'head' index using the formula:
+        // (current height + buffer size - 1 - genesis height) % buffer size
+        // This ensures the 'head' points to the correct position in the ring buffer.
+        (height + N as u64 - 1 - genesis_height) % N as u64
+    };
+
+    let last_11_blocks_timestamps = TimestampStore::new_with_head(timestamps, head as usize);
+
+    let l1_blkid: Buf32 = (*vb.header.block_hash().as_byte_array()).into();
+    let l1_blkid: L1BlockId = l1_blkid.into();
+
+    let header_vs = HeaderVerificationState {
+        last_verified_block_num: vh as u32,
+        last_verified_block_hash: l1_blkid,
+        next_block_target: vb.header.target().to_compact_lossy().to_consensus(),
+        interval_start_timestamp: b1.header.time,
+        total_accumulated_pow: 0u128,
+        last_11_blocks_timestamps,
+    };
+    trace!(%height, ?header_vs, "HeaderVerificationState");
+
+    Ok(header_vs)
 }
