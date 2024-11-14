@@ -66,4 +66,8 @@ pub trait OperatorDb {
     async fn add_kickoff_info(&self, deposit_txid: Txid, kickoff_info: KickoffInfo);
 
     async fn get_kickoff_info(&self, deposit_txid: Txid) -> Option<KickoffInfo>;
+
+    async fn get_checkpoint_index(&self, deposit_txid: Txid) -> Option<u64>;
+
+    async fn set_checkpoint_index(&self, deposit_txid: Txid, checkpoint_idx: u64);
 }

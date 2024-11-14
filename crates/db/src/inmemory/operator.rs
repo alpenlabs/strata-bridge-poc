@@ -24,6 +24,9 @@ pub struct OperatorDbInMemory {
 
     /// Deposit Txid -> PegOutGraphData
     peg_out_graphs: RwLock<BTreeMap<Txid, KickoffInfo>>,
+
+    /// Deposit Txid (in withdrawal duty) -> latest checkpoint index
+    checkpoint_table: RwLock<HashMap<Txid, u64>>,
 }
 
 #[async_trait]
@@ -138,5 +141,20 @@ impl OperatorDb for OperatorDbInMemory {
 
     async fn get_kickoff_info(&self, deposit_txid: Txid) -> Option<KickoffInfo> {
         self.peg_out_graphs.read().await.get(&deposit_txid).cloned()
+    }
+
+    async fn get_checkpoint_index(&self, deposit_txid: Txid) -> Option<u64> {
+        self.checkpoint_table
+            .read()
+            .await
+            .get(&deposit_txid)
+            .copied()
+    }
+
+    async fn set_checkpoint_index(&self, deposit_txid: Txid, checkpoint_index: u64) {
+        self.checkpoint_table
+            .write()
+            .await
+            .insert(deposit_txid, checkpoint_index);
     }
 }
