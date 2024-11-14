@@ -422,7 +422,7 @@ mod tests {
                         1731485491, 1731485492, 1731485493, 1731485494, 1731485495, 1731485496,
                         1731485497, 1731485498, 1731485499, 1731485500, 1731485501,
                     ],
-                    0,
+                    10,
                 ),
             }
         }
@@ -539,7 +539,7 @@ mod tests {
             hashed_chain_state: data::chain_state().hashed_chain_state(),
         };
 
-        // write_bridge_proof_input_and_state(&bridge_proof_input, &strata_bridge_state);
+        write_bridge_proof_input_and_state(&bridge_proof_input, &strata_bridge_state);
 
         // verifying proof statements
         let res = process_bridge_proof(bridge_proof_input, strata_bridge_state);

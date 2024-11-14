@@ -27,7 +27,7 @@ use crate::{
 };
 
 pub const ROLLUP_NAME: &str = "alpenstrata";
-pub const SUPERBLOCK_PERIOD_BLOCK_INTERVAL: usize = 5;
+pub const SUPERBLOCK_PERIOD_BLOCK_INTERVAL: usize = 100;
 
 pub fn process_bridge_proof(
     input: BridgeProofInput,
@@ -58,7 +58,7 @@ pub fn process_bridge_proof(
         headers
             .iter()
             .map(|header| {
-                state = state.check_and_update_continuity_new(header, params);
+                state.check_and_update_full(header, params);
                 state.last_verified_block_hash
             })
             .collect::<Vec<_>>()
@@ -160,15 +160,9 @@ pub fn process_bridge_proof(
             return Err("checkpoint: invalid operator or withdrawal address or amount".into());
         }
 
-        // dbg!(&batch_info);
-        // dbg!(&initial_header_state.compute_hash().unwrap());
-
-        // // TODO: Fix this; assertion is required
-        // assert_eq!(
-        //     batch_info.l1_transition.1,
-        //     initial_header_state.compute_hash().unwrap(),
-        //     "Invalid initial_header_state"
-        // );
+        if batch_info.l1_transition.1 != initial_header_state.compute_hash().unwrap() {
+            return Err("checkpoint: invalid initial_header_state".into());
+        }
     }
 
     Ok(BridgeProofPublicParams {
