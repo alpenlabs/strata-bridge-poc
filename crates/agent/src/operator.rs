@@ -1473,30 +1473,22 @@ where
             )
             .await;
 
-        // 4. compute superblock and proof (skip)
-        info!(event = "challenge received, creating assertions with proof");
-        let mut assertions: Assertions = self
-            .prove_and_generate_assertions(
-                deposit_txid,
-                bridge_out_txid,
-                superblock_period_start_ts,
-            )
-            .await;
-        if self.am_i_faulty() {
-            warn!(action = "making a faulty assertion");
-            assertions.groth16.0[0] = [0u8; 32];
-        }
-        let assert_data_signatures = generate_wots_signatures(&self.msk, deposit_txid, assertions);
-
-        // // #[cfg(feature = "mock")]
-        // let assert_data_signatures = {
-        //     let mut assertions = mock_assertions();
-        //     if self.am_i_faulty() {
-        //         warn!(action = "making a faulty assertion");
-        //         assertions.groth16.0[0] = [0u8; 32];
-        //     }
-        //     generate_wots_signatures(&self.msk, deposit_txid, assertions)
-        // };
+        // 4. compute superblock and proof assertions
+        info!(event = "simulate challenge, prove and create assertions");
+        let assert_data_signatures = {
+            let mut assertions: Assertions = self
+                .prove_and_generate_assertions(
+                    deposit_txid,
+                    bridge_out_txid,
+                    superblock_period_start_ts,
+                )
+                .await;
+            if self.am_i_faulty() {
+                warn!(action = "making a faulty assertion");
+                assertions.groth16.0[0] = [0u8; 32];
+            }
+            generate_wots_signatures(&self.msk, deposit_txid, assertions)
+        };
 
         // 5. publish assert chain
         let AssertChain {
