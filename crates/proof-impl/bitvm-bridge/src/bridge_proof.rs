@@ -89,30 +89,26 @@ pub fn process_bridge_proof(
             (superblock_hash, superblock_period_blocks_count)
         },
     );
-    assert!(superblock_period_blocks_count >= SUPERBLOCK_PERIOD_BLOCK_INTERVAL);
+    if superblock_period_blocks_count < SUPERBLOCK_PERIOD_BLOCK_INTERVAL {
+        return Err("not enough headers in superblock period".into());
+    }
 
     // TODO: parse and validate bridge out tx
     let (operator_id, withdrawal_address, withdrawal_amount) = {
-        assert!(
-            bridge_out.tx.0.output.len() >= 2,
-            "bridge-out: not enough outputs!"
-        );
         let operator_id = u32::from_be_bytes(
             bridge_out.tx.0.output[0].script_pubkey.as_bytes()[2..6]
                 .try_into()
-                .expect("invalid operator id"),
+                .map_err(|_| "bridge_out: invalid operator id")?,
         );
         let withdrawal_amount = BitcoinAmount::from_sat(bridge_out.tx.0.output[1].value.to_sat());
         let withdrawal_address =
             XOnlyPk::try_from_slice(&bridge_out.tx.0.output[1].script_pubkey.as_bytes()[2..])
-                .expect("invalid withdrawal address");
+                .map_err(|_| "bridge_out: invalid withdrawal address")?;
         (operator_id, withdrawal_address, withdrawal_amount)
     };
 
     // verify checkpoint proof and withdrawal state
     {
-        assert!(!checkpoint.tx.0.input.is_empty());
-
         // extract batch checkpoint from checkpoint tx
         let script = checkpoint.tx.0.input[0].witness.tapscript().unwrap();
         let inscription = parse_inscription_data(&script.into(), ROLLUP_NAME).unwrap();
@@ -136,11 +132,9 @@ pub fn process_bridge_proof(
         }
 
         let batch_info = batch_checkpoint.batch_info();
-
-        assert_eq!(
-            batch_info.final_l2_state_hash().clone(),
-            strata_bridge_state.compute_state_root()
-        );
+        if strata_bridge_state.compute_state_root() != *batch_info.final_l2_state_hash() {
+            return Err("checkpoint: strata state root mismatch".into());
+        }
 
         let StrataBridgeState {
             deposits_table,
@@ -150,19 +144,21 @@ pub fn process_bridge_proof(
         let entry = deposits_table
             .deposits()
             .find(|&el| el.output().outpoint().txid.to_byte_array() == deposit_txid)
-            .expect("Deposit entry not found for the given deposit_txid");
+            .ok_or("checkpoint: deposit_txid does not exist in deposits_table")?;
 
-        // We need the deposit state in `DepositState::Dispatched`
         let dispatched_state = match entry.deposit_state() {
             DepositState::Dispatched(dispatched_state) => dispatched_state,
-            _ => panic!("Invalid withdrawal!"),
+            _ => return Err("checkpoint: withdrawal not dispatched for given deposit".into()),
         };
 
         let withdrawal = dispatched_state.cmd().withdraw_outputs().first().unwrap();
 
-        assert_eq!(operator_id, dispatched_state.assignee());
-        assert_eq!(withdrawal_address, withdrawal.dest_addr().clone());
-        assert_eq!(withdrawal_amount, BitcoinAmount::from_sat(800000000));
+        if operator_id != dispatched_state.assignee()
+            || withdrawal_address != *withdrawal.dest_addr()
+            || withdrawal_amount != BitcoinAmount::from_sat(800000000)
+        {
+            return Err("checkpoint: invalid operator or withdrawal address or amount".into());
+        }
 
         // dbg!(&batch_info);
         // dbg!(&initial_header_state.compute_hash().unwrap());

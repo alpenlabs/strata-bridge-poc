@@ -539,7 +539,7 @@ mod tests {
             hashed_chain_state: data::chain_state().hashed_chain_state(),
         };
 
-        write_bridge_proof_input_and_state(&bridge_proof_input, &strata_bridge_state);
+        // write_bridge_proof_input_and_state(&bridge_proof_input, &strata_bridge_state);
 
         // verifying proof statements
         let res = process_bridge_proof(bridge_proof_input, strata_bridge_state);
