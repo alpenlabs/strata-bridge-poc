@@ -78,11 +78,6 @@ pub struct Assertions {
     pub groth16: g16::Assertions,
 }
 
-pub fn bridge_poc_verification_key() -> g16::VerifyingKey {
-    // TODO: replace this with actual verification key
-    mock::get_verifying_key()
-}
-
 pub fn get_deposit_master_secret_key(msk: &str, deposit_txid: Txid) -> String {
     format!("{}:{}", msk, deposit_txid)
 }
@@ -154,6 +149,12 @@ pub fn generate_wots_signatures(
     }
 }
 
+/*
+pub fn bridge_poc_verification_key() -> g16::VerifyingKey {
+    // TODO: replace this with actual verification key
+    mock::get_verifying_key()
+}
+
 pub mod _sp1v2_mock {
     use ark_bn254::{Bn254, Fr};
     use ark_ec::CurveGroup;
@@ -161,7 +162,7 @@ pub mod _sp1v2_mock {
     use ark_groth16::VerifyingKey;
     use bitvm::groth16::g16;
 
-    use crate::scripts::sp1g16::{self, hash_bn254_be_bytes};
+    // use crate::scripts::sp1g16::{self, hash_bn254_be_bytes};
 
     type E = Bn254;
     pub type BridgeProofPublicParams = ([u8; 32], [u8; 32], [u8; 32], u32);
@@ -3291,3 +3292,4 @@ mod tests {
         Txid::from_slice(&[0u8; 32]).unwrap()
     }
 }
+*/

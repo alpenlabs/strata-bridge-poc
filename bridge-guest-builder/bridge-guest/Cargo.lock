@@ -976,15 +976,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "guest-bridge"
-version = "0.1.0"
-dependencies = [
- "borsh",
- "sp1-zkvm",
- "strata-proofimpl-bitvm-bridge",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1831,15 +1822,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rs_merkle"
-version = "1.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b241d2e59b74ef9e98d94c78c47623d04c8392abaf82014dfd372a16041128f"
-dependencies = [
- "sha2",
-]
-
-[[package]]
 name = "ruint"
 version = "1.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2200,6 +2182,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
+name = "strata-bridge-guest"
+version = "0.1.0"
+dependencies = [
+ "borsh",
+ "sp1-zkvm",
+ "strata-bridge-proof-protocol",
+]
+
+[[package]]
+name = "strata-bridge-proof-protocol"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "bitcoin",
+ "borsh",
+ "hex",
+ "serde",
+ "sp1-verifier",
+ "strata-primitives",
+ "strata-proofimpl-btc-blockspace",
+ "strata-state",
+ "strata-tx-parser",
+ "strata-zkvm",
+]
+
+[[package]]
 name = "strata-bridge-tx-builder"
 version = "0.1.0"
 source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#a8c124f1b7dad267bf49fbf73572e2247e4b38f8"
@@ -2244,24 +2252,6 @@ dependencies = [
  "sha2",
  "thiserror",
  "tracing",
-]
-
-[[package]]
-name = "strata-proofimpl-bitvm-bridge"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "bitcoin",
- "borsh",
- "hex",
- "rs_merkle",
- "serde",
- "sp1-verifier",
- "strata-primitives",
- "strata-proofimpl-btc-blockspace",
- "strata-state",
- "strata-tx-parser",
- "strata-zkvm",
 ]
 
 [[package]]

@@ -34,15 +34,15 @@ use strata_bridge_primitives::{
     types::TxSigningData,
     withdrawal::WithdrawalInfo,
 };
+use strata_bridge_proof_protocol::{
+    run_process_bridge_proof, BridgeProofPublicParams, StrataBridgeState,
+};
+use strata_bridge_proof_snark::{bridge_poc, prover};
 use strata_bridge_tx_graph::{
     connectors::params::{PAYOUT_TIMELOCK, SUPERBLOCK_MEASUREMENT_PERIOD},
     peg_out_graph::{PegOutGraph, PegOutGraphConnectors, PegOutGraphInput},
     transactions::prelude::*,
 };
-use strata_proofimpl_bitvm_bridge::{
-    process_bridge_proof_wrapper, BridgeProofPublicParams, StrataBridgeState,
-};
-use strata_proofimpl_prover::prover::{self, prove, BRIDGE_POC_GROTH16_VERIFICATION_KEY};
 use strata_rpc::StrataApiClient;
 use strata_state::{block::L2Block, chain_state::ChainState, l1::get_btc_params};
 use tokio::sync::{
@@ -1912,14 +1912,14 @@ where
         let input = bincode::serialize(&input).expect("should serialize BridgeProofInput");
 
         // check if proof is valid
-        process_bridge_proof_wrapper(&input, strata_bridge_state.clone())
+        run_process_bridge_proof(&input, strata_bridge_state.clone())
             .expect("failed to assert proof statements");
 
         let (proof, public_inputs, public_params) =
-            prover::prove_wrapper(&input, strata_bridge_state).unwrap();
+            prover::prove(&input, strata_bridge_state).unwrap();
 
         let BridgeProofPublicParams {
-            deposit_txid,
+            deposit_txid: _,
             superblock_hash,
             bridge_out_txid,
             superblock_period_start_ts,
@@ -1930,7 +1930,7 @@ where
             superblock_hash,
             superblock_period_start_ts: superblock_period_start_ts.to_le_bytes(),
             groth16: g16::generate_proof_assertions(
-                BRIDGE_POC_GROTH16_VERIFICATION_KEY.clone(),
+                bridge_poc::GROTH16_VERIFICATION_KEY.clone(),
                 proof,
                 public_inputs,
             ),

@@ -11,7 +11,6 @@ use bitcoin::{
 use serde::{de::Error, Deserialize, Deserializer, Serialize, Serializer};
 use strata_bridge_btcio::traits::Reader;
 use strata_primitives::buf::Buf32;
-use strata_proofimpl_bitvm_bridge::StrataBridgeState;
 use strata_state::{
     batch::{BatchCheckpoint, SignedBatchCheckpoint},
     l1::{
