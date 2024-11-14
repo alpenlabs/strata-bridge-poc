@@ -18,12 +18,12 @@ pub fn prove_wrapper(
 
 pub fn prove(
     bridge_proof_input: BridgeProofInput,
-    strata_bridge_state: StrataBridgeState,
+    strata_bridge_state: &StrataBridgeState,
 ) -> anyhow::Result<(SP1ProofWithPublicValues, SP1VerifyingKey)> {
     let input = {
         let mut input_builder = SP1ProofInputBuilder::new();
         input_builder.write(&bridge_proof_input)?;
-        input_builder.write_borsh(&strata_bridge_state)?;
+        input_builder.write_borsh(strata_bridge_state)?;
         input_builder.build()?
     };
 

@@ -2,24 +2,19 @@ use core::fmt;
 use std::{collections::HashSet, sync::Arc, time::Duration};
 
 use anyhow::bail;
-#[cfg(not(feature = "mock"))]
-use bitcoin::hex::DisplayHex;
 use bitcoin::{
     block::Header,
     consensus,
     hashes::Hash,
+    hex::DisplayHex,
     sighash::{Prevouts, SighashCache},
     TapSighashType, Transaction, TxOut, Txid,
 };
 use musig2::{
     aggregate_partial_signatures, sign_partial, AggNonce, KeyAggContext, PartialSignature, PubNonce,
 };
-#[cfg(not(feature = "mock"))]
 use rand::{rngs::OsRng, Rng, RngCore};
-use secp256k1::schnorr::Signature;
-#[cfg(not(feature = "mock"))]
-use secp256k1::XOnlyPublicKey;
-#[cfg(not(feature = "mock"))]
+use secp256k1::{schnorr::Signature, XOnlyPublicKey};
 use strata_bridge_btcio::traits::{Broadcaster, Reader, Signer};
 use strata_bridge_db::{
     operator::{KickoffInfo, OperatorDb},
@@ -104,7 +99,6 @@ where
         covenant_sig_sender: broadcast::Sender<CovenantSignatureSignal>,
         covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
     ) -> Self {
-        #[cfg(not(feature = "mock"))]
         let msk = {
             let mut msk_bytes: [u8; 32] = [0u8; 32];
             rand::thread_rng().fill_bytes(&mut msk_bytes);
@@ -229,7 +223,6 @@ where
             .construct_signing_data(&self.build_context)
             .expect("should be able to create build context");
 
-        #[cfg(not(feature = "mock"))]
         let deposit_txid = deposit_tx.psbt.unsigned_tx.compute_txid();
 
         info!(action = "generating wots public keys", %deposit_txid, %own_index);
@@ -1394,7 +1387,6 @@ where
         let network = self.build_context.network();
         let own_index = self.build_context.own_index();
 
-        #[cfg(not(feature = "mock"))]
         let deposit_txid = withdrawal_info.deposit_outpoint().txid;
 
         let own_pubkey = self.agent.public_key().x_only_public_key().0;
@@ -1404,7 +1396,6 @@ where
 
         info!(action = "paying out the user", %user_pk, %own_index);
 
-        #[cfg(not(feature = "mock"))]
         let bridge_out_txid = self
             .pay_user(user_pk, network, own_index)
             .await
@@ -1481,7 +1472,6 @@ where
 
         // 4. compute superblock and proof (skip)
         info!(event = "challenge received, computing proof");
-        #[cfg(not(feature = "mock"))]
         let mut assertions: Assertions = self
             .generate_g16_proof(deposit_txid, bridge_out_txid, superblock_period_start_ts)
             .await;
@@ -1494,16 +1484,6 @@ where
         let assert_data_signatures = generate_wots_signatures(&self.msk, deposit_txid, assertions);
 
         info!(action = "creating assertion signatures", %own_index);
-
-        // // #[cfg(feature = "mock")]
-        // let assert_data_signatures = {
-        //     let mut assertions = mock_assertions();
-        //     if self.am_i_faulty() {
-        //         warn!(action = "making a faulty assertion");
-        //         assertions.groth16.0[0] = [0u8; 32];
-        //     }
-        //     generate_wots_signatures(&self.msk, deposit_txid, assertions)
-        // };
 
         // 5. publish assert chain
         let AssertChain {
@@ -1661,7 +1641,6 @@ where
         claim_tx: ClaimTx,
         bridge_out_txid: Txid,
     ) -> u32 {
-        #[cfg(not(feature = "mock"))]
         let superblock_period_start_ts = self
             .agent
             .btc_client
@@ -1735,7 +1714,6 @@ where
         superblock_period_start_ts
     }
 
-    #[cfg(not(feature = "mock"))]
     async fn pay_user(
         &self,
         user_pk: XOnlyPublicKey,
@@ -1802,7 +1780,6 @@ where
         }
     }
 
-    // #[cfg(not(feature = "mock"))]
     async fn generate_g16_proof(
         &self,
         deposit_txid: Txid,
