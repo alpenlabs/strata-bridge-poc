@@ -1585,6 +1585,7 @@ where
 
             info!(action = "broadcasting finalized assert data txs", %own_index);
             let mut broadcasted_assert_data_txids = Vec::with_capacity(TOTAL_CONNECTORS);
+
             for (index, signed_assert_data_tx) in signed_assert_data_txs.iter().enumerate() {
                 if let Some((bridge_out_txid, superblock_start_ts)) =
                     status.should_assert_data(index)
@@ -1643,8 +1644,7 @@ where
 
             let txid = self
                 .agent
-                .btc_client
-                .send_raw_transaction(&signed_post_assert)
+                .wait_and_broadcast(&signed_post_assert, BTC_CONFIRM_PERIOD)
                 .await
                 .expect("should be able to finalize post-assert tx");
 

@@ -1,6 +1,5 @@
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
-use tracing::debug;
 
 use crate::{
     deposit::DepositInfo, params::prelude::NUM_ASSERT_DATA_TX, types::OperatorIdx,
@@ -249,7 +248,7 @@ impl WithdrawalStatus {
                 *self = Self::AssertData {
                     bridge_out_txid: *bridge_out_txid,
                     superblock_start_ts: *superblock_start_ts,
-                    assert_data_txids: vec![],
+                    assert_data_txids: vec![txid],
                 }
             }
 
@@ -257,14 +256,11 @@ impl WithdrawalStatus {
                 bridge_out_txid: _,
                 superblock_start_ts: _,
                 assert_data_txids,
-            } if assert_data_txids.len() == NUM_ASSERT_DATA_TX => *self = Self::AssertDataComplete,
-
-            Self::AssertData {
-                bridge_out_txid: _,
-                superblock_start_ts: _,
-                assert_data_txids,
             } => {
                 assert_data_txids.push(txid);
+                if assert_data_txids.len() == NUM_ASSERT_DATA_TX {
+                    *self = Self::AssertDataComplete;
+                }
             }
 
             Self::AssertDataComplete => *self = Self::PostAssert,
@@ -336,5 +332,87 @@ impl WithdrawalStatus {
 
     pub fn is_done(&self) -> bool {
         matches!(self, Self::Executed) || matches!(self, Self::Discarded(_))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bitcoin::{hashes::Hash, Txid};
+
+    use super::WithdrawalStatus;
+    use crate::params::prelude::NUM_ASSERT_DATA_TX;
+
+    #[test]
+    fn test_state_transition() {
+        let txid = Txid::from_slice(&[1u8; 32]).expect("32-byte slice must be a valid txid");
+        let superblock_start_ts = Some(1u32);
+        let mut status = WithdrawalStatus::Received;
+
+        assert!(status.should_pay(), "should pay");
+        status.next(txid, superblock_start_ts); // broadcast bridge-out
+        assert!(matches!(status, WithdrawalStatus::PaidUser(_)));
+
+        assert!(status.should_kickoff().is_some(), "should kickoff");
+        status.next(txid, superblock_start_ts); // broadcast kickoff
+        assert!(matches!(
+            status,
+            WithdrawalStatus::Kickoff {
+                bridge_out_txid: _,
+                kickoff_txid: _
+            }
+        ));
+
+        assert!(status.should_claim().is_some(), "should claim");
+        status.next(txid, superblock_start_ts); // broadcast claim
+        assert!(matches!(
+            status,
+            WithdrawalStatus::Claim {
+                bridge_out_txid: _,
+                superblock_start_ts: _,
+                claim_txid: _
+            }
+        ));
+
+        assert!(status.should_pre_assert().is_some(), "should pre-assert");
+        status.next(txid, superblock_start_ts); // broadcast pre-assert
+        assert!(matches!(
+            status,
+            WithdrawalStatus::PreAssert {
+                bridge_out_txid: _,
+                superblock_start_ts: _,
+                pre_assert_txid: _
+            },
+        ));
+
+        for assert_data_index in 0..(NUM_ASSERT_DATA_TX - 1) {
+            assert!(
+                status.should_assert_data(assert_data_index).is_some(),
+                "should assert data"
+            );
+            status.next(txid, superblock_start_ts); // broadcast assert data
+            assert!(matches!(
+                status,
+                WithdrawalStatus::AssertData {
+                    bridge_out_txid: _,
+                    superblock_start_ts: _,
+                    assert_data_txids: _
+                }
+            ));
+        }
+
+        assert!(
+            status.should_assert_data(NUM_ASSERT_DATA_TX - 1).is_some(),
+            "should assert final data"
+        );
+        status.next(txid, superblock_start_ts); // broadcast final assert data
+        assert!(matches!(status, WithdrawalStatus::AssertDataComplete));
+
+        assert!(status.should_post_assert(), "should post assert");
+        status.next(txid, superblock_start_ts); // broadcast post assert data
+        assert!(matches!(status, WithdrawalStatus::PostAssert));
+
+        assert!(status.should_get_payout(), "should get payout");
+        status.next(txid, superblock_start_ts); // publish payout tx
+        assert!(matches!(status, WithdrawalStatus::Executed));
     }
 }
