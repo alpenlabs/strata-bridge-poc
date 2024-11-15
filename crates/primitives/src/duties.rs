@@ -254,10 +254,9 @@ impl WithdrawalStatus {
                 superblock_start_ts: _,
                 assert_data_txids,
             } => {
+                assert_data_txids.push(txid);
                 if assert_data_txids.len() == NUM_ASSERT_DATA_TX {
                     *self = Self::PostAssert
-                } else {
-                    assert_data_txids.push(txid);
                 }
             }
             Self::PostAssert => *self = Self::Executed,

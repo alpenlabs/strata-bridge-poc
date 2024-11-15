@@ -13,7 +13,6 @@ use bitvm::groth16::g16;
 use musig2::{
     aggregate_partial_signatures, sign_partial, AggNonce, KeyAggContext, PartialSignature, PubNonce,
 };
-use rand::{rngs::OsRng, Rng};
 use secp256k1::{schnorr::Signature, XOnlyPublicKey};
 use strata_bridge_btcio::traits::{Broadcaster, Reader, Signer};
 use strata_bridge_db::{
@@ -1983,12 +1982,11 @@ where
         let input = bincode::serialize(&input).expect("should serialize BridgeProofInput");
 
         // check if proof is valid
-        let local_public_params = run_process_bridge_proof(&input, strata_bridge_state.clone())
+        let _local_public_params = run_process_bridge_proof(&input, strata_bridge_state.clone())
             .expect("failed to assert proof statements");
-        dbg!(&local_public_params);
 
         let (proof, public_inputs, public_params) =
-            prover::prove(&input, strata_bridge_state).unwrap();
+            prover::prove(&input, &strata_bridge_state).unwrap();
 
         let BridgeProofPublicParams {
             deposit_txid: _,

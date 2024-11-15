@@ -56,12 +56,12 @@ pub fn process_bridge_proof(
     // verify checkpoint inclusion proof
     checkpoint
         .verify(&headers[checkpoint_header_index])
-        .map_err(|err| "invalid checkpoint tx: non-inclusion")?;
+        .map_err(|_err| "invalid checkpoint tx: non-inclusion")?;
 
     // verify bridge_out inclusion proof
     bridge_out
         .verify(&headers[bridge_out_header_index])
-        .map_err(|err| "invalid bridge_out tx: non-inclusion")?;
+        .map_err(|_err| "invalid bridge_out tx: non-inclusion")?;
 
     // superblock hash and blocks count
     let (superblock_hash, superblock_period_blocks_count) = headers.iter().zip(header_hashes).fold(

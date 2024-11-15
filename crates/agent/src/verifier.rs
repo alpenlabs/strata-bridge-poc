@@ -333,6 +333,7 @@ where
     }
 }
 
+/*
 #[cfg(test)]
 mod tests {
     use std::{collections::BTreeMap, time::Duration};
@@ -438,7 +439,7 @@ mod tests {
 
         assert_data.finalize(c160, c256, msk, signatures)
     }
-    /*
+
     #[tokio::test]
     async fn test_verify_assertions() {
             let msk = "secret";
@@ -618,5 +619,5 @@ mod tests {
             verifier.process_duty(duty).await;
         }
     }
-    */
 }
+*/
