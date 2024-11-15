@@ -9,7 +9,7 @@ pub const COMPRESSED_POSTIVE: u8 = 0b10 << 6;
 pub const COMPRESSED_NEGATIVE: u8 = 0b11 << 6;
 pub const COMPRESSED_INFINITY: u8 = 0b01 << 6;
 
-pub const GROTH16_VK_BYTES: &[u8] = include_bytes!("../artifacts/sp1v3_groth16_vk.bin");
+// pub const GROTH16_VK_BYTES: &[u8] = include_bytes!("../artifacts/sp1v3_groth16_vk.bin");
 
 #[derive(Debug, PartialEq)]
 pub enum CompressionFlag {
@@ -234,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_sp1_groth16_verify() {
-        let vk = load_groth16_verifying_key_from_bytes(GROTH16_VK_BYTES);
+        let vk = load_groth16_verifying_key_from_bytes(sp1_verifier::GROTH16_VK_BYTES.as_ref());
         let pvk = prepare_verifying_key(&vk);
 
         let proof = load_groth16_proof_from_bytes(&PROOF_BYTES);

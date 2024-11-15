@@ -18,7 +18,7 @@ lazy_static! {
         let compile_time_public_inputs = [Fr::from_be_bytes_mod_order(&vkey_hash)];
 
         // embed first public input to the groth16 vk
-        let mut vk = sp1::load_groth16_verifying_key_from_bytes(sp1::GROTH16_VK_BYTES);
+        let mut vk = sp1::load_groth16_verifying_key_from_bytes(sp1_verifier::GROTH16_VK_BYTES.as_ref());
         let mut vk_gamma_abc_g1_0 = vk.gamma_abc_g1[0] * Fr::ONE;
         for (i, public_input) in compile_time_public_inputs.iter().enumerate() {
             vk_gamma_abc_g1_0 += vk.gamma_abc_g1[i + 1] * public_input;

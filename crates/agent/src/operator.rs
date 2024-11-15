@@ -1521,10 +1521,32 @@ where
                     .await;
                 if self.am_i_faulty() {
                     warn!(action = "making a faulty assertion");
-                    assertions.groth16.0[0] = [0u8; 32];
+                    for i in 0..assertions.groth16.1.len() {
+                        if assertions.groth16.1[i] != [0u8; 32] {
+                            assertions.groth16.1[i] = [0u8; 32];
+                            break;
+                        }
+                    }
                 }
                 generate_wots_signatures(&self.msk, deposit_txid, assertions)
             };
+
+            // TODO: remove this
+            // verify groth16 assertions
+            {
+                info!(action = "verifying groth16 assertions");
+                let public_keys = self
+                    .public_db
+                    .get_wots_public_keys(own_index, deposit_txid)
+                    .await;
+
+                let disprove = g16::verify_signed_assertions(
+                    bridge_poc::GROTH16_VERIFICATION_KEY.clone(),
+                    public_keys.groth16.0,
+                    assert_data_signatures.groth16,
+                );
+                dbg!(&disprove);
+            }
 
             let signed_assert_data_txs = assert_data.finalize(
                 connectors.assert_data160_factory,
@@ -1776,14 +1798,6 @@ where
         network: bitcoin::Network,
         own_index: OperatorIdx,
     ) -> anyhow::Result<Txid> {
-        if self.am_i_faulty() {
-            let buffer: [u8; 32] = OsRng.gen();
-            let fake_txid = Txid::from_byte_array(buffer);
-
-            warn!(action = "faking bridge out", %fake_txid, %own_index);
-            return Ok(fake_txid);
-        }
-
         let net_payment = BRIDGE_DENOMINATION - OPERATOR_FEE;
 
         // don't use kickoff utxo for payment
@@ -1969,11 +1983,12 @@ where
         let input = bincode::serialize(&input).expect("should serialize BridgeProofInput");
 
         // check if proof is valid
-        run_process_bridge_proof(&input, strata_bridge_state.clone())
+        let local_public_params = run_process_bridge_proof(&input, strata_bridge_state.clone())
             .expect("failed to assert proof statements");
+        dbg!(&local_public_params);
 
         let (proof, public_inputs, public_params) =
-            prover::prove(&input, &strata_bridge_state).unwrap();
+            prover::prove(&input, strata_bridge_state).unwrap();
 
         let BridgeProofPublicParams {
             deposit_txid: _,

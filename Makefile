@@ -198,9 +198,9 @@ run:
 		--btc-user rpcuser \
 		--btc-pass rpcpassword \
 		--btc-genesis-height 200 \
-		--btc-scan-interval 800 \
-		--fault-tolerance 0 \
-		--duty-interval 60000 \
+		--btc-scan-interval 100 \
+		--fault-tolerance 100 \
+		--duty-interval 120000 \
 		--num-threads 4 \
 		--stack-size 512 \
 		--xpriv-file .secrets/xprivs.bin \
