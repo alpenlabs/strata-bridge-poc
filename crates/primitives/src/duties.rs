@@ -1,5 +1,6 @@
 use bitcoin::Txid;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 use crate::{
     deposit::DepositInfo, params::prelude::NUM_ASSERT_DATA_TX, types::OperatorIdx,
@@ -192,6 +193,8 @@ pub enum WithdrawalStatus {
         assert_data_txids: Vec<Txid>, // dynamic for assert data txs that have been broadcasted
     },
 
+    AssertDataComplete,
+
     PostAssert,
 
     Executed,
@@ -249,16 +252,23 @@ impl WithdrawalStatus {
                     assert_data_txids: vec![],
                 }
             }
+
+            Self::AssertData {
+                bridge_out_txid: _,
+                superblock_start_ts: _,
+                assert_data_txids,
+            } if assert_data_txids.len() == NUM_ASSERT_DATA_TX => *self = Self::AssertDataComplete,
+
             Self::AssertData {
                 bridge_out_txid: _,
                 superblock_start_ts: _,
                 assert_data_txids,
             } => {
                 assert_data_txids.push(txid);
-                if assert_data_txids.len() == NUM_ASSERT_DATA_TX {
-                    *self = Self::PostAssert
-                }
             }
+
+            Self::AssertDataComplete => *self = Self::PostAssert,
+
             Self::PostAssert => *self = Self::Executed,
             _ => {}
         }
@@ -307,7 +317,9 @@ impl WithdrawalStatus {
                 bridge_out_txid,
                 superblock_start_ts,
                 assert_data_txids,
-            } if assert_data_txids.len() < assert_data_index + 1 => {
+            } if assert_data_txids.len() < assert_data_index + 1
+                && assert_data_txids.len() < NUM_ASSERT_DATA_TX =>
+            {
                 Some((*bridge_out_txid, *superblock_start_ts))
             }
             _ => None,
@@ -315,7 +327,7 @@ impl WithdrawalStatus {
     }
 
     pub fn should_post_assert(&self) -> bool {
-        matches!(self, WithdrawalStatus::AssertData { bridge_out_txid: _, superblock_start_ts: _, assert_data_txids } if assert_data_txids.len() == NUM_ASSERT_DATA_TX)
+        matches!(self, WithdrawalStatus::AssertDataComplete)
     }
 
     pub fn should_get_payout(&self) -> bool {

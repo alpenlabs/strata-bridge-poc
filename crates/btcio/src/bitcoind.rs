@@ -93,7 +93,7 @@ impl BitcoinClient {
 
         let id = AtomicUsize::new(0);
 
-        trace!(url = %url, "Created bitcoin client");
+        info!(url = %url, "Created bitcoin client");
 
         Ok(Self {
             url: url.to_string(),

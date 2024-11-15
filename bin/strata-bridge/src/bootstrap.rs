@@ -54,7 +54,7 @@ pub(crate) async fn bootstrap(args: Cli) {
     );
 
     // create dbs
-    let duty_tracker_db = create_db(args.data_dir.as_path(), DUTY_TRACKER_DB_NAME).await;
+    let duty_tracker_db = Arc::new(create_db(args.data_dir.as_path(), DUTY_TRACKER_DB_NAME).await);
     let btc_block_tracker_db =
         create_db(args.data_dir.as_path(), BITCOIN_BLOCK_TRACKER_DB_NAME).await;
     let public_db = create_db(args.data_dir.as_path(), PUBLIC_DB_NAME).await;
@@ -77,7 +77,7 @@ pub(crate) async fn bootstrap(args: Cli) {
     let mut duty_watcher = DutyWatcher::new(
         duty_watcher_config,
         Arc::new(strata_rpc_client),
-        Arc::new(duty_tracker_db),
+        duty_tracker_db.clone(),
     );
 
     let (duty_sender, _duty_receiver) = broadcast::channel::<BridgeDuty>(DUTY_QUEUE_SIZE);
@@ -88,10 +88,11 @@ pub(crate) async fn bootstrap(args: Cli) {
     let public_db = Arc::new(public_db);
     debug!(event = "initialized public db");
 
-    let operators: Vec<Operator<SqliteDb, SqliteDb>> = generate_operator_set(
+    let operators: Vec<Operator<SqliteDb, SqliteDb, SqliteDb>> = generate_operator_set(
         &args,
         pubkey_table.clone(),
         public_db.clone(),
+        duty_tracker_db.clone(),
         duty_status_sender,
         network,
     )
@@ -173,9 +174,10 @@ pub async fn generate_operator_set(
     args: &Cli,
     pubkey_table: PublickeyTable,
     public_db: Arc<SqliteDb>,
+    duty_db: Arc<SqliteDb>,
     duty_status_sender: mpsc::Sender<(Txid, BridgeDutyStatus)>,
     network: Network,
-) -> Vec<Operator<SqliteDb, SqliteDb>> {
+) -> Vec<Operator<SqliteDb, SqliteDb, SqliteDb>> {
     let operator_indexes_and_keypairs =
         get_keypairs_and_load_xpriv(&args.xpriv_file, &pubkey_table);
 
@@ -209,12 +211,13 @@ pub async fn generate_operator_set(
         broadcast::channel::<CovenantSignatureSignal>(covenant_queue_size);
 
     let mut faulty_idxs = Vec::new();
-    let mut operator_set: Vec<Operator<SqliteDb, SqliteDb>> = Vec::with_capacity(num_operators);
+    let mut operator_set: Vec<Operator<SqliteDb, SqliteDb, SqliteDb>> =
+        Vec::with_capacity(num_operators);
 
     for ((operator_idx, keypair), msk) in operator_indexes_and_keypairs.into_iter().zip(msks) {
         let agent = Agent::new(
             keypair,
-            &args.btc_url,
+            format!("{}/wallet/bridge_{operator_idx}", &args.btc_url).as_str(),
             &args.btc_user,
             &args.btc_pass,
             &args.strata_url,
@@ -248,6 +251,7 @@ pub async fn generate_operator_set(
             msk,
             db: operator_db,
             public_db: public_db.clone(),
+            duty_db: duty_db.clone(),
             btc_poll_interval: args.btc_scan_interval,
 
             duty_status_sender: duty_status_sender.clone(),

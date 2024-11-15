@@ -18,6 +18,7 @@ use strata_bridge_btcio::traits::{Broadcaster, Reader, Signer};
 use strata_bridge_db::{
     operator::{KickoffInfo, OperatorDb},
     public::PublicDb,
+    tracker::DutyTrackerDb,
 };
 use strata_bridge_primitives::{
     bitcoin::BitcoinAddress,
@@ -61,12 +62,13 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct Operator<O: OperatorDb, P: PublicDb> {
+pub struct Operator<O: OperatorDb, P: PublicDb, D: DutyTrackerDb> {
     pub agent: Agent,
     pub msk: String,
     pub build_context: TxBuildContext,
     pub db: Arc<O>,
     pub public_db: Arc<P>,
+    pub duty_db: Arc<D>,
     pub is_faulty: bool,
     pub btc_poll_interval: Duration,
 
@@ -79,10 +81,11 @@ pub struct Operator<O: OperatorDb, P: PublicDb> {
     pub covenant_sig_receiver: broadcast::Receiver<CovenantSignatureSignal>,
 }
 
-impl<O, P> Operator<O, P>
+impl<O, P, D> Operator<O, P, D>
 where
     O: OperatorDb,
     P: PublicDb + Clone,
+    D: DutyTrackerDb,
 {
     pub fn am_i_faulty(&self) -> bool {
         self.is_faulty
@@ -172,6 +175,17 @@ where
                 self.db
                     .set_checkpoint_index(deposit_txid, latest_checkpoint_idx)
                     .await;
+
+                let updated_status = self.duty_db.fetch_duty_status(txid).await;
+
+                let status = if updated_status.is_none() {
+                    status
+                } else {
+                    match updated_status.unwrap() {
+                        BridgeDutyStatus::Withdrawal(withdrawal_status) => withdrawal_status,
+                        _ => unreachable!(),
+                    }
+                };
 
                 self.handle_withdrawal(withdrawal_info, status).await;
 

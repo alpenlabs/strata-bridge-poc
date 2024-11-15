@@ -48,17 +48,21 @@ where
         info!(action = "starting bitcoin watcher", %self.genesis_height);
 
         let mut height = self.genesis_height;
+        let mut not_found = false;
         loop {
             let block = self.client.get_block_at(height).await;
 
             if let Err(e) = block {
-                if height % 1000 == 0 {
+                if height % 1000 == 0 && !not_found {
+                    not_found = true;
                     warn!(%e, %height, msg = "could not get block");
                 }
                 tokio::time::sleep(self.poll_interval).await;
 
                 continue;
             }
+
+            not_found = false;
 
             let block = block.unwrap();
 

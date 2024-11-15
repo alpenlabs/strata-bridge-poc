@@ -187,7 +187,7 @@ pr: lint sec rustdocs test-doc test-unit test-functional ## Runs lints (without 
 
 .PHONY: run
 run:
-	RUST_LOG=trace,sqlx=info,soketto=error,strata_bridge_db=trace,strata_bridge_tx_graph=warn,strata_bridge_btcio=warn,strata_bridge_agent=debug,hyper_util=error,jsonrpsee=error \
+	RUST_LOG=trace,sp1_start=info,sqlx=info,soketto=error,strata_bridge_db=trace,strata_bridge_tx_graph=warn,strata_bridge_btcio=info,strata_bridge_agent=debug,hyper_util=error,jsonrpsee=error \
 		cargo r \
 		--bin strata-bridge \
 		--profile "$(PROFILE)" \
@@ -197,7 +197,7 @@ run:
 		--btc-url http://localhost:18443 \
 		--btc-user rpcuser \
 		--btc-pass rpcpassword \
-		--btc-genesis-height 200 \
+		--btc-genesis-height 300 \
 		--btc-scan-interval 100 \
 		--fault-tolerance 100 \
 		--duty-interval 120000 \

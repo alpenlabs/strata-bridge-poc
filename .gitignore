@@ -281,3 +281,7 @@ provers/sp1/proofs/
 
 # binary dumps
 *.bin
+
+# test data
+!blocks.bin
+!proof.bin
