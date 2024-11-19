@@ -12,6 +12,7 @@ use crate::{
     BLOCK_TIME,
 };
 
+#[derive(Debug)]
 pub struct EsploraClient {
     pub(crate) client: AsyncClient,
     #[allow(dead_code)] // We might need this later

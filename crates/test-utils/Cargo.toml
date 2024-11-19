@@ -1,10 +1,18 @@
 [package]
-name = "strata-test-utils"
+name = "strata-bridge-test-utils"
 version = "0.1.0"
 edition = "2021"
 
+[lints]
+rust.missing_debug_implementations = "warn"
+rust.rust_2018_idioms = { level = "deny", priority = -1 }
+rust.unreachable_pub = "warn"
+rust.unused_crate_dependencies = "deny"
+rust.unused_must_use = "deny"
+
 [dependencies]
-strata-common.workspace = true
 tempfile = "3.13.0"
-tokio.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+strata-common.workspace = true
