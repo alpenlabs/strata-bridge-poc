@@ -144,10 +144,10 @@ where
                 let txid = withdrawal_info.deposit_outpoint().txid;
                 let assignee_id = withdrawal_info.assigned_operator_idx();
 
-                info!(event = "received withdrawal", dt_txid = %txid, assignee = %assignee_id, %own_index);
+                debug!(event = "received withdrawal", dt_txid = %txid, assignee = %assignee_id, %own_index);
 
                 if assignee_id != own_index {
-                    warn!(action = "ignoring withdrawal duty unassigned to this operator", %assignee_id, %own_index);
+                    trace!(action = "ignoring withdrawal duty unassigned to this operator", %assignee_id, %own_index);
                     return;
                 }
 
@@ -188,17 +188,6 @@ where
                 };
 
                 self.handle_withdrawal(withdrawal_info, status).await;
-
-                let duty_status = BridgeDutyStatus::Withdrawal(WithdrawalStatus::Executed);
-                info!(action = "reporting withdrawal duty status", duty_id=%deposit_txid, ?duty_status);
-
-                if let Err(cause) = self
-                    .duty_status_sender
-                    .send((deposit_txid, duty_status))
-                    .await
-                {
-                    error!(msg = "could not report withdrawal duty status", %cause);
-                }
             }
         }
     }
@@ -207,9 +196,16 @@ where
         let own_index = self.build_context.own_index();
 
         // 1. aggregate_tx_graph
-        let mut deposit_tx = deposit_info
-            .construct_signing_data(&self.build_context)
-            .expect("should be able to create build context");
+        let deposit_tx = deposit_info.construct_signing_data(&self.build_context);
+
+        if let Err(cause) = deposit_tx {
+            let deposit_txid = deposit_info.deposit_request_outpoint().txid;
+            warn!(msg = "could not process deposit", %cause, %deposit_txid, %own_index);
+
+            return;
+        }
+
+        let mut deposit_tx = deposit_tx.unwrap();
 
         let deposit_txid = deposit_tx.psbt.unsigned_tx.compute_txid();
 
@@ -323,6 +319,18 @@ where
         {
             Ok(txid) => {
                 info!(event = "deposit tx successfully broadcasted", %txid);
+
+                let duty_status = DepositStatus::Executed;
+                info!(action = "reporting deposit duty status", duty_id = %txid, ?duty_status);
+
+                let duty_id = deposit_info.deposit_request_outpoint().txid;
+                if let Err(cause) = self
+                    .duty_status_sender
+                    .send((duty_id, duty_status.into()))
+                    .await
+                {
+                    error!(msg = "could not report deposit duty status", %cause);
+                }
             }
             Err(e) => {
                 error!(?e, "could not broadcast deposit tx");
@@ -1701,7 +1709,15 @@ where
                 }
             }
         } else {
-            info!(action = "already received payout; so skipping");
+            info!(action = "already attempted to get reimbursement; so skipping");
+        }
+
+        let duty_id = deposit_txid;
+        let duty_status = BridgeDutyStatus::Withdrawal(WithdrawalStatus::Executed);
+        info!(action = "reporting withdrawal duty status", %duty_id, ?duty_status);
+
+        if let Err(cause) = self.duty_status_sender.send((duty_id, duty_status)).await {
+            error!(msg = "could not report withdrawal duty status", %cause);
         }
     }
 
