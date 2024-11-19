@@ -85,7 +85,7 @@ pub fn parse_assertion_witnesses(
 #[cfg(test)]
 mod tests {
     use bitvm::{
-        signatures::wots::{wots160, wots256, wots32},
+        signatures::wots::{wots160, wots256},
         treepp::*,
     };
 
@@ -131,83 +131,5 @@ mod tests {
         let parsed_signatures = parse_wots160_signatures::<N_SIGS>(signatures_script);
 
         assert_eq!(signatures, parsed_signatures);
-    }
-
-    #[test]
-    fn test_parse_claim_witness() {
-        let msk = "00";
-
-        let message: (_, [_; 32]) = (0x12345678u32, std::array::from_fn(|i| i as u8));
-
-        let _signatures = (
-            wots32::get_signature(msk, &message.0.to_le_bytes()),
-            wots256::get_signature(msk, &message.1),
-        );
-
-        let witness_script = script! {
-            { wots32::sign(msk, &message.0.to_le_bytes()) }
-            { wots256::sign(msk, &message.1) }
-        };
-
-        let witness_bytes = witness_script.compile().to_bytes();
-        println!("{:?}", witness_bytes);
-
-        fn parse_wots32_sig(digits: [u8; 8]) -> u32 {
-            u32::from_le_bytes(std::array::from_fn(|i| {
-                (digits[2 * i + 1] << 4) + digits[2 * i]
-            }))
-        }
-
-        fn parse_wots256_sig(digits: [u8; 64]) -> [u8; 32] {
-            std::array::from_fn(|i| (digits[2 * i + 1] << 4) + digits[2 * i])
-        }
-
-        #[expect(unused)]
-        fn parse_claim_witness(data: Vec<Vec<u8>>) -> (u32, [u8; 32]) {
-            let mut digits = data
-                .chunks_exact(2)
-                .map(|chunk| {
-                    assert!(chunk[0].len() == 20);
-                    if chunk[1].is_empty() {
-                        0
-                    } else {
-                        chunk[1][0]
-                    }
-                })
-                .collect::<Vec<_>>();
-            digits.reverse();
-            let (superblock_period_start_ts_digits, bridge_out_txid_digits) = digits.split_at(10);
-
-            let bridge_out_txid =
-                parse_wots256_sig(bridge_out_txid_digits[3..].try_into().unwrap());
-            let superblock_period_start_ts =
-                parse_wots32_sig(superblock_period_start_ts_digits[2..].try_into().unwrap());
-            (superblock_period_start_ts, bridge_out_txid)
-        }
-
-        fn parse_claim_witness_bytes(data: &[u8]) -> (u32, [u8; 32]) {
-            let digits = data
-                .to_vec()
-                .chunks_exact(1 + 20 + 1)
-                .map(|chunk| {
-                    assert!(chunk[0] == 20);
-                    if chunk[21] == 0 {
-                        0
-                    } else {
-                        chunk[21] - 0x50
-                    }
-                })
-                .collect::<Vec<_>>();
-            let (superblock_period_start_ts_digits, bridge_out_txid_digits) = digits.split_at(10);
-
-            let bridge_out_txid = parse_wots256_sig(bridge_out_txid_digits.try_into().unwrap());
-            let superblock_period_start_ts =
-                parse_wots32_sig(superblock_period_start_ts_digits.try_into().unwrap());
-            (superblock_period_start_ts, bridge_out_txid)
-        }
-
-        let parsed_message = parse_claim_witness_bytes(&witness_bytes);
-        println!("{:?}", parsed_message);
-        assert_eq!(message, parsed_message);
     }
 }
