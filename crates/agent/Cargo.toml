@@ -14,9 +14,9 @@ rust.unused_must_use = "deny"
 strata-bridge-btcio.workspace = true
 strata-bridge-db.workspace = true
 strata-bridge-primitives.workspace = true
-strata-bridge-tx-graph.workspace = true
 strata-bridge-proof-protocol.workspace = true
 strata-bridge-proof-snark = { workspace = true, features = ["prover"] }
+strata-bridge-tx-graph.workspace = true
 strata-rpc = { workspace = true, features = ["client"] }
 
 strata-bridge-tx-builder.workspace = true
