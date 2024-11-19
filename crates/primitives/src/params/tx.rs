@@ -26,7 +26,7 @@ pub const ASSERT_DATA_FEE_RATE: FeeRate =
 
 pub const BTC_CONFIRM_PERIOD: Duration = Duration::from_secs(6);
 
-pub const OPERATOR_STAKE: Amount = Amount::from_int_btc(5);
+pub const OPERATOR_STAKE: Amount = Amount::from_int_btc(3);
 
 /// The fee charged by the operator to process a withdrawal.
 ///
