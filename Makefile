@@ -199,6 +199,7 @@ run:
 		--btc-pass rpcpassword \
 		--btc-genesis-height 300 \
 		--btc-scan-interval 100 \
+		--wallet-prefix bridge \
 		--fault-tolerance 100 \
 		--duty-interval 120000 \
 		--num-threads 4 \
@@ -212,3 +213,26 @@ migrate:
 	rm -f operator.db && \
 	touch operator.db && \
 	sqlx migrate run
+
+
+.PHONY: bridge-in
+bridge-in:
+	cargo r \
+		--bin dev-cli \
+		-- \
+		bridge-in \
+		--strata-address 70997970C51812dc3A010C7d01b50e0d17dc79C8  # from anvil #2
+		--btc-url http://localhost:18443/wallet/default \
+		--btc-user rpcuser \
+		--btc-pass rpcpassword \
+		--recovery-address bcrt1qsddjnk0u256809tepf8hf6fj90j0qfrgm5t7s8 \
+
+.PHONY: bridge-out
+bridge-out:
+	cargo r \
+		--bin dev-cli \
+		-- \
+		bridge-out \
+		--destination-address-pubkey 94b25feb390fbefadd68f7c1eee7e0c475fea0d1fdde59ba66ab6ca819fce47c \ # send to some x-only pubkey
+		--private-key 59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d # from anvil #2
+

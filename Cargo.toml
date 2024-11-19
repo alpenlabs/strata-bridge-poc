@@ -14,12 +14,13 @@ members = [
 
   # binaries listed separately
   "bin/strata-bridge",
+  "bin/dev-cli",
 
   # test utilities
   "crates/test-utils",
 ]
 
-default-members = ["bin/strata-bridge"]
+default-members = ["bin/strata-bridge", "bin/dev-cli"]
 
 resolver = "2"
 
