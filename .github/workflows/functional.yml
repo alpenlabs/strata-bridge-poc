@@ -84,8 +84,11 @@ jobs:
         with:
           cache-on-failure: true
 
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --locked
+
       - name: Build Cargo project
-        run: cargo build --locked
+        run: make migrate && cargo build --locked
 
       - name: Run functional tests (1)
         id: funcTestsRun1

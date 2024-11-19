@@ -30,4 +30,7 @@ jobs:
         with:
           version: "v0.8.1" # sccache version
 
-      - run: cargo hack check --locked
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --locked
+
+      - run: make migrate && cargo hack check --locked

@@ -16,13 +16,19 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@nightly
         with:
           toolchain: nightly-2024-07-27
+
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-      - run: SKIP_GUEST_BUILD=1 cargo clippy --workspace --lib --examples --tests --benches --all-features --all-targets --locked
+
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --locked
+
+      - run: make migrate && SKIP_GUEST_BUILD=1 cargo clippy --workspace --lib --examples --tests --benches --all-features --all-targets --locked
         env:
           RUSTFLAGS: -D warnings
 

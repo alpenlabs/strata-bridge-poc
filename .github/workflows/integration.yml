@@ -30,9 +30,12 @@ jobs:
         with:
           cache-on-failure: true
 
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --locked
+
       - name: Run tests
         run: |
-          cargo nextest run -p integration-tests --locked --profile ci --no-capture
+          make migrate && cargo nextest run -p integration-tests --locked --profile ci --no-capture
       - name: Test Summary
         uses: test-summary/action@v2
         if: always()
