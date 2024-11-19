@@ -28,4 +28,7 @@ jobs:
         # HACK: re-run without denying warnings so that we don't miss any vulnerabilities
       - name: Check for vulnerabilities
         run: cargo audit
-        continue-on-error: true # there is a vulnerability in `sqlx-mysql` due to its dependency on rsa, which we're not using
+        # there is a vulnerability in `sqlx-mysql` due to its dependency on rsa,
+        # which we're not even using but still ends up in the `Cargo.lock` file.
+        # remove this once this `cargo` issue is fixed: https://github.com/rust-lang/cargo/issues/10801.
+        continue-on-error: true
