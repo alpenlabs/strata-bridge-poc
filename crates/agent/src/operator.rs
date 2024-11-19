@@ -1904,7 +1904,7 @@ where
             .get_checkpoint_info(latest_checkpoint_at_payout)
             .await
             .expect("should be able to get checkpoint info")
-            .expect("checkpoit info must exist");
+            .expect("checkpoint info must exist");
 
         let l1_range = checkpoint_info.l1_range;
         let l2_range = checkpoint_info.l2_range;
