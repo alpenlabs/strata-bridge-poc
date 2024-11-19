@@ -15,19 +15,27 @@ use crate::constants::{
     version = crate_version!()
 )]
 pub(crate) struct Cli {
-    #[clap(long, help = "ws URL of the rollup RPC server")]
+    #[clap(
+        long,
+        help = "ws URL of the rollup RPC server",
+        default_value = "ws://localhost:8432"
+    )]
     pub strata_url: String,
 
     #[clap(long, help = "Request timeout for websocket connection to strata (in milliseconds)", default_value = "300000", value_parser = parse_duration)]
     pub strata_ws_timeout: Duration,
 
-    #[clap(long, help = "URL of the bitcoind node")]
+    #[clap(
+        long,
+        help = "URL of the bitcoind node",
+        default_value = "http://localhost:18433"
+    )]
     pub btc_url: String,
 
-    #[clap(long, help = "Bitcoind username")]
+    #[clap(long, help = "Bitcoind username", env = "BTC_USER")]
     pub btc_user: String,
 
-    #[clap(long, help = "Bitcoind password")]
+    #[clap(long, help = "Bitcoind password", env = "BTC_PASSWORD")]
     pub btc_pass: String,
 
     #[clap(
@@ -85,6 +93,13 @@ pub(crate) struct Cli {
 
     #[clap(long, help = "The directory for databases", default_value = ".data")]
     pub data_dir: PathBuf,
+
+    #[clap(
+        long,
+        help = "The wallet name prefix for operators",
+        env = "WALLET_PREFIX"
+    )]
+    pub wallet_prefix: String,
 }
 
 fn parse_duration(arg: &str) -> Result<Duration, std::num::ParseIntError> {

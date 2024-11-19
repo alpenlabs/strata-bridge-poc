@@ -217,7 +217,13 @@ pub async fn generate_operator_set(
     for ((operator_idx, keypair), msk) in operator_indexes_and_keypairs.into_iter().zip(msks) {
         let agent = Agent::new(
             keypair,
-            format!("{}/wallet/bridge_{operator_idx}", &args.btc_url).as_str(),
+            format!(
+                "{}/wallet/{}_{}",
+                &args.btc_url,
+                &args.wallet_prefix,
+                operator_idx + 1,
+            )
+            .as_str(),
             &args.btc_user,
             &args.btc_pass,
             &args.strata_url,

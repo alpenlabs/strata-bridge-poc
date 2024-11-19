@@ -31,10 +31,10 @@ strata-bridge-btcio = { path = "crates/btcio" }
 strata-bridge-db = { path = "crates/db" }
 strata-bridge-guest-builder = { path = "bridge-guest-builder" }
 strata-bridge-primitives = { path = "crates/primitives" }
-strata-bridge-rpc = { path = "crates/rpc/bridge" }
-strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-bridge-proof-protocol = { path = "crates/bridge-proof/protocol" }
 strata-bridge-proof-snark = { path = "crates/bridge-proof/snark" }
+strata-bridge-rpc = { path = "crates/rpc/bridge" }
+strata-bridge-tx-graph = { path = "crates/tx-graph" }
 strata-rpc = { path = "crates/rpc/strata" }
 strata-test-utils = { path = "crates/test-utils" }
 
@@ -79,7 +79,7 @@ bitvm = { git = "https://github.com/alpenlabs/BitVM.git", branch = "bridge-poc" 
 borsh = { version = "1.5.0", features = ["derive"] }
 bytes = "1.6.0"
 chrono = "0.4.38"
-clap = { version = "4.5.20", features = ["cargo", "derive"] }
+clap = { version = "4.5.20", features = ["cargo", "derive", "env"] }
 digest = "0.10"
 dotenvy = "0.15.7"
 esplora-client = { git = "https://github.com/BitVM/rust-esplora-client", default-features = false, features = [
