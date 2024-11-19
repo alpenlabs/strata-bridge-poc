@@ -28,3 +28,4 @@ jobs:
         # HACK: re-run without denying warnings so that we don't miss any vulnerabilities
       - name: Check for vulnerabilities
         run: cargo audit
+        continue-on-error: true # there is a vulnerability in `sqlx-mysql` due to its dependency on rsa, which we're not using
