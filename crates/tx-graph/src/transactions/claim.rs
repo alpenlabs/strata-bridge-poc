@@ -1,15 +1,17 @@
-use bitcoin::{Amount, OutPoint, Psbt, Transaction, Txid};
-
-use crate::{
-    connectors::prelude::*,
-    constants::{MIN_RELAY_FEE, OPERATOR_STAKE},
-    db::Database,
-    scripts::general::{create_tx, create_tx_ins, create_tx_outs},
+use bitcoin::{Amount, OutPoint, Psbt, Transaction, TxOut, Txid};
+use strata_bridge_db::public::PublicDb;
+use strata_bridge_primitives::{
+    params::prelude::{MIN_RELAY_FEE, OPERATOR_STAKE},
+    scripts::prelude::*,
 };
+
+use crate::connectors::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct ClaimData {
     pub kickoff_txid: Txid,
+
+    pub deposit_txid: Txid,
 }
 
 #[derive(Debug, Clone)]
@@ -20,7 +22,12 @@ pub struct ClaimTx {
 }
 
 impl ClaimTx {
-    pub fn new(data: ClaimData, connector_c0: ConnectorC0, connector_c1: ConnectorC1) -> Self {
+    pub async fn new<Db: PublicDb + Clone>(
+        data: ClaimData,
+        connector_k: ConnectorK<Db>,
+        connector_c0: ConnectorC0,
+        connector_c1: ConnectorC1,
+    ) -> Self {
         let tx_ins = create_tx_ins([OutPoint {
             txid: data.kickoff_txid,
             vout: 0,
@@ -40,7 +47,15 @@ impl ClaimTx {
 
         let tx = create_tx(tx_ins, tx_outs);
 
-        let psbt = Psbt::from_unsigned_tx(tx).expect("tx should have an empty witness");
+        let mut psbt = Psbt::from_unsigned_tx(tx).expect("tx should have an empty witness");
+
+        psbt.inputs[0].witness_utxo = Some(TxOut {
+            value: OPERATOR_STAKE,
+            script_pubkey: connector_k
+                .create_taproot_address(data.deposit_txid)
+                .await
+                .script_pubkey(),
+        });
 
         Self {
             psbt,
@@ -64,18 +79,24 @@ impl ClaimTx {
         self.psbt.unsigned_tx.compute_txid()
     }
 
-    pub fn finalize<Db: Database>(
+    pub async fn finalize<Db: PublicDb>(
         mut self,
-        connector_k: ConnectorK<Db>,
+        deposit_txid: Txid,
+        connector_k: &ConnectorK<Db>,
         msk: &str,
         bridge_out_txid: Txid,
         superblock_period_start_ts: u32,
     ) -> Transaction {
+        let (script, control_block) = connector_k.generate_spend_info(deposit_txid).await;
+
         connector_k.create_tx_input(
             &mut self.psbt.inputs[0],
             msk,
             bridge_out_txid,
             superblock_period_start_ts,
+            deposit_txid,
+            script,
+            control_block,
         );
 
         self.psbt

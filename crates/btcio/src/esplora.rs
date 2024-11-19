@@ -184,6 +184,14 @@ impl Reader for EsploraClient {
         unimplemented!()
     }
 
+    async fn get_raw_transaction(
+        &self,
+        _txid: &Txid,
+        _block_hash: Option<&BlockHash>,
+    ) -> ClientResult<Transaction> {
+        unimplemented!()
+    }
+
     async fn network(&self) -> ClientResult<Network> {
         Ok(self.network)
     }

@@ -260,3 +260,28 @@ proving_keys/
 provers/test-util/el/el_proofs/
 provers/test-util/cl/cl_proofs/
 provers/sp1/proofs/
+
+# secrets
+.secrets/
+
+# log files
+*.log*
+
+# verifier scripts
+*.scripts*
+
+# backup files
+*.bak
+
+# database files
+*.db
+
+# data files
+.data/
+
+# binary dumps
+*.bin
+
+# test data
+!blocks.bin
+!proof.bin

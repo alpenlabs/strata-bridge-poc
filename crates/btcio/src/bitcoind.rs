@@ -7,8 +7,10 @@ use std::{
 use async_trait::async_trait;
 use base64::{engine::general_purpose, Engine};
 use bitcoin::{
-    bip32::Xpriv, block::Header, consensus::encode::serialize_hex, Address, Block, BlockHash,
-    Network, Transaction, Txid,
+    bip32::Xpriv,
+    block::Header,
+    consensus::encode::{self, serialize_hex},
+    Address, Block, BlockHash, Network, Transaction, Txid,
 };
 use reqwest::{
     header::{HeaderMap, AUTHORIZATION, CONTENT_TYPE},
@@ -66,7 +68,7 @@ struct Response<R> {
 
 impl BitcoinClient {
     /// Creates a new [`BitcoinClient`] with the given URL, username, and password.
-    pub fn new(url: String, username: String, password: String) -> ClientResult<Self> {
+    pub fn new(url: &str, username: &str, password: &str) -> ClientResult<Self> {
         if username.is_empty() || password.is_empty() {
             return Err(ClientError::MissingUserPassword);
         }
@@ -91,13 +93,17 @@ impl BitcoinClient {
 
         let id = AtomicUsize::new(0);
 
-        trace!(url = %url, "Created bitcoin client");
+        info!(url = %url, "Created bitcoin client");
 
-        Ok(Self { url, client, id })
+        Ok(Self {
+            url: url.to_string(),
+            client,
+            id,
+        })
     }
 
     fn next_id(&self) -> usize {
-        self.id.fetch_add(1, Ordering::AcqRel)
+        self.id.fetch_add(1, Ordering::SeqCst)
     }
 
     async fn call<T: de::DeserializeOwned + fmt::Debug>(
@@ -107,9 +113,9 @@ impl BitcoinClient {
     ) -> ClientResult<T> {
         let mut retries = 0;
         loop {
-            trace!(%method, ?params, %retries, "Calling bitcoin client");
-
+            debug!(%method, %retries, "Fetching new id");
             let id = self.next_id();
+            debug!(%method, ?params, %retries, %id, "Calling bitcoin client");
 
             let response = self
                 .client
@@ -316,6 +322,17 @@ impl Reader for BitcoinClient {
         self.call::<Vec<Txid>>("getrawmempool", &[]).await
     }
 
+    async fn get_raw_transaction(
+        &self,
+        txid: &Txid,
+        block_hash: Option<&BlockHash>,
+    ) -> ClientResult<Transaction> {
+        let args = [to_value(txid)?, to_value(false)?, to_value(block_hash)?];
+        let hex: String = self.call("getrawtransaction", &args).await?;
+
+        Ok(encode::deserialize_hex(&hex).map_err(|e| ClientError::Parse(e.to_string()))?)
+    }
+
     async fn network(&self) -> ClientResult<Network> {
         Ok(self
             .call::<GetBlockchainInfo>("getblockchaininfo", &[])
@@ -332,7 +349,11 @@ impl Broadcaster for BitcoinClient {
         let txstr = serialize_hex(tx);
         trace!(txstr = %txstr, "Sending raw transaction");
         match self
-            .call::<Txid>("sendrawtransaction", &[to_value(txstr)?])
+            .call::<Txid>(
+                "sendrawtransaction",
+                // raw tx hex, maxfeerate, maxburnamount
+                &[to_value(txstr)?, to_value("0.10")?, to_value("0.1")?],
+            )
             .await
         {
             Ok(txid) => {
@@ -520,9 +541,9 @@ mod test {
         logging::init();
 
         let bitcoind = BitcoinD::default();
-        let url = bitcoind.url.to_string();
-        let user = bitcoind.user.to_string();
-        let password = bitcoind.password.to_string();
+        let url = bitcoind.url;
+        let user = bitcoind.user;
+        let password = bitcoind.password;
 
         // setting the ENV variable `BITCOIN_XPRIV_RETRIEVABLE` to retrieve the xpriv
         set_var("BITCOIN_XPRIV_RETRIEVABLE", "true");

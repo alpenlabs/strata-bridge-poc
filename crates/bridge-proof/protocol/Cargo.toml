@@ -1,0 +1,26 @@
+[package]
+edition = "2021"
+name = "strata-bridge-proof-protocol"
+version = "0.1.0"
+
+[dependencies]
+bincode.workspace = true
+bitcoin = { version = "=0.32.3", features = ["serde"] }
+borsh.workspace = true
+hex.workspace = true
+serde = { workspace = true, features = ["derive"] }
+sp1-verifier = { git = "https://github.com/succinctlabs/sp1", rev = "2c7868364cb832531e8cafd258aa06fbab079459" } # Note: On new SP1 version, this will be available via SDK
+strata-primitives.workspace = true
+strata-proofimpl-btc-blockspace = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
+strata-state.workspace = true
+strata-tx-parser = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
+strata-zkvm.workspace = true
+
+[dev-dependencies]
+bincode.workspace = true
+tokio.workspace = true
+tower = { version = "0.4.13", features = ["util"] }
+strata-btcio = { git = "https://github.com/alpenlabs/strata.git", branch = "bitvm2" }
+prover-test-utils.workspace = true
+hex.workspace = true
+serde_json.workspace = true

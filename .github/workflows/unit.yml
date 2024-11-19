@@ -67,9 +67,17 @@ jobs:
       - name: Set RUST_LOG
         run: echo "RUST_LOG=${{ github.event.inputs.RUST_LOG }}" >> $GITHUB_ENV
 
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --locked
+
+      - name: Run db migrations
+        run: make migrate
+
       - name: Run tests with coverage
         run: |
-          cargo llvm-cov --workspace --locked nextest --profile ci --lcov --output-path lcov.info
+          SKIP_GUEST_BUILD=1 cargo llvm-cov --workspace --locked nextest --profile ci --lcov --output-path lcov.info
+        env:
+          DATABASE_URL: sqlite://./operator.db
 
       - name: Test Summary
         uses: test-summary/action@v2

@@ -30,9 +30,18 @@ jobs:
         with:
           cache-on-failure: true
 
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --locked
+
+      - name: Run db migrations
+        run: make migrate
+
       - name: Run tests
         run: |
           cargo nextest run -p integration-tests --locked --profile ci --no-capture
+        env:
+          DATABASE_URL: sqlite://./operator.db
+
       - name: Test Summary
         uses: test-summary/action@v2
         if: always()

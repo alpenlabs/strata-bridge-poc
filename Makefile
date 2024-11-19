@@ -2,6 +2,7 @@
 .DEFAULT_GOAL := help
 
 GIT_TAG ?= $(shell git describe --tags --abbrev=0)
+TIMESTAMP ?= $(shell date +%s)
 
 BUILD_PATH = "target"
 
@@ -9,7 +10,7 @@ DOCKER_DIR = docker
 DOCKER_DATADIR = data
 
 # Cargo profile for builds. Default is for local builds, CI uses an override.
-PROFILE ?= release
+PROFILE ?= dev
 
 # Extra flags for Cargo
 CARGO_INSTALL_EXTRA_FLAGS ?=
@@ -183,3 +184,31 @@ pr: lint sec rustdocs test-doc test-unit test-functional ## Runs lints (without 
 	@test -z "$$(git status --porcelain)" || echo "WARNNG: You have uncommitted changes"
 	@echo "All good to create a PR!"
 
+
+.PHONY: run
+run:
+	RUST_LOG=info,sp1_start=info,sqlx=info,soketto=error,strata_bridge_db=warn,strata_bridge_tx_graph=warn,strata_bridge_btcio=info,strata_bridge_agent=info,hyper_util=error,jsonrpsee=error \
+		cargo r \
+		--bin strata-bridge \
+		--profile "$(PROFILE)" \
+		-- \
+		--rpc-port 4782 \
+		--strata-url ws://localhost:8432 \
+		--btc-url http://localhost:18443 \
+		--btc-user rpcuser \
+		--btc-pass rpcpassword \
+		--btc-genesis-height 300 \
+		--btc-scan-interval 100 \
+		--fault-tolerance 100 \
+		--duty-interval 120000 \
+		--num-threads 4 \
+		--stack-size 512 \
+		--xpriv-file .secrets/xprivs.bin \
+		--msks-file .secrets/msks.bin 2>&1 | tee run.log.$(TIMESTAMP)
+
+.PHONY: migrate
+migrate:
+	export DATABASE_URL="sqlite://./operator.db" && \
+	rm -f operator.db && \
+	touch operator.db && \
+	sqlx migrate run

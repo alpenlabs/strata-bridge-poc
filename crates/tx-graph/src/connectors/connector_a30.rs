@@ -1,19 +1,22 @@
+use std::sync::Arc;
+
 use bitcoin::{
     psbt::Input,
-    taproot::{ControlBlock, LeafVersion, TaprootSpendInfo},
-    Address, Network, ScriptBuf, Txid, XOnlyPublicKey,
+    taproot::{ControlBlock, LeafVersion, Signature, TaprootSpendInfo},
+    Address, Network, ScriptBuf, TapSighashType, Txid, XOnlyPublicKey,
 };
+use strata_bridge_db::public::PublicDb;
+use strata_bridge_primitives::{scripts::prelude::*, types::OperatorIdx};
 
 use super::params::PAYOUT_TIMELOCK;
-use crate::{db::Database, scripts::prelude::*};
 
-#[derive(Debug, Clone, Copy)]
-pub struct ConnectorA30<Db: Database> {
+#[derive(Debug, Clone)]
+pub struct ConnectorA30<Db: PublicDb> {
     n_of_n_agg_pubkey: XOnlyPublicKey,
 
     network: Network,
 
-    db: Db,
+    db: Arc<Db>,
 }
 
 #[derive(Debug, Clone)]
@@ -22,8 +25,8 @@ pub enum ConnectorA30Leaf {
     Disprove,
 }
 
-impl<Db: Database + Clone> ConnectorA30<Db> {
-    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Db) -> Self {
+impl<Db: PublicDb> ConnectorA30<Db> {
+    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Arc<Db>) -> Self {
         Self {
             n_of_n_agg_pubkey,
             network,
@@ -67,14 +70,25 @@ impl<Db: Database + Clone> ConnectorA30<Db> {
             .expect("should be able to create taproot address")
     }
 
-    pub fn finalize_input(&self, input: &mut Input, txid: Txid, tapleaf: ConnectorA30Leaf) {
+    pub async fn finalize_input(
+        &self,
+        input: &mut Input,
+        operator_idx: OperatorIdx,
+        txid: Txid,
+        tapleaf: ConnectorA30Leaf,
+    ) {
         let (script, control_block) = self.generate_spend_info(tapleaf);
-        let n_of_n_sig = self.db.get_signature(txid);
+        let n_of_n_sig = self.db.get_signature(operator_idx, txid, 0).await;
+
+        let signature = Signature {
+            signature: n_of_n_sig,
+            sighash_type: TapSighashType::Single,
+        };
 
         finalize_input(
             input,
             [
-                n_of_n_sig.serialize().to_vec(),
+                signature.serialize().to_vec(),
                 script.to_bytes(),
                 control_block.serialize(),
             ],

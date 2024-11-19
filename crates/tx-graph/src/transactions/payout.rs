@@ -1,8 +1,14 @@
-use bitcoin::{Amount, Network, OutPoint, Psbt, Transaction, Txid};
+use bitcoin::{sighash::Prevouts, Amount, Network, OutPoint, Psbt, Transaction, TxOut, Txid};
 use secp256k1::{schnorr::Signature, XOnlyPublicKey};
 use serde::{Deserialize, Serialize};
+use strata_bridge_db::public::PublicDb;
+use strata_bridge_primitives::{
+    params::{prelude::MIN_RELAY_FEE, tx::BRIDGE_DENOMINATION},
+    scripts::prelude::*,
+};
 
-use crate::{constants::MIN_RELAY_FEE, scripts::prelude::*};
+use super::covenant_tx::CovenantTx;
+use crate::connectors::prelude::{ConnectorA30, ConnectorS};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PayoutData {
@@ -20,10 +26,20 @@ pub struct PayoutData {
 }
 
 #[derive(Debug, Clone)]
-pub struct PayoutTx(Psbt);
+pub struct PayoutTx {
+    psbt: Psbt,
+
+    prevouts: Vec<TxOut>,
+
+    witnesses: Vec<TaprootWitness>,
+}
 
 impl PayoutTx {
-    pub fn new(data: PayoutData) -> Self {
+    pub fn new<Db: PublicDb>(
+        data: PayoutData,
+        connector_a30: ConnectorA30<Db>,
+        connector_b: ConnectorS,
+    ) -> Self {
         let utxos = [
             OutPoint {
                 txid: data.deposit_txid,
@@ -51,26 +67,61 @@ impl PayoutTx {
 
         let tx = create_tx(tx_ins, tx_outs);
 
-        let psbt = Psbt::from_unsigned_tx(tx).expect("the witness must be empty");
+        let mut psbt = Psbt::from_unsigned_tx(tx).expect("the witness must be empty");
 
-        Self(psbt)
-    }
+        let prevouts = vec![
+            TxOut {
+                value: BRIDGE_DENOMINATION,
+                script_pubkey: connector_b.create_taproot_address().script_pubkey(),
+            },
+            TxOut {
+                value: data.input_stake,
+                script_pubkey: connector_a30.generate_locking_script(),
+            },
+        ];
 
-    pub fn psbt(&self) -> &Psbt {
-        &self.0
-    }
+        for (input, utxo) in psbt.inputs.iter_mut().zip(prevouts.clone()) {
+            input.witness_utxo = Some(utxo);
+        }
 
-    pub fn psbt_mut(&mut self) -> &mut Psbt {
-        &mut self.0
-    }
+        let witnesses = vec![TaprootWitness::Key; 2];
 
-    pub fn compute_txid(&self) -> Txid {
-        self.0.unsigned_tx.compute_txid()
+        Self {
+            psbt,
+
+            prevouts,
+            witnesses,
+        }
     }
 
     pub fn finalize(mut self, n_of_n_signature: Signature) -> Transaction {
-        finalize_input(&mut self.0.inputs[0], [n_of_n_signature.serialize()]);
+        finalize_input(&mut self.psbt.inputs[0], [n_of_n_signature.serialize()]);
+        finalize_input(&mut self.psbt.inputs[1], [n_of_n_signature.serialize()]);
 
-        self.0.extract_tx().expect("should be able to extract tx")
+        self.psbt
+            .extract_tx()
+            .expect("should be able to extract tx")
+    }
+}
+
+impl CovenantTx for PayoutTx {
+    fn psbt(&self) -> &Psbt {
+        &self.psbt
+    }
+
+    fn psbt_mut(&mut self) -> &mut Psbt {
+        &mut self.psbt
+    }
+
+    fn prevouts(&self) -> Prevouts<'_, TxOut> {
+        Prevouts::All(&self.prevouts)
+    }
+
+    fn witnesses(&self) -> &[TaprootWitness] {
+        &self.witnesses
+    }
+
+    fn compute_txid(&self) -> Txid {
+        self.psbt.unsigned_tx.compute_txid()
     }
 }

@@ -4,9 +4,9 @@ use bitcoin::{
     Address, Network, ScriptBuf, XOnlyPublicKey,
 };
 use secp256k1::schnorr::Signature;
+use strata_bridge_primitives::scripts::prelude::*;
 
 use super::params::{PAYOUT_OPTIMISTIC_TIMELOCK, SUPERBLOCK_MEASUREMENT_PERIOD};
-use crate::scripts::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectorC0 {
@@ -34,7 +34,8 @@ impl ConnectorC0 {
             ConnectorC0Leaf::PayoutOptimistic => {
                 n_of_n_with_timelock(&self.n_of_n_agg_pubkey, PAYOUT_OPTIMISTIC_TIMELOCK)
             }
-            ConnectorC0Leaf::Assert => unimplemented!("add script for using T_s bitcommitment"),
+            ConnectorC0Leaf::Assert => n_of_n_script(&self.n_of_n_agg_pubkey), /* FIXME: use */
+            // timelock
             ConnectorC0Leaf::InvalidateTs => {
                 n_of_n_with_timelock(&self.n_of_n_agg_pubkey, SUPERBLOCK_MEASUREMENT_PERIOD)
             }

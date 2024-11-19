@@ -30,4 +30,12 @@ jobs:
         with:
           version: "v0.8.1" # sccache version
 
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --locked
+
+      - name: Run db migrations
+        run: make migrate
+
       - run: cargo hack check --locked
+        env:
+          DATABASE_URL: sqlite://./operator.db

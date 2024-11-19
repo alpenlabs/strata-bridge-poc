@@ -2,10 +2,16 @@
 #![allow(incomplete_features)] // the feature below is used in size computations
 #![feature(generic_const_exprs)]
 
-pub mod commitments;
+use bitcoin::{hashes::Hash, Txid};
+
 pub mod connectors;
-pub mod constants;
 pub mod db;
+pub mod partial_verification_scripts;
 pub mod peg_out_graph;
-pub mod scripts;
 pub mod transactions;
+
+pub fn mock_txid() -> Txid {
+    // Create a mock Txid by hashing an arbitrary string or using a fixed byte array.
+    // Here, we hash a fixed string to get a deterministic Txid for testing purposes.
+    Txid::from_slice(&[0u8; 32]).expect("Failed to create Txid from bytes")
+}

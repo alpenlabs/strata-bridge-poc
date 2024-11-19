@@ -1,7 +1,6 @@
 use bitcoin::{psbt::Input, Address, Network};
 use secp256k1::{schnorr::Signature, XOnlyPublicKey};
-
-use crate::scripts::prelude::*;
+use strata_bridge_primitives::scripts::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct ConnectorS {

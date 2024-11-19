@@ -1,4 +1,7 @@
+use std::sync::Arc;
+
 use bitcoin::{
+    hashes::Hash,
     psbt::Input,
     taproot::{ControlBlock, LeafVersion},
     Address, Network, ScriptBuf, Txid,
@@ -8,51 +11,66 @@ use bitvm::{
     treepp::*,
 };
 use secp256k1::XOnlyPublicKey;
-
-use crate::{
-    commitments::{secret_key_for_bridge_out_txid, secret_key_for_superblock_period_start_ts},
-    db::Database,
-    scripts::prelude::*,
+use strata_bridge_db::public::PublicDb;
+use strata_bridge_primitives::{
+    scripts::{prelude::*, wots},
+    types::OperatorIdx,
 };
+use tracing::trace;
 
 #[derive(Debug, Clone)]
-pub struct ConnectorK<Db: Database> {
+pub struct ConnectorK<Db: PublicDb> {
     pub n_of_n_agg_pubkey: XOnlyPublicKey,
 
     pub network: Network,
 
-    pub db: Db,
+    pub operator_idx: OperatorIdx,
+
+    pub db: Arc<Db>,
 }
 
-impl<Db: Database> ConnectorK<Db> {
-    pub fn new(n_of_n_agg_pubkey: XOnlyPublicKey, network: Network, db: Db) -> Self {
+impl<Db: PublicDb> ConnectorK<Db> {
+    pub fn new(
+        n_of_n_agg_pubkey: XOnlyPublicKey,
+        network: Network,
+        operator_idx: OperatorIdx,
+        db: Arc<Db>,
+    ) -> Self {
         Self {
             n_of_n_agg_pubkey,
+            operator_idx,
             network,
             db,
         }
     }
 
-    fn create_locking_script(&self) -> ScriptBuf {
-        let superblock_period_start_ts_public_key =
-            self.db.get_superblock_period_start_ts_public_key();
-        let bridge_out_txid_public_key = self.db.get_bridge_out_txid_public_key();
+    async fn create_locking_script(&self, deposit_txid: Txid) -> ScriptBuf {
+        let wots::PublicKeys {
+            bridge_out_txid: bridge_out_txid_public_key,
+            superblock_hash: _,
+            superblock_period_start_ts: superblock_period_start_ts_public_key,
+            groth16: _,
+        } = self
+            .db
+            .get_wots_public_keys(self.operator_idx, deposit_txid)
+            .await;
 
         script! {
             // superblock_period_start_timestamp
-            { wots32::checksig_verify(superblock_period_start_ts_public_key) }
-            for _ in 0..4 { OP_2DROP } // drop ts nibbles
+            { wots32::checksig_verify(superblock_period_start_ts_public_key.0, true) }
+            // ts_from_nibbles OP_CLTV OP_DROP // check absolute locktime
+
 
             // bridge_out_tx_id
-            { wots256::checksig_verify(bridge_out_txid_public_key) }
-            OP_DUP OP_NOT OP_VERIFY // assert the most significant nibble is zero
-            for _ in 0..32 { OP_2DROP }
+            { wots256::checksig_verify(bridge_out_txid_public_key.0, true) }
+
+            OP_TRUE
         }
         .compile()
     }
 
-    pub fn create_taproot_address(&self) -> Address {
-        let scripts = &[self.create_locking_script()];
+    pub async fn create_taproot_address(&self, deposit_txid: Txid) -> Address {
+        let scripts = &[self.create_locking_script(deposit_txid).await];
 
         let (taproot_address, _) =
             create_taproot_addr(&self.network, SpendPath::ScriptSpend { scripts })
@@ -61,8 +79,8 @@ impl<Db: Database> ConnectorK<Db> {
         taproot_address
     }
 
-    pub fn generate_spend_info(&self) -> (ScriptBuf, ControlBlock) {
-        let script = self.create_locking_script();
+    pub async fn generate_spend_info(&self, deposit_txid: Txid) -> (ScriptBuf, ControlBlock) {
+        let script = self.create_locking_script(deposit_txid).await;
 
         let (_, spend_info) = create_taproot_addr(
             &self.network,
@@ -79,31 +97,40 @@ impl<Db: Database> ConnectorK<Db> {
         (script, control_block)
     }
 
+    // NOTE: this fn cannot be made async because `bitvm::ExecuteInfo` is neither `Sync` nor `Send`.
+    #[expect(clippy::too_many_arguments)]
     pub fn create_tx_input(
         &self,
         input: &mut Input,
         msk: &str,
         bridge_out_txid: Txid, // starts with 0x0..
         superblock_period_start_ts: u32,
+        deposit_txid: Txid,
+        script: ScriptBuf,
+        control_block: ControlBlock,
     ) {
-        // 1. Create an array of witness data (`[Vec<u8>]`) `n_of_n_sig` and bitcommitments.
-        // 2. Call taproot::finalize_input() to create the signed psbt input.
-        // unimplemented!("call the bitvm impl to generate witness data for bitcommitments");
+        let deposit_msk = get_deposit_master_secret_key(msk, deposit_txid);
+
         let witness = script! {
-            { wots256::sign(&secret_key_for_bridge_out_txid(msk), bridge_out_txid.as_ref()) }
+            { wots256::sign(&secret_key_for_bridge_out_txid(&deposit_msk), &bridge_out_txid.to_byte_array()) }
 
-            { wots32::sign(&secret_key_for_superblock_period_start_ts(msk), &superblock_period_start_ts.to_le_bytes()) }
-        }.compile();
+            { wots32::sign(&secret_key_for_superblock_period_start_ts(&deposit_msk), &superblock_period_start_ts.to_le_bytes()) }
+        };
 
-        let (script, control_block) = self.generate_spend_info();
+        let result = execute_script(witness.clone());
+        let mut witness_stack = (0..result.final_stack.len())
+            .map(|index| result.final_stack.get(index))
+            .collect::<Vec<_>>();
 
-        finalize_input(
-            input,
-            [
-                witness.to_bytes(),
-                script.to_bytes(),
-                control_block.serialize(),
-            ],
-        );
+        trace!(event = "created witness sig", ?witness_stack);
+
+        trace!(kind = "kickoff-claim connector witness", ?witness);
+
+        trace!(kind = "kickoff-claim connector script", ?script);
+
+        witness_stack.push(script.to_bytes());
+        witness_stack.push(control_block.serialize());
+
+        finalize_input(input, witness_stack);
     }
 }

@@ -84,8 +84,16 @@ jobs:
         with:
           cache-on-failure: true
 
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --locked
+
+      - name: Run db migrations
+        run: make migrate
+
       - name: Build Cargo project
         run: cargo build --locked
+        env:
+          DATABASE_URL: sqlite://./operator.db
 
       - name: Run functional tests (1)
         id: funcTestsRun1
