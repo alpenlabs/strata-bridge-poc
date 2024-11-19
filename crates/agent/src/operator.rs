@@ -13,6 +13,7 @@ use bitvm::groth16::g16;
 use musig2::{
     aggregate_partial_signatures, sign_partial, AggNonce, KeyAggContext, PartialSignature, PubNonce,
 };
+use rand::Rng;
 use secp256k1::{schnorr::Signature, XOnlyPublicKey};
 use strata_bridge_btcio::traits::{Broadcaster, Reader, Signer};
 use strata_bridge_db::{
@@ -1542,9 +1543,12 @@ where
                     .await;
                 if self.am_i_faulty() {
                     warn!(action = "making a faulty assertion");
-                    for i in 0..assertions.groth16.1.len() {
-                        if assertions.groth16.1[i] != [0u8; 32] {
-                            assertions.groth16.1[i] = [0u8; 32];
+                    for _ in 0..assertions.groth16.2.len() {
+                        let proof_index_to_tweak =
+                            rand::thread_rng().gen_range(0..assertions.groth16.2.len());
+                        warn!(action = "introducing faulty assertion", index=%proof_index_to_tweak);
+                        if assertions.groth16.2[proof_index_to_tweak] != [0u8; 20] {
+                            assertions.groth16.2[proof_index_to_tweak] = [0u8; 20];
                             break;
                         }
                     }
