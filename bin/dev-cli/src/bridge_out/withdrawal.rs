@@ -4,7 +4,7 @@ use alloy::{
     providers::{Provider, ProviderBuilder},
     rpc::types::{TransactionInput, TransactionRequest},
 };
-use eyre::Result;
+use anyhow::Result;
 use tracing::info;
 
 pub(crate) async fn create_withdrawal_transaction(

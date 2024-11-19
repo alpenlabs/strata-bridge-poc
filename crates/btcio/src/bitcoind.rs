@@ -510,15 +510,15 @@ mod test {
     use std::env::set_var;
 
     use bitcoin::{consensus, hashes::Hash, NetworkKind};
+    use strata_bridge_test_utils::bitcoind::BitcoinD;
     use strata_common::logging;
-    use strata_test_utils::bitcoind::BitcoinD;
     use tracing::trace;
 
     use super::*;
 
     /// Mine a number of blocks of a given size `count`, which may be specified to a given coinbase
     /// `address`.
-    pub async fn mine_blocks(
+    async fn mine_blocks(
         client: &BitcoinClient,
         count: u16,
         address: Option<Address>,

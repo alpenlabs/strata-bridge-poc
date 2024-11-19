@@ -50,7 +50,7 @@ pub(crate) struct BridgeRpc {
 }
 
 impl BridgeRpc {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             start_time: Utc::now(),
         }

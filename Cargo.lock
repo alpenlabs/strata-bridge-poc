@@ -189,7 +189,7 @@ dependencies = [
  "alloy-transport 0.2.1",
  "futures",
  "futures-util",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -210,7 +210,7 @@ dependencies = [
  "alloy-transport 0.6.4",
  "futures",
  "futures-util",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -387,7 +387,7 @@ dependencies = [
  "alloy-sol-types 0.7.7",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -401,7 +401,7 @@ dependencies = [
  "alloy-sol-types 0.8.12",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -423,7 +423,7 @@ dependencies = [
  "async-trait",
  "auto_impl",
  "futures-utils-wasm",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -446,7 +446,7 @@ dependencies = [
  "futures-utils-wasm",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -485,7 +485,7 @@ dependencies = [
  "rand",
  "serde_json",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "url",
 ]
@@ -614,7 +614,7 @@ dependencies = [
  "schnellru",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "url",
@@ -678,7 +678,7 @@ checksum = "2b09cae092c27b6f1bde952653a22708691802e57bfef4a2973b80bea21efd3f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -784,7 +784,7 @@ dependencies = [
  "jsonwebtoken 9.3.0",
  "rand",
  "serde",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -819,7 +819,7 @@ dependencies = [
  "itertools 0.13.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -874,7 +874,7 @@ dependencies = [
  "auto_impl",
  "elliptic-curve 0.13.8",
  "k256",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -888,7 +888,7 @@ dependencies = [
  "auto_impl",
  "elliptic-curve 0.13.8",
  "k256",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -904,7 +904,7 @@ dependencies = [
  "async-trait",
  "k256",
  "rand",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -920,7 +920,7 @@ dependencies = [
  "async-trait",
  "k256",
  "rand",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -934,7 +934,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -948,7 +948,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -965,7 +965,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
  "syn-solidity 0.7.7",
  "tiny-keccak",
 ]
@@ -984,7 +984,7 @@ dependencies = [
  "proc-macro-error2",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
  "syn-solidity 0.8.12",
  "tiny-keccak",
 ]
@@ -1002,7 +1002,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde_json",
- "syn 2.0.85",
+ "syn 2.0.87",
  "syn-solidity 0.7.7",
 ]
 
@@ -1019,7 +1019,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde_json",
- "syn 2.0.85",
+ "syn 2.0.87",
  "syn-solidity 0.8.12",
 ]
 
@@ -1081,7 +1081,7 @@ dependencies = [
  "futures-utils-wasm",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tower 0.4.13",
  "tracing",
@@ -1100,7 +1100,7 @@ dependencies = [
  "futures-utils-wasm",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tower 0.5.1",
  "tracing",
@@ -1327,41 +1327,9 @@ name = "ark-bn254"
 version = "0.4.0"
 source = "git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop#ac23fde284ca4d7ede298018f7866ce8ce64467f"
 dependencies = [
- "ark-ec 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
+ "ark-ec",
+ "ark-ff 0.4.2",
  "ark-std 0.4.0",
-]
-
-[[package]]
-name = "ark-bn254"
-version = "0.4.0"
-source = "git+https://github.com/Antalpha-Labs/algebra/#55d2a52390156ba1f5d07d551d0a24adef9a5866"
-dependencies = [
- "ark-ec 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-std 0.4.0",
-]
-
-[[package]]
-name = "ark-crypto-primitives"
-version = "0.4.0"
-source = "git+https://github.com/Antalpha-Labs/crypto-primitives/#331644f862e3011da86bc176275ca0a20d7cd99a"
-dependencies = [
- "ahash",
- "ark-crypto-primitives-macros 0.4.0 (git+https://github.com/Antalpha-Labs/crypto-primitives/)",
- "ark-ec 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-ff 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-poly 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-relations 0.4.0 (git+https://github.com/Antalpha-Labs/snark/)",
- "ark-serialize 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-snark 0.4.0 (git+https://github.com/Antalpha-Labs/snark/)",
- "ark-std 0.4.0",
- "blake2",
- "derivative",
- "digest 0.10.7",
- "fnv",
- "rayon",
- "sha2",
 ]
 
 [[package]]
@@ -1370,12 +1338,12 @@ version = "0.4.0"
 source = "git+https://github.com/arkworks-rs/crypto-primitives/#b13983815e5b3a0fbeed0e7da0edec751beac270"
 dependencies = [
  "ahash",
- "ark-crypto-primitives-macros 0.4.0 (git+https://github.com/arkworks-rs/crypto-primitives/)",
- "ark-ec 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-relations 0.4.0 (git+https://github.com/arkworks-rs/snark/)",
- "ark-serialize 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-snark 0.4.0 (git+https://github.com/arkworks-rs/snark/)",
+ "ark-crypto-primitives-macros",
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-relations",
+ "ark-serialize 0.4.2",
+ "ark-snark",
  "ark-std 0.4.0",
  "blake2",
  "derivative",
@@ -1389,21 +1357,11 @@ dependencies = [
 [[package]]
 name = "ark-crypto-primitives-macros"
 version = "0.4.0"
-source = "git+https://github.com/Antalpha-Labs/crypto-primitives/#331644f862e3011da86bc176275ca0a20d7cd99a"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.85",
-]
-
-[[package]]
-name = "ark-crypto-primitives-macros"
-version = "0.4.0"
 source = "git+https://github.com/arkworks-rs/crypto-primitives/#b13983815e5b3a0fbeed0e7da0edec751beac270"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -1412,34 +1370,13 @@ version = "0.4.2"
 source = "git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop#ac23fde284ca4d7ede298018f7866ce8ce64467f"
 dependencies = [
  "ahash",
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-poly 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-serialize 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
+ "ark-ff 0.4.2",
+ "ark-poly",
+ "ark-serialize 0.4.2",
  "ark-std 0.4.0",
  "educe",
  "fnv",
  "hashbrown 0.15.0",
- "itertools 0.13.0",
- "num-bigint 0.4.6",
- "num-integer",
- "num-traits",
- "rayon",
- "zeroize",
-]
-
-[[package]]
-name = "ark-ec"
-version = "0.4.2"
-source = "git+https://github.com/Antalpha-Labs/algebra/#55d2a52390156ba1f5d07d551d0a24adef9a5866"
-dependencies = [
- "ahash",
- "ark-ff 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-poly 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-serialize 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-std 0.4.0",
- "educe",
- "fnv",
- "hashbrown 0.14.5",
  "itertools 0.13.0",
  "num-bigint 0.4.6",
  "num-integer",
@@ -1471,29 +1408,9 @@ name = "ark-ff"
 version = "0.4.2"
 source = "git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop#ac23fde284ca4d7ede298018f7866ce8ce64467f"
 dependencies = [
- "ark-ff-asm 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-ff-macros 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-serialize 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-std 0.4.0",
- "arrayvec",
- "digest 0.10.7",
- "educe",
- "itertools 0.13.0",
- "num-bigint 0.4.6",
- "num-traits",
- "paste",
- "rayon",
- "zeroize",
-]
-
-[[package]]
-name = "ark-ff"
-version = "0.4.2"
-source = "git+https://github.com/Antalpha-Labs/algebra/#55d2a52390156ba1f5d07d551d0a24adef9a5866"
-dependencies = [
- "ark-ff-asm 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-ff-macros 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-serialize 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
+ "ark-ff-asm 0.4.2",
+ "ark-ff-macros 0.4.2",
+ "ark-serialize 0.4.2",
  "ark-std 0.4.0",
  "arrayvec",
  "digest 0.10.7",
@@ -1522,16 +1439,7 @@ version = "0.4.2"
 source = "git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop#ac23fde284ca4d7ede298018f7866ce8ce64467f"
 dependencies = [
  "quote",
- "syn 2.0.85",
-]
-
-[[package]]
-name = "ark-ff-asm"
-version = "0.4.2"
-source = "git+https://github.com/Antalpha-Labs/algebra/#55d2a52390156ba1f5d07d551d0a24adef9a5866"
-dependencies = [
- "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -1555,34 +1463,7 @@ dependencies = [
  "num-traits",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
-]
-
-[[package]]
-name = "ark-ff-macros"
-version = "0.4.2"
-source = "git+https://github.com/Antalpha-Labs/algebra/#55d2a52390156ba1f5d07d551d0a24adef9a5866"
-dependencies = [
- "num-bigint 0.4.6",
- "num-traits",
- "proc-macro2",
- "quote",
- "syn 2.0.85",
-]
-
-[[package]]
-name = "ark-groth16"
-version = "0.4.0"
-source = "git+https://github.com/Antalpha-Labs/groth16#2007f430c1f42931d7a420e8058e488965c31eb3"
-dependencies = [
- "ark-crypto-primitives 0.4.0 (git+https://github.com/Antalpha-Labs/crypto-primitives/)",
- "ark-ec 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-ff 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-poly 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-relations 0.4.0 (git+https://github.com/Antalpha-Labs/snark/)",
- "ark-serialize 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-std 0.4.0",
- "rayon",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -1590,12 +1471,12 @@ name = "ark-groth16"
 version = "0.4.0"
 source = "git+https://github.com/arkworks-rs/groth16#16ac1dd387fe5dc89b6fc1a1cf87c9fdcfd8493f"
 dependencies = [
- "ark-crypto-primitives 0.4.0 (git+https://github.com/arkworks-rs/crypto-primitives/)",
- "ark-ec 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-poly 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-relations 0.4.0 (git+https://github.com/arkworks-rs/snark/)",
- "ark-serialize 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
+ "ark-crypto-primitives",
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-poly",
+ "ark-relations",
+ "ark-serialize 0.4.2",
  "ark-std 0.4.0",
  "rayon",
 ]
@@ -1606,8 +1487,8 @@ version = "0.4.2"
 source = "git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop#ac23fde284ca4d7ede298018f7866ce8ce64467f"
 dependencies = [
  "ahash",
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-serialize 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
+ "ark-ff 0.4.2",
+ "ark-serialize 0.4.2",
  "ark-std 0.4.0",
  "educe",
  "fnv",
@@ -1616,53 +1497,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "ark-poly"
-version = "0.4.2"
-source = "git+https://github.com/Antalpha-Labs/algebra/#55d2a52390156ba1f5d07d551d0a24adef9a5866"
-dependencies = [
- "ahash",
- "ark-ff 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-serialize 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-std 0.4.0",
- "educe",
- "fnv",
- "hashbrown 0.14.5",
- "rayon",
-]
-
-[[package]]
-name = "ark-r1cs-std"
-version = "0.4.0"
-source = "git+https://github.com/arkworks-rs/r1cs-std/#dfdad2b729ebc7e8104931b683f3799246252adc"
-dependencies = [
- "ark-ec 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-relations 0.4.0 (git+https://github.com/arkworks-rs/snark/)",
- "ark-std 0.4.0",
- "educe",
- "num-bigint 0.4.6",
- "num-integer",
- "num-traits",
- "tracing",
-]
-
-[[package]]
-name = "ark-relations"
-version = "0.4.0"
-source = "git+https://github.com/Antalpha-Labs/snark/#17000edf677448ca4525ccb49940aa75aca39fc0"
-dependencies = [
- "ark-ff 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-std 0.4.0",
- "tracing",
- "tracing-subscriber 0.2.25",
-]
-
-[[package]]
 name = "ark-relations"
 version = "0.4.0"
 source = "git+https://github.com/arkworks-rs/snark/#202b9e02b808d1d15823298b8ac16f5c54ae4ef6"
 dependencies = [
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
+ "ark-ff 0.4.2",
  "ark-std 0.4.0",
  "tracing",
  "tracing-subscriber 0.2.25",
@@ -1683,20 +1522,7 @@ name = "ark-serialize"
 version = "0.4.2"
 source = "git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop#ac23fde284ca4d7ede298018f7866ce8ce64467f"
 dependencies = [
- "ark-serialize-derive 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-std 0.4.0",
- "arrayvec",
- "digest 0.10.7",
- "num-bigint 0.4.6",
- "rayon",
-]
-
-[[package]]
-name = "ark-serialize"
-version = "0.4.2"
-source = "git+https://github.com/Antalpha-Labs/algebra/#55d2a52390156ba1f5d07d551d0a24adef9a5866"
-dependencies = [
- "ark-serialize-derive 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
+ "ark-serialize-derive",
  "ark-std 0.4.0",
  "arrayvec",
  "digest 0.10.7",
@@ -1711,28 +1537,7 @@ source = "git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop#ac23fd
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
-]
-
-[[package]]
-name = "ark-serialize-derive"
-version = "0.4.2"
-source = "git+https://github.com/Antalpha-Labs/algebra/#55d2a52390156ba1f5d07d551d0a24adef9a5866"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.85",
-]
-
-[[package]]
-name = "ark-snark"
-version = "0.4.0"
-source = "git+https://github.com/Antalpha-Labs/snark/#17000edf677448ca4525ccb49940aa75aca39fc0"
-dependencies = [
- "ark-ff 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-relations 0.4.0 (git+https://github.com/Antalpha-Labs/snark/)",
- "ark-serialize 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-std 0.4.0",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -1740,9 +1545,9 @@ name = "ark-snark"
 version = "0.4.0"
 source = "git+https://github.com/arkworks-rs/snark/#202b9e02b808d1d15823298b8ac16f5c54ae4ef6"
 dependencies = [
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-relations 0.4.0 (git+https://github.com/arkworks-rs/snark/)",
- "ark-serialize 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
+ "ark-ff 0.4.2",
+ "ark-relations",
+ "ark-serialize 0.4.2",
  "ark-std 0.4.0",
 ]
 
@@ -1881,7 +1686,7 @@ checksum = "9343dc5acf07e79ff82d0c37899f079db3534d99f189a1837c8e549c99405bec"
 dependencies = [
  "futures-util",
  "native-tls",
- "thiserror",
+ "thiserror 1.0.65",
  "url",
 ]
 
@@ -1930,7 +1735,7 @@ checksum = "c7c24de15d275a1ecfd47a380fb4d5ec9bfe0933f309ed5e705b775596a3574d"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -1947,7 +1752,7 @@ checksum = "721cae7de5c34fbb2acd27e21e6d2cf7b886dce0c27388d46c4e6c47ea4318dd"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -1984,7 +1789,7 @@ checksum = "3c87f3f15e7794432337fc718554eaa4dc8f04c9677a950ffe366f20a162ae42"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2471,7 +2276,7 @@ dependencies = [
  "regex",
  "rustc-hash 1.1.0",
  "shlex",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2562,9 +2367,10 @@ dependencies = [
 [[package]]
 name = "bitcoin-script"
 version = "0.3.0"
-source = "git+https://github.com/BitVM/rust-bitcoin-script?branch=chunker#9c6074d1d63b65194ec281f0d3cf8bc3c24fe4f3"
+source = "git+https://github.com/BitVM/rust-bitcoin-script?branch=chunker#7762e852966bb37c5d0a0c1d23edfc026de665e2"
 dependencies = [
  "bitcoin 0.31.0",
+ "lazy_static",
  "script-macro",
  "stdext",
 ]
@@ -2682,13 +2488,13 @@ dependencies = [
 [[package]]
 name = "bitvm"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/BitVM.git?branch=bridge-poc#67c20f84a2f33596df3dbf6df9eb1de65b809396"
+source = "git+https://github.com/alpenlabs/BitVM.git?branch=bridge-poc#a814d9cc15835f46f001de20b8a8556b011037c9"
 dependencies = [
  "alloy 0.2.1",
- "ark-bn254 0.4.0 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-ec 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-ff 0.4.2 (git+https://github.com/Antalpha-Labs/algebra/)",
- "ark-groth16 0.4.0 (git+https://github.com/Antalpha-Labs/groth16)",
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-groth16",
  "async-trait",
  "aws-sdk-s3",
  "bitcoin 0.31.0",
@@ -2833,7 +2639,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
  "syn_derive",
 ]
 
@@ -2879,7 +2685,7 @@ checksum = "523363cbe1df49b68215efdf500b103ac3b0fb4836aed6d15689a076eadb8fff"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2899,7 +2705,7 @@ checksum = "bcfcc3cd946cb52f0bbfdbbcfa2f4e24f75ebb6c0e1002f7c25904fada18b9ec"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -2971,7 +2777,7 @@ dependencies = [
  "semver 1.0.23",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -3079,7 +2885,7 @@ dependencies = [
  "heck",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3101,7 +2907,7 @@ dependencies = [
  "k256",
  "serde",
  "sha2",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -3117,7 +2923,7 @@ dependencies = [
  "pbkdf2 0.12.2",
  "rand",
  "sha2",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -3137,7 +2943,7 @@ dependencies = [
  "serde_derive",
  "sha2",
  "sha3",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -3403,7 +3209,7 @@ checksum = "f46882e17999c6cc590af592290432be3bce0428cb0d5f8b6715e4dc7b383eb3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3427,7 +3233,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3438,7 +3244,7 @@ checksum = "d336a2a514f6ccccaa3e09b02d41d35330c07ddf03a62165fcec10bb561c7806"
 dependencies = [
  "darling_core",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3602,7 +3408,7 @@ checksum = "67e77553c4162a157adbf834ebae5b415acbecbeafc7a74b0e886657506a7611"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3613,7 +3419,7 @@ checksum = "64b697ac90ff296f0fc031ee5a61c7ac31fb9fff50e3fb32873b09223613fc0c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3626,7 +3432,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version 0.4.1",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3646,7 +3452,7 @@ checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
  "unicode-xid",
 ]
 
@@ -3660,7 +3466,6 @@ dependencies = [
  "bitcoin 0.32.3",
  "bitcoincore-rpc",
  "clap",
- "eyre",
  "hex",
  "lazy_static",
  "miniscript",
@@ -3782,7 +3587,7 @@ dependencies = [
  "enum-ordinalize",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3890,7 +3695,7 @@ checksum = "f282cfdfe92516eb26c2af8589c274c7c17681f5ecc03c18255fe741c6aa64eb"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3910,7 +3715,7 @@ checksum = "0d28318a75d4aead5c4db25382e8ef717932d0346600cacae6357eb5941bc5ff"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3921,7 +3726,7 @@ checksum = "2f9ed6b3789237c8a0c1c505af1c7eb2c560df6186f01b098c3a1064ea532f38"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -3982,7 +3787,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "sha3",
- "thiserror",
+ "thiserror 1.0.65",
  "uuid 0.8.2",
 ]
 
@@ -3999,7 +3804,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha3",
- "thiserror",
+ "thiserror 1.0.65",
  "uint",
 ]
 
@@ -4076,7 +3881,7 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -4096,7 +3901,7 @@ dependencies = [
  "regex",
  "serde",
  "serde_json",
- "syn 2.0.85",
+ "syn 2.0.87",
  "toml",
  "walkdir",
 ]
@@ -4114,7 +3919,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "serde_json",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -4140,9 +3945,9 @@ dependencies = [
  "serde",
  "serde_json",
  "strum",
- "syn 2.0.85",
+ "syn 2.0.87",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tiny-keccak",
  "unicode-xid",
 ]
@@ -4166,7 +3971,7 @@ dependencies = [
  "reqwest 0.11.27",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "tracing-futures",
@@ -4198,7 +4003,7 @@ dependencies = [
  "reqwest 0.11.27",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "tracing-futures",
@@ -4224,7 +4029,7 @@ dependencies = [
  "ethers-core",
  "rand",
  "sha2",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -4489,7 +4294,7 @@ checksum = "162ee34ebcb7c64a8abebc059ce0fee27c2262618d7b60ed8faf72fef13c3650"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -4627,7 +4432,7 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -5275,7 +5080,7 @@ dependencies = [
  "combine",
  "jni-sys",
  "log",
- "thiserror",
+ "thiserror 1.0.65",
  "walkdir",
 ]
 
@@ -5350,7 +5155,7 @@ dependencies = [
  "rustls-pki-types",
  "rustls-platform-verifier",
  "soketto",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-rustls 0.26.0",
  "tokio-util",
@@ -5380,7 +5185,7 @@ dependencies = [
  "rustc-hash 1.1.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -5405,7 +5210,7 @@ dependencies = [
  "rustls-platform-verifier",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tower 0.4.13",
  "tracing",
@@ -5422,7 +5227,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -5445,7 +5250,7 @@ dependencies = [
  "serde",
  "serde_json",
  "soketto",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tokio-util",
@@ -5463,7 +5268,7 @@ dependencies = [
  "http 1.1.0",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -5610,7 +5415,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "regex",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -5869,7 +5674,7 @@ checksum = "1bb5c1d8184f13f7d0ccbeeca0def2f9a181bce2624302793005f5ca8aa62e5e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -6151,7 +5956,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -6233,7 +6038,7 @@ dependencies = [
  "openssh-mux-client",
  "shell-escape",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-pipe",
 ]
@@ -6263,7 +6068,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "015d49e592f4d2a456033e6ec48036588e8e58c8908424b1bc40994de58ae648"
 dependencies = [
  "ssh_format_error",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -6313,7 +6118,7 @@ dependencies = [
  "openssh",
  "openssh-sftp-protocol-error",
  "ssh_format_error",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -6339,7 +6144,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0719269eb3f037866ae07ec89cb44ed2c1d63b72b2390cef8e1aa3016a956ff8"
 dependencies = [
  "serde",
- "thiserror",
+ "thiserror 1.0.65",
  "vec-strings",
 ]
 
@@ -6366,7 +6171,7 @@ checksum = "a948666b637a0f465e8564c73e89d4dde00d72d4d473cc972f390fc3dcee7d9c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -6844,7 +6649,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "879952a81a83930934cbf1786752d6dedc3b1f29e8f8fb2ad1d0a36f377cf442"
 dependencies = [
  "memchr",
- "thiserror",
+ "thiserror 1.0.65",
  "ucd-trie",
 ]
 
@@ -6875,7 +6680,7 @@ checksum = "3c0f5fad0874fc7abcd4d750e76917eaebbecaa2c20bde22e1dbeeba8beb758c"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -6981,7 +6786,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "64d1ec885c64d0457d564db4ec299b2dae3f9c02808b8ad9c3a089c591b18033"
 dependencies = [
  "proc-macro2",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -7060,7 +6865,7 @@ dependencies = [
  "proc-macro-error-attr2",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -7112,7 +6917,7 @@ dependencies = [
  "itertools 0.13.0",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -7152,7 +6957,7 @@ checksum = "ca414edb151b4c8d125c12566ab0d74dc9cdba36fb80eb7b848c15f495fd32d1"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -7174,7 +6979,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "rustls 0.23.16",
  "socket2",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -7191,7 +6996,7 @@ dependencies = [
  "rustc-hash 2.0.0",
  "rustls 0.23.16",
  "slab",
- "thiserror",
+ "thiserror 1.0.65",
  "tinyvec",
  "tracing",
 ]
@@ -7326,7 +7131,7 @@ checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
 dependencies = [
  "getrandom",
  "libredox",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -7495,7 +7300,7 @@ dependencies = [
  "http 1.1.0",
  "reqwest 0.12.9",
  "serde",
- "thiserror",
+ "thiserror 1.0.65",
  "tower-service",
 ]
 
@@ -7523,7 +7328,7 @@ dependencies = [
  "convert_case 0.6.0",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -7726,7 +7531,7 @@ checksum = "09cb82b74b4810f07e460852c32f522e979787691b0b7b7439fe473e49d49b2f"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -7815,7 +7620,7 @@ checksum = "2c3cc4c2511671f327125da14133d0c5c5d137f006a1017a16f557bc85b16286"
 dependencies = [
  "alloy-rlp",
  "ark-ff 0.3.0",
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
+ "ark-ff 0.4.2",
  "bytes",
  "fastrlp",
  "num-bigint 0.4.6",
@@ -8079,7 +7884,7 @@ dependencies = [
  "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8120,7 +7925,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 [[package]]
 name = "script-macro"
 version = "0.3.0"
-source = "git+https://github.com/BitVM/rust-bitcoin-script?branch=chunker#9c6074d1d63b65194ec281f0d3cf8bc3c24fe4f3"
+source = "git+https://github.com/BitVM/rust-bitcoin-script?branch=chunker#7762e852966bb37c5d0a0c1d23edfc026de665e2"
 dependencies = [
  "bitcoin 0.31.0",
  "hex",
@@ -8358,7 +8163,7 @@ checksum = "de523f781f095e28fa605cdce0f8307e451cc0fd14e2eb4cd2e98a355b147766"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8431,7 +8236,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8479,7 +8284,7 @@ checksum = "82fe9db325bcef1fbcde82e078a5cc4efdf787e96b3b9cf45b50b529f2083d67"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -8588,7 +8393,7 @@ checksum = "adc4e5204eb1910f40f9cfa375f6f05b68c3abac4b6fd879c8ff5e7ae8a0a085"
 dependencies = [
  "num-bigint 0.4.6",
  "num-traits",
- "thiserror",
+ "thiserror 1.0.65",
  "time",
 ]
 
@@ -8627,7 +8432,7 @@ dependencies = [
  "rand",
  "sha2",
  "substrate-bn 0.7.0",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -8706,7 +8511,7 @@ dependencies = [
  "sp1-stark",
  "strum",
  "strum_macros",
- "thiserror",
+ "thiserror 1.0.65",
  "tiny-keccak",
  "tracing",
  "typenum",
@@ -8753,7 +8558,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "tracing-forest",
  "tracing-subscriber 0.3.18",
@@ -8881,7 +8686,7 @@ dependencies = [
  "sp1-stark",
  "subtle-encoding",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "tracing-subscriber 0.3.18",
 ]
@@ -8972,7 +8777,7 @@ dependencies = [
  "sp1-primitives",
  "sp1-stark",
  "static_assertions",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "vec_map",
  "zkhash",
@@ -9048,7 +8853,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "tempfile",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
  "twirp-rs",
@@ -9087,7 +8892,7 @@ dependencies = [
  "strum",
  "strum_macros",
  "sysinfo",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -9206,7 +9011,7 @@ dependencies = [
  "sha2",
  "smallvec",
  "sqlformat",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tokio-stream",
  "tracing",
@@ -9223,7 +9028,7 @@ dependencies = [
  "quote",
  "sqlx-core",
  "sqlx-macros-core",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -9246,7 +9051,7 @@ dependencies = [
  "sqlx-mysql",
  "sqlx-postgres",
  "sqlx-sqlite",
- "syn 2.0.85",
+ "syn 2.0.87",
  "tempfile",
  "tokio",
  "url",
@@ -9289,7 +9094,7 @@ dependencies = [
  "smallvec",
  "sqlx-core",
  "stringprep",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "whoami",
 ]
@@ -9327,7 +9132,7 @@ dependencies = [
  "smallvec",
  "sqlx-core",
  "stringprep",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "whoami",
 ]
@@ -9399,12 +9204,9 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "bincode",
  "bitcoin 0.31.0",
  "chrono",
  "clap",
- "esplora-client",
- "hex",
  "jsonrpsee",
  "rand",
  "secp256k1 0.28.2",
@@ -9414,10 +9216,8 @@ dependencies = [
  "strata-bridge-db",
  "strata-bridge-primitives",
  "strata-bridge-rpc",
- "strata-bridge-tx-graph",
  "strata-common",
  "strata-rpc",
- "thiserror",
  "tokio",
  "tracing",
 ]
@@ -9430,25 +9230,18 @@ dependencies = [
  "bincode",
  "bitcoin 0.31.0",
  "bitcoin-script 0.3.0",
- "bitcoin-scriptexec",
  "bitvm",
  "borsh",
- "esplora-client",
- "hex",
  "jsonrpsee",
- "lazy_static",
  "musig2 0.0.11",
  "rand",
  "secp256k1 0.28.2",
  "serde",
- "serde_json",
- "sha2",
  "strata-bridge-btcio",
  "strata-bridge-db",
  "strata-bridge-primitives",
  "strata-bridge-proof-protocol",
  "strata-bridge-proof-snark",
- "strata-bridge-tx-builder",
  "strata-bridge-tx-graph",
  "strata-primitives",
  "strata-rpc",
@@ -9466,20 +9259,13 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "bitcoin 0.31.0",
- "borsh",
- "bytes",
  "esplora-client",
- "hex",
- "musig2 0.0.11",
- "rand",
  "reqwest 0.12.9",
  "serde",
  "serde_json",
- "sha2",
+ "strata-bridge-test-utils",
  "strata-common",
- "strata-test-utils",
- "thiserror",
- "threadpool",
+ "thiserror 2.0.3",
  "tokio",
  "tracing",
 ]
@@ -9488,25 +9274,13 @@ dependencies = [
 name = "strata-bridge-db"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "async-trait",
- "bincode",
  "bitcoin 0.31.0",
- "bitcoin-script 0.3.0",
- "bitcoin-scriptexec",
- "bitvm",
- "esplora-client",
- "hex",
- "lazy_static",
  "musig2 0.0.11",
- "rand",
  "rkyv",
  "secp256k1 0.28.2",
- "serde",
  "serde_json",
- "sha2",
  "sqlx",
- "strata-bridge-btcio",
  "strata-bridge-primitives",
  "tokio",
  "tracing",
@@ -9525,31 +9299,15 @@ name = "strata-bridge-primitives"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-bn254 0.4.0 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-crypto-primitives 0.4.0 (git+https://github.com/arkworks-rs/crypto-primitives/)",
- "ark-ec 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-groth16 0.4.0 (git+https://github.com/arkworks-rs/groth16)",
- "ark-r1cs-std",
- "ark-relations 0.4.0 (git+https://github.com/arkworks-rs/snark/)",
- "ark-std 0.4.0",
- "bincode",
  "bitcoin 0.31.0",
  "bitcoin-script 0.3.0",
- "bitcoin-scriptexec",
  "bitvm",
- "esplora-client",
- "hex",
  "lazy_static",
  "musig2 0.0.11",
- "rand",
  "rkyv",
  "secp256k1 0.28.2",
  "serde",
- "serde_json",
  "sha2",
- "strata-bridge-tx-graph",
- "tracing",
 ]
 
 [[package]]
@@ -9579,10 +9337,10 @@ name = "strata-bridge-proof-snark"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "ark-bn254 0.4.0 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-ec 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
- "ark-groth16 0.4.0 (git+https://github.com/arkworks-rs/groth16)",
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff 0.4.2",
+ "ark-groth16",
  "bincode",
  "bitcoin 0.32.3",
  "bitcoin-script 0.3.0",
@@ -9611,25 +9369,16 @@ dependencies = [
 name = "strata-bridge-rpc"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "async-trait",
- "bitcoin 0.31.0",
- "bitcoin-script 0.3.0",
- "bitcoin-scriptexec",
- "bitvm",
- "esplora-client",
- "hex",
  "jsonrpsee",
- "lazy_static",
- "musig2 0.0.11",
- "rand",
- "secp256k1 0.28.2",
- "serde",
- "serde_json",
- "sha2",
- "strata-bridge-db",
- "strata-bridge-primitives",
- "tokio",
+]
+
+[[package]]
+name = "strata-bridge-test-utils"
+version = "0.1.0"
+dependencies = [
+ "strata-common",
+ "tempfile",
+ "tracing",
 ]
 
 [[package]]
@@ -9642,28 +9391,21 @@ dependencies = [
  "musig2 0.1.0",
  "serde",
  "strata-primitives",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
 name = "strata-bridge-tx-graph"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "bincode",
  "bitcoin 0.31.0",
  "bitcoin-script 0.3.0",
- "bitcoin-scriptexec",
  "bitvm",
- "esplora-client",
- "hex",
  "lazy_static",
- "musig2 0.0.11",
  "rand",
  "secp256k1 0.28.2",
  "serde",
- "serde_json",
- "sha2",
  "strata-bridge-db",
  "strata-bridge-primitives",
  "strata-bridge-proof-snark",
@@ -9697,7 +9439,7 @@ dependencies = [
  "strata-storage",
  "strata-tasks",
  "strata-tx-parser",
- "thiserror",
+ "thiserror 1.0.65",
  "threadpool",
  "tokio",
  "tracing",
@@ -9740,7 +9482,7 @@ dependencies = [
  "strata-primitives",
  "strata-state",
  "strata-zkvm",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -9754,7 +9496,7 @@ dependencies = [
  "digest 0.10.7",
  "hex",
  "sha2",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9776,7 +9518,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -9799,25 +9541,9 @@ dependencies = [
 name = "strata-rpc"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "async-trait",
- "bitcoin 0.31.0",
- "bitcoin-script 0.3.0",
- "bitcoin-scriptexec",
- "bitvm",
- "esplora-client",
- "hex",
  "jsonrpsee",
- "lazy_static",
- "musig2 0.0.11",
- "rand",
- "secp256k1 0.28.2",
- "serde",
- "serde_json",
- "sha2",
  "strata-bridge-primitives",
  "strata-rpc-types",
- "tokio",
 ]
 
 [[package]]
@@ -9833,7 +9559,7 @@ dependencies = [
  "serde_with",
  "strata-db",
  "strata-state",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -9884,7 +9610,7 @@ dependencies = [
  "strata-primitives",
  "strata-rpc-types",
  "strata-state",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -9914,17 +9640,7 @@ source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0
 dependencies = [
  "anyhow",
  "futures-util",
- "thiserror",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "strata-test-utils"
-version = "0.1.0"
-dependencies = [
- "strata-common",
- "tempfile",
+ "thiserror 1.0.65",
  "tokio",
  "tracing",
 ]
@@ -9943,7 +9659,7 @@ dependencies = [
  "strata-bridge-tx-builder",
  "strata-primitives",
  "strata-state",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
 ]
 
@@ -9994,7 +9710,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -10075,7 +9791,7 @@ dependencies = [
  "lazy-regex",
  "log",
  "pin-project",
- "thiserror",
+ "thiserror 1.0.65",
 ]
 
 [[package]]
@@ -10091,9 +9807,9 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.85"
+version = "2.0.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5023162dfcd14ef8f32034d8bcd4cc5ddc61ef7a247c024a33e24e1f24d21b56"
+checksum = "25aa4ce346d03a6dcd68dd8b4010bcb74e54e62c90c573f394c46eae99aba32d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -10109,7 +9825,7 @@ dependencies = [
  "paste",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -10121,7 +9837,7 @@ dependencies = [
  "paste",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -10133,7 +9849,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -10239,7 +9955,16 @@ version = "1.0.65"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d11abd9594d9b38965ef50805c5e469ca9cc6f197f883f717e0269a3057b3d5"
 dependencies = [
- "thiserror-impl",
+ "thiserror-impl 1.0.65",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c006c85c7651b3cf2ada4584faa36773bd07bac24acfb39f3c431b36d7e667aa"
+dependencies = [
+ "thiserror-impl 2.0.3",
 ]
 
 [[package]]
@@ -10250,7 +9975,18 @@ checksum = "ae71770322cbd277e69d762a16c444af02aa0575ac0d174f0b9562d3b37f8602"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f077553d607adc1caf65430528a576c757a71ed73944b66ebb58ef2bbd243568"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -10385,7 +10121,7 @@ checksum = "693d596312e88961bc67d7f1f97af8a70227d9f90c31bba5806eec004978d752"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -10437,7 +10173,7 @@ checksum = "0d4770b8024672c1101b3f6733eab95b18007dbe0847a8afe341fcf79e06043f"
 dependencies = [
  "either",
  "futures-util",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
 ]
 
@@ -10607,7 +10343,7 @@ checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -10628,7 +10364,7 @@ checksum = "ee40835db14ddd1e3ba414292272eddde9dad04d3d4b65509656414d1c42592f"
 dependencies = [
  "ansi_term",
  "smallvec",
- "thiserror",
+ "thiserror 1.0.65",
  "tracing",
  "tracing-subscriber 0.3.18",
 ]
@@ -10714,7 +10450,7 @@ dependencies = [
  "rustls 0.23.16",
  "rustls-pki-types",
  "sha1",
- "thiserror",
+ "thiserror 1.0.65",
  "utf-8",
 ]
 
@@ -10734,7 +10470,7 @@ dependencies = [
  "rustls 0.23.16",
  "rustls-pki-types",
  "sha1",
- "thiserror",
+ "thiserror 1.0.65",
  "utf-8",
 ]
 
@@ -10754,7 +10490,7 @@ dependencies = [
  "reqwest 0.12.9",
  "serde",
  "serde_json",
- "thiserror",
+ "thiserror 1.0.65",
  "tokio",
  "tower 0.5.1",
  "url",
@@ -10777,7 +10513,7 @@ checksum = "560b82d656506509d43abe30e0ba64c56b1953ab3d4fe7ba5902747a7a3cedd5"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -11042,7 +10778,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
  "wasm-bindgen-shared",
 ]
 
@@ -11076,7 +10812,7 @@ checksum = "26c6ab57572f7a24a4985830b120de1594465e5d500f24afe89e16b4e833ef68"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -11434,7 +11170,7 @@ dependencies = [
  "pharos",
  "rustc_version 0.4.1",
  "send_wrapper 0.6.0",
- "thiserror",
+ "thiserror 1.0.65",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -11473,7 +11209,7 @@ checksum = "fa4f8080344d4671fb4e831a13ad1e68092748387dfc4f55e356242fae12ce3e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -11493,7 +11229,7 @@ checksum = "ce36e65b0d2999d2aafac989fb249189a141aee1f53c612c1f37d72631959f69"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.85",
+ "syn 2.0.87",
 ]
 
 [[package]]
@@ -11502,7 +11238,7 @@ version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4352d1081da6922701401cdd4cbf29a2723feb4cfabb5771f6fee8e9276da1c7"
 dependencies = [
- "ark-ff 0.4.2 (git+https://github.com/chainwayxyz/algebra/?branch=new-ate-loop)",
+ "ark-ff 0.4.2",
  "ark-std 0.4.0",
  "bitvec",
  "blake2",

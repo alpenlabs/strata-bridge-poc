@@ -170,7 +170,7 @@ pub(crate) async fn bootstrap(args: Cli) {
     tasks.join_all().await;
 }
 
-pub async fn generate_operator_set(
+pub(crate) async fn generate_operator_set(
     args: &Cli,
     pubkey_table: PublickeyTable,
     public_db: Arc<SqliteDb>,

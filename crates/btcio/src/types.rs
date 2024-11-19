@@ -406,7 +406,7 @@ where
     impl<'d> Visitor<'d> for SatVisitor {
         type Value = Amount;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(formatter, "a float representation of btc values expected")
         }
 
@@ -431,7 +431,7 @@ where
     impl<'d> Visitor<'d> for SatVisitor {
         type Value = SignedAmount;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(formatter, "a float representation of btc values expected")
         }
 
@@ -470,7 +470,7 @@ where
     impl<'d> Visitor<'d> for TxidVisitor {
         type Value = Txid;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(formatter, "a transaction id string expected")
         }
 
@@ -496,7 +496,7 @@ where
     impl<'d> Visitor<'d> for TxVisitor {
         type Value = Transaction;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(formatter, "a transaction hex string expected")
         }
 
@@ -526,7 +526,7 @@ where
     impl<'d> Visitor<'d> for AddressVisitor {
         type Value = Address<NetworkUnchecked>;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(formatter, "a Bitcoin address string expected")
         }
 
@@ -554,7 +554,7 @@ where
     impl<'d> Visitor<'d> for BlockHashVisitor {
         type Value = BlockHash;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(formatter, "a blockhash string expected")
         }
 
@@ -581,7 +581,7 @@ where
     impl<'d> Visitor<'d> for HeightVisitor {
         type Value = Height;
 
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(formatter, "a height u32 string expected")
         }
 

@@ -19,7 +19,6 @@ alloy = { version = "0.6.4", features = ["full", "node-bindings"] }
 alloy-signer = "0.6.4"
 bitcoin = "0.32.2"
 bitcoincore-rpc = "0.19.0"
-eyre = "0.6"
 miniscript = "12.2.0"
 
 anyhow.workspace = true

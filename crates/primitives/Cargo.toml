@@ -6,38 +6,18 @@ version = "0.1.0"
 [lints]
 rust.missing_debug_implementations = "warn"
 rust.rust_2018_idioms = { level = "deny", priority = -1 }
-# rust.unreachable_pub = "warn"
-# rust.unused_crate_dependencies = "deny"
+rust.unreachable_pub = "warn"
+rust.unused_crate_dependencies = "deny"
 rust.unused_must_use = "deny"
 
 [dependencies]
 anyhow.workspace = true
-ark-bn254 = { workspace = true }
-ark-crypto-primitives = { workspace = true }
-ark-ec = { workspace = true }
-ark-ff = { workspace = true }
-ark-groth16 = { workspace = true }
-ark-r1cs-std = { workspace = true }
-ark-relations = { workspace = true }
-ark-std = { workspace = true }
-bincode.workspace = true
 bitcoin = { workspace = true, features = ["rand-std"] }
 bitcoin-script = { workspace = true }
-bitcoin-scriptexec = { workspace = true }
 bitvm = { workspace = true }
-esplora-client = { workspace = true, default-features = false, features = [
-  "async-https-rustls",
-] }
-hex.workspace = true
 lazy_static.workspace = true
 musig2 = { workspace = true, features = ["serde"] }
-rand.workspace = true
 rkyv.workspace = true
 secp256k1 = { workspace = true, features = ["global-context", "rand-std"] }
 serde.workspace = true
-serde_json.workspace = true
 sha2.workspace = true
-tracing.workspace = true
-
-[dev-dependencies]
-strata-bridge-tx-graph.workspace = true
