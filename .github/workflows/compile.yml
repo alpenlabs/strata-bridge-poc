@@ -33,4 +33,9 @@ jobs:
       - name: Install sqlx-cli
         run: cargo install sqlx-cli --locked
 
-      - run: make migrate && cargo hack check --locked
+      - name: Run db migrations
+        run: make migrate
+
+      - run: cargo hack check --locked
+        env:
+          DATABASE_URL: sqlite://./operator.db
