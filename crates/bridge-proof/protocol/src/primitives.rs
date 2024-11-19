@@ -154,7 +154,7 @@ impl TransactionWithInclusionProof {
                 .iter()
                 .rev()
                 .find_map(|txout| txout.script_pubkey.as_bytes().strip_prefix(&MAGIC))
-                .map(|data| WitnessCommitment::from_slice(data).unwrap())
+                .map(|data| WitnessCommitment::from_slice(&data[..32]).unwrap())
                 .ok_or("witness: no commitment in coinbase_tx")?;
 
             let witness_reserved_value: [u8; 32] = coinbase_tx.input[0]
@@ -552,5 +552,21 @@ mod tests {
             borsh::to_vec(state).unwrap(),
         )
         .unwrap();
+    }
+
+    #[test]
+    fn test_witness_parsing() {
+        const MAGIC: [u8; 6] = [0x6a, 0x24, 0xaa, 0x21, 0xa9, 0xed];
+        let _witness_data: Vec<u8> = hex::decode("6a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf94c4fecc7daa249004730440220742c7ba6dc1f2e32dd0b972fb23911824a8db259dda553f42d9f0f9a1f799190022027923dd45a8347b1911710a7c066e29830e127b17402ddbe79e9d667321134ce0100").unwrap();
+        let witness_data: Vec<u8> = hex::decode(
+            "6a24aa21a9ede2f61c3f71d1defd3fa999dfa36953755c690689799962b48bebd836974e8cf9",
+        )
+        .unwrap();
+
+        let coinbase_witness_commitment = witness_data
+            .strip_prefix(&MAGIC)
+            .map(|data| WitnessCommitment::from_slice(data).unwrap());
+
+        assert!(coinbase_witness_commitment.is_some());
     }
 }
