@@ -124,18 +124,18 @@ where
                 let txid = deposit_info.deposit_request_outpoint().txid;
                 info!(event = "received deposit", %own_index, drt_txid = %txid);
 
-                self.handle_deposit(deposit_info).await;
+                if let Some(updated_status) = self.duty_db.fetch_duty_status(txid).await {
+                    let is_done = match updated_status {
+                        BridgeDutyStatus::Deposit(deposit_status) => deposit_status.is_done(),
+                        _ => unreachable!(),
+                    };
 
-                let duty_status = DepositStatus::Executed;
-                info!(action = "reporting deposit duty status", duty_id = %txid, ?duty_status);
-
-                if let Err(cause) = self
-                    .duty_status_sender
-                    .send((txid, duty_status.into()))
-                    .await
-                {
-                    error!(msg = "could not report deposit duty status", %cause);
+                    if is_done {
+                        return;
+                    }
                 }
+
+                self.handle_deposit(deposit_info).await;
             }
             BridgeDuty::Withdrawal {
                 details: withdrawal_info,
