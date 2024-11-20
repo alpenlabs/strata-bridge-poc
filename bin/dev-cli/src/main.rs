@@ -10,9 +10,10 @@ use alloy::{
 };
 use alloy_signer::k256::ecdsa::SigningKey;
 use anyhow::{Context, Error, Result};
-use bitcoin::{secp256k1::Secp256k1, Amount};
-use bridge_in::deposit_request;
+use bitcoin::secp256k1::Secp256k1;
+use bridge_in::{deposit_request, wallet};
 use clap::Parser;
+use strata_common::logging;
 use tracing::info;
 
 use crate::bridge_in::wallet::PsbtWallet;
@@ -22,6 +23,8 @@ mod constants;
 mod cli;
 
 fn main() -> Result<(), Error> {
+    logging::init();
+
     let cli = cli::Cli::parse();
     match cli.command {
         cli::Commands::BridgeIn(args) => handle_bridge_in(args),
@@ -30,16 +33,12 @@ fn main() -> Result<(), Error> {
 }
 
 fn handle_bridge_in(args: cli::BridgeInArgs) -> Result<()> {
-    let deposit_amount = Amount::from_btc(10.0)?;
-    let rpc_client = crate::bridge_in::bitcoin_rpc_client::setup_rpc(
-        &args.btc_url,
-        args.btc_user,
-        args.btc_pass,
-    );
-    let psbt_wallet = crate::bridge_in::wallet::BitcoinRpcWallet::new(rpc_client);
+    let rpc_client =
+        bridge_in::bitcoin_rpc_client::setup_rpc(&args.btc_url, args.btc_user, args.btc_pass);
+    let psbt_wallet = wallet::BitcoinRpcWallet::new(rpc_client);
     let secp = Secp256k1::new();
 
-    info!(action = "Initiating bridge-in", %deposit_amount, strata_address=%args.strata_address);
+    info!(action = "Initiating bridge-in", strata_address=%args.strata_address);
 
     let strata_address = EvmAddress::from_str(&args.strata_address)?;
     let recovery_pubkey = deposit_request::get_recovery_pubkey();
@@ -47,16 +46,11 @@ fn handle_bridge_in(args: cli::BridgeInArgs) -> Result<()> {
     let aggregated_pubkey = deposit_request::get_aggregated_pubkey();
 
     let n_of_n_multisig_script =
-        crate::bridge_in::deposit_request::build_n_of_n_multisig_miniscript(aggregated_pubkey);
-    let timelock_script =
-        crate::bridge_in::deposit_request::build_timelock_miniscript(recovery_pubkey);
+        deposit_request::build_n_of_n_multisig_miniscript(aggregated_pubkey);
+    let timelock_script = deposit_request::build_timelock_miniscript(recovery_pubkey);
 
     let (script_hash, taproot_address) =
-        crate::bridge_in::deposit_request::generate_taproot_address(
-            &secp,
-            n_of_n_multisig_script,
-            timelock_script,
-        );
+        deposit_request::generate_taproot_address(&secp, n_of_n_multisig_script, timelock_script);
 
     let psbt = psbt_wallet.create_psbt(
         &taproot_address,
@@ -83,20 +77,13 @@ fn handle_bridge_out(args: cli::BridgeOutArgs) -> Result<()> {
         EvmAddress::from_str(constants::ROLLUP_ADDRESS).context("precompile address")?;
 
     let runtime = tokio::runtime::Runtime::new()?;
-    let tx = runtime.block_on(
-        crate::bridge_out::withdrawal::create_withdrawal_transaction(
-            rollup_address,
-            constants::ETH_RPC_URL,
-            data,
-            &wallet,
-            amount,
-        ),
-    );
-
-    info!(
-        event = "Withdrawal transaction created and sent successfully",
-        ?tx
-    );
+    runtime.block_on(bridge_out::withdrawal::create_withdrawal_transaction(
+        rollup_address,
+        constants::ETH_RPC_URL,
+        data,
+        &wallet,
+        amount,
+    ))?;
 
     Ok(())
 }

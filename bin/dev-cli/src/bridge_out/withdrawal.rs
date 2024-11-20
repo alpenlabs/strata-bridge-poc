@@ -13,22 +13,29 @@ pub(crate) async fn create_withdrawal_transaction(
     data: Vec<u8>,
     wallet: &EthereumWallet,
     amount: U256,
-) -> Result<TransactionRequest> {
-    // Build a transaction to call the withdrawal precompile
-    let tx = TransactionRequest::default()
-        .with_to(rollup_address)
-        .with_value(amount)
-        .input(TransactionInput::new(Bytes::from(data)));
-
+) -> Result<()> {
     // Send the transaction and listen for the transaction to be included.
     let provider = ProviderBuilder::new()
         .with_recommended_fillers()
         .wallet(wallet.clone())
         .on_http(eth_rpc_url.parse()?);
 
-    let tx_hash = provider.send_transaction(tx.clone()).await?.watch().await?;
+    let chain_id = provider.get_chain_id().await?;
+    info!(event = "retrieved chain id", %chain_id);
 
-    info!(event = "Sent transaction: {:?}", %tx_hash);
+    // Build a transaction to call the withdrawal precompile
+    let tx = TransactionRequest::default()
+        .with_to(rollup_address)
+        .with_value(amount)
+        .input(TransactionInput::new(Bytes::from(data)));
 
-    Ok(tx)
+    info!(action = "sending withdrawal transaction");
+    let pending_tx = provider.send_transaction(tx).await?;
+
+    info!(action = "waiting for transaction to be confirmed");
+    let receipt = pending_tx.get_receipt().await?;
+
+    info!(event = "transaction confirmed", ?receipt);
+
+    Ok(())
 }
