@@ -9,7 +9,7 @@ use crate::{
 /// The various duties that can be assigned to an operator.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "payload")]
-pub enum BridgeDutyRpcResponse {
+pub enum BridgeDuty {
     /// The duty to create and sign a Deposit Transaction so as to move funds from the user to the
     /// Bridge Address.
     ///
@@ -28,13 +28,11 @@ pub enum BridgeDutyRpcResponse {
     FulfillWithdrawal(WithdrawalInfo),
 }
 
-impl BridgeDutyRpcResponse {
+impl BridgeDuty {
     pub fn get_id(&self) -> Txid {
         match self {
-            BridgeDutyRpcResponse::SignDeposit(deposit_info) => {
-                deposit_info.deposit_request_outpoint().txid
-            }
-            BridgeDutyRpcResponse::FulfillWithdrawal(withdrawal_info) => {
+            BridgeDuty::SignDeposit(deposit_info) => deposit_info.deposit_request_outpoint().txid,
+            BridgeDuty::FulfillWithdrawal(withdrawal_info) => {
                 withdrawal_info.deposit_outpoint().txid
             }
         }
@@ -42,22 +40,8 @@ impl BridgeDutyRpcResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
-pub enum BridgeDuty {
-    Deposit {
-        details: DepositInfo,
-        status: DepositStatus,
-    },
-
-    Withdrawal {
-        details: WithdrawalInfo,
-        status: WithdrawalStatus,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BridgeDuties {
-    pub duties: Vec<BridgeDutyRpcResponse>,
+    pub duties: Vec<BridgeDuty>,
 
     pub start_index: u64,
 

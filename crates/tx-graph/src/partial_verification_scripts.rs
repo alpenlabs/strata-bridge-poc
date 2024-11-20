@@ -4,7 +4,7 @@ use bitcoin::ScriptBuf;
 use bitvm::{groth16::g16, treepp::*};
 use lazy_static::lazy_static;
 use strata_bridge_proof_snark::bridge_poc;
-use tracing::info;
+use tracing::{info, warn};
 
 const PARTIAL_VERIFIER_SCRIPTS_PATH: &str = "strata-bridge-poc-vk.scripts";
 
@@ -16,9 +16,9 @@ pub fn load_or_create_verifier_scripts() -> [Script; 579] {
     let verifier_scripts: [Script; g16::N_TAPLEAVES] = if fs::exists(PARTIAL_VERIFIER_SCRIPTS_PATH)
         .expect("should be able to check for existence of verifier scripts file")
     {
-        info!(
+        warn!(
             action = "loading verifier script from file cache...this will take some time",
-            estimated_time = "3 mins"
+            estimated_time = "1 min"
         );
 
         let contents: Vec<u8> = fs::read(PARTIAL_VERIFIER_SCRIPTS_PATH)
@@ -41,7 +41,7 @@ pub fn load_or_create_verifier_scripts() -> [Script; 579] {
             )
         })
     } else {
-        info!(
+        warn!(
             action = "compiling verifier scripts, this will take time...",
             estimated_time = "3 mins"
         );
@@ -57,7 +57,7 @@ pub fn load_or_create_verifier_scripts() -> [Script; 579] {
         let serialized: Vec<u8> =
             bincode::serialize(&serialized).expect("should be able to serialize verifier scripts");
 
-        info!(action = "caching verifier scripts for later", cache_file=%PARTIAL_VERIFIER_SCRIPTS_PATH);
+        warn!(action = "caching verifier scripts for later", cache_file=%PARTIAL_VERIFIER_SCRIPTS_PATH);
         fs::write(PARTIAL_VERIFIER_SCRIPTS_PATH, serialized)
             .expect("should be able to write verifier scripts to file");
 
