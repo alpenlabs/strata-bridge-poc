@@ -423,12 +423,12 @@ where
             .generate_nonces(operator_index, &key_agg_ctx_keypath, 0, &post_assert)
             .await;
 
-        trace!(action = "creating secnonce and pubnonce for payout tx output 0", %operator_index);
+        trace!(action = "creating secnonce and pubnonce for payout tx input 0", %operator_index);
         let payout_pubnonce_0 = self
             .generate_nonces(operator_index, &key_agg_ctx_keypath, 0, &payout_tx)
             .await;
 
-        trace!(action = "creating secnonce and pubnonce for payout tx output 1", %operator_index);
+        trace!(action = "creating secnonce and pubnonce for payout tx input 1", %operator_index);
         let payout_pubnonce_1 = self
             .generate_nonces(operator_index, &key_agg_ctx, 1, &payout_tx)
             .await;
@@ -782,6 +782,7 @@ where
             .await;
 
         trace!(action = "signing payout tx partially", %operator_index);
+        let all_inputs = payout_tx.witnesses().len();
         let payout_partial_sigs = self
             .sign_partial(
                 &key_agg_ctx,
@@ -1681,11 +1682,13 @@ where
             info!(action = "waiting for timeout period before seeking reimbursement", wait_time_secs=%wait_time.as_secs());
             tokio::time::sleep(wait_time).await;
 
-            let n_of_n_signature = self
+            let deposit_signature = self
                 .public_db
                 .get_signature(own_index, payout_tx.compute_txid(), 0)
                 .await;
-            let signed_payout_tx = payout_tx.finalize(n_of_n_signature);
+            let signed_payout_tx = payout_tx
+                .finalize(connectors.post_assert_out_0, own_index, deposit_signature)
+                .await;
 
             info!(action = "trying to get reimbursement", payout_txid=%signed_payout_tx.compute_txid(), %own_index);
 
@@ -1708,8 +1711,13 @@ where
                     // NOTE: no need to call next because it is not used later outside this if
                     // clause
                 }
-                Err(e) => {
-                    error!(msg = "unable to get reimbursement :(", %e, %deposit_txid, %own_index);
+                Err(err) => {
+                    if !err.is_missing() {
+                        warn!(msg = "unable to get reimbursement", %err, %deposit_txid, %own_index);
+                        return; // try again later
+                    }
+
+                    error!(msg = "unable to get reimbursement due to disprove :(", %err, %deposit_txid, %own_index);
                 }
             }
         } else {

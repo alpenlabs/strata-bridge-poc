@@ -1,14 +1,18 @@
-use bitcoin::{sighash::Prevouts, Amount, Network, OutPoint, Psbt, Transaction, TxOut, Txid};
+use bitcoin::{
+    sighash::Prevouts, Amount, Network, OutPoint, Psbt, Sequence, Transaction, TxOut, Txid,
+};
 use secp256k1::{schnorr::Signature, XOnlyPublicKey};
 use serde::{Deserialize, Serialize};
 use strata_bridge_db::public::PublicDb;
 use strata_bridge_primitives::{
-    params::{prelude::MIN_RELAY_FEE, tx::BRIDGE_DENOMINATION},
-    scripts::prelude::*,
+    params::prelude::MIN_RELAY_FEE, scripts::prelude::*, types::OperatorIdx,
 };
 
 use super::covenant_tx::CovenantTx;
-use crate::connectors::prelude::{ConnectorA30, ConnectorS};
+use crate::connectors::{
+    params::PAYOUT_TIMELOCK,
+    prelude::{ConnectorA30, ConnectorA30Leaf, ConnectorS},
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PayoutData {
@@ -51,7 +55,15 @@ impl PayoutTx {
             },
         ];
 
-        let tx_ins = create_tx_ins(utxos);
+        let mut tx_ins = create_tx_ins(utxos);
+
+        let stake_input = &mut tx_ins[1];
+        stake_input.sequence = Sequence::from_height(PAYOUT_TIMELOCK as u16);
+
+        assert!(
+            stake_input.sequence.is_relative_lock_time(),
+            "must set relative timelock on the second input of payout tx"
+        );
 
         let payout_amount = data.input_stake + data.deposit_amount - MIN_RELAY_FEE;
 
@@ -71,7 +83,7 @@ impl PayoutTx {
 
         let prevouts = vec![
             TxOut {
-                value: BRIDGE_DENOMINATION,
+                value: data.deposit_amount,
                 script_pubkey: connector_b.create_taproot_address().script_pubkey(),
             },
             TxOut {
@@ -84,7 +96,15 @@ impl PayoutTx {
             input.witness_utxo = Some(utxo);
         }
 
-        let witnesses = vec![TaprootWitness::Key; 2];
+        let (connector_a30_script, connector_a30_control_block) =
+            connector_a30.generate_spend_info(ConnectorA30Leaf::Payout);
+        let witnesses = vec![
+            TaprootWitness::Key,
+            TaprootWitness::Script {
+                script_buf: connector_a30_script,
+                control_block: connector_a30_control_block,
+            },
+        ];
 
         Self {
             psbt,
@@ -94,9 +114,25 @@ impl PayoutTx {
         }
     }
 
-    pub fn finalize(mut self, n_of_n_signature: Signature) -> Transaction {
-        finalize_input(&mut self.psbt.inputs[0], [n_of_n_signature.serialize()]);
-        finalize_input(&mut self.psbt.inputs[1], [n_of_n_signature.serialize()]);
+    pub async fn finalize<Db: PublicDb>(
+        mut self,
+        connector_a30: ConnectorA30<Db>,
+        operator_idx: OperatorIdx,
+        // FIXME: create a connector for the deposit and remove the `deposit_signature` param
+        deposit_signature: Signature,
+    ) -> Transaction {
+        let payout_txid = self.compute_txid();
+
+        finalize_input(&mut self.psbt.inputs[0], [deposit_signature.serialize()]);
+
+        connector_a30
+            .finalize_input(
+                &mut self.psbt.inputs[1],
+                operator_idx,
+                payout_txid,
+                ConnectorA30Leaf::Payout,
+            )
+            .await;
 
         self.psbt
             .extract_tx()

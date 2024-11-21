@@ -19,7 +19,7 @@ pub struct ConnectorA30<Db: PublicDb> {
     db: Arc<Db>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum ConnectorA30Leaf {
     Payout,
     Disprove,
@@ -74,15 +74,29 @@ impl<Db: PublicDb> ConnectorA30<Db> {
         &self,
         input: &mut Input,
         operator_idx: OperatorIdx,
-        txid: Txid,
+        payout_txid: Txid,
         tapleaf: ConnectorA30Leaf,
     ) {
         let (script, control_block) = self.generate_spend_info(tapleaf);
-        let n_of_n_sig = self.db.get_signature(operator_idx, txid, 0).await;
+
+        let input_index = match tapleaf {
+            ConnectorA30Leaf::Payout => 1,
+            ConnectorA30Leaf::Disprove => 0,
+        };
+
+        let n_of_n_sig = self
+            .db
+            .get_signature(operator_idx, payout_txid, input_index)
+            .await;
+
+        let sighash_type = match tapleaf {
+            ConnectorA30Leaf::Payout => TapSighashType::Default,
+            ConnectorA30Leaf::Disprove => TapSighashType::Single,
+        };
 
         let signature = Signature {
             signature: n_of_n_sig,
-            sighash_type: TapSighashType::Single,
+            sighash_type,
         };
 
         finalize_input(
