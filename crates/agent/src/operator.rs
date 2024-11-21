@@ -116,32 +116,37 @@ where
 
     pub async fn process_duty(&mut self, duty: BridgeDuty) {
         let own_index = self.build_context.own_index();
+        let duty_id = duty.get_id();
+
+        let latest_status = if let Some(status) = self.duty_db.fetch_duty_status(duty_id).await {
+            status
+        } else {
+            let status: BridgeDutyStatus = match &duty {
+                BridgeDuty::SignDeposit(_info) => DepositStatus::Received.into(),
+                BridgeDuty::FulfillWithdrawal(_info) => WithdrawalStatus::Received.into(),
+            };
+
+            self.duty_status_sender
+                .send((duty_id, status.clone()))
+                .await
+                .expect("should be able to send duty status");
+
+            status
+        };
+
+        if latest_status.is_done() {
+            debug!(action = "skipping already executed duty", %duty_id, %own_index);
+            return;
+        }
 
         match duty {
-            BridgeDuty::Deposit {
-                details: deposit_info,
-                status: _,
-            } => {
+            BridgeDuty::SignDeposit(deposit_info) => {
                 let txid = deposit_info.deposit_request_outpoint().txid;
                 info!(event = "received deposit", %own_index, drt_txid = %txid);
 
-                if let Some(updated_status) = self.duty_db.fetch_duty_status(txid).await {
-                    let is_done = match updated_status {
-                        BridgeDutyStatus::Deposit(deposit_status) => deposit_status.is_done(),
-                        _ => unreachable!(),
-                    };
-
-                    if is_done {
-                        return;
-                    }
-                }
-
                 self.handle_deposit(deposit_info).await;
             }
-            BridgeDuty::Withdrawal {
-                details: withdrawal_info,
-                status,
-            } => {
+            BridgeDuty::FulfillWithdrawal(withdrawal_info) => {
                 let txid = withdrawal_info.deposit_outpoint().txid;
                 let assignee_id = withdrawal_info.assigned_operator_idx();
 
@@ -177,18 +182,13 @@ where
                     .set_checkpoint_index(deposit_txid, latest_checkpoint_idx)
                     .await;
 
-                let updated_status = self.duty_db.fetch_duty_status(txid).await;
-
-                let status = if updated_status.is_none() {
-                    status
-                } else {
-                    match updated_status.unwrap() {
-                        BridgeDutyStatus::Withdrawal(withdrawal_status) => withdrawal_status,
-                        _ => unreachable!(),
-                    }
+                let withdrawal_status = match latest_status {
+                    BridgeDutyStatus::Withdrawal(withdrawal_status) => withdrawal_status,
+                    _ => unreachable!("withdrawal duty must be associated with withdrawal status"),
                 };
 
-                self.handle_withdrawal(withdrawal_info, status).await;
+                self.handle_withdrawal(withdrawal_info, withdrawal_status)
+                    .await;
             }
         }
     }

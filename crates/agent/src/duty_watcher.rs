@@ -2,10 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use bitcoin::Txid;
 use strata_bridge_db::tracker::DutyTrackerDb;
-use strata_bridge_primitives::duties::{
-    BridgeDuties, BridgeDuty, BridgeDutyRpcResponse, BridgeDutyStatus, DepositStatus,
-    WithdrawalStatus,
-};
+use strata_bridge_primitives::duties::{BridgeDuties, BridgeDuty, BridgeDutyStatus};
 use strata_rpc::StrataApiClient;
 use tokio::{
     sync::{broadcast, mpsc},
@@ -84,39 +81,8 @@ where
                         info!(event = "fetched duties", %start_index, %stop_index, %num_duties);
 
                         for duty in duties {
-                            let txid = duty.get_id();
-
-                            // FIXME: store deposit and withdrawal duties to enforce type safety and
-                            // remove the ugly nested matches below
-                            let stored_status = db.fetch_duty_status(txid).await;
-                            if stored_status.as_ref().is_some_and(|status| status.is_done()) {
-                                debug!(action = "ignoring duty that has already been executed", %txid);
-                                continue;
-                            }
-
-                            let bridge_duty = match duty {
-                                BridgeDutyRpcResponse::SignDeposit(deposit_info) => {
-                                        let status = stored_status.unwrap_or(DepositStatus::Received.into());
-
-                                        match status {
-                                            BridgeDutyStatus::Deposit(deposit_status) => BridgeDuty::Deposit { details: deposit_info, status: deposit_status },
-                                            _ => unreachable!("deposit duty must be tied to deposit status")
-                                        }
-                                    },
-                                BridgeDutyRpcResponse::FulfillWithdrawal(withdrawal_info) => {
-                                        let status = stored_status.unwrap_or(WithdrawalStatus::Received.into());
-
-                                        match status {
-                                            BridgeDutyStatus::Withdrawal(withdrawal_status) => BridgeDuty::Withdrawal { details: withdrawal_info, status: withdrawal_status },
-                                            _ => unreachable!("withdrawal duty must be tied to withdrawal status"),
-                                        }
-                                    },
-                            };
-
-                            debug!(action = "dispatching duty", ?bridge_duty);
-                            duty_sender
-                                .send(bridge_duty)
-                                .expect("should be able to send duty");
+                            debug!(action = "dispatching duty", ?duty);
+                            duty_sender.send(duty).expect("should be able to send duty");
                         }
 
                         db.set_last_fetched_duty_index(stop_index).await;

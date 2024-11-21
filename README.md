@@ -1,10 +1,10 @@
 # strata-bridge-poc
 
-PoC Implementation of the Strata Bridge.
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License: Apache-2.0](https://img.shields.io/badge/License-Apache-blue.svg)](https://opensource.org/licenses/apache-2-0)
 [![ci](https://github.com/alpenlabs/strata-bridge-poc/actions/workflows/lint.yml/badge.svg?event=push)](https://github.com/alpenlabs/strata-bridge-poc/actions)
+
+PoC Implementation of the Strata Bridge.
 
 > [!IMPORTANT]
 > Majority of this code was written in a two-week period in a hackathon spirit.
@@ -29,6 +29,14 @@ The following is the system diagram in the PoC:
 </figure>
 
 ## How To Run Locally
+
+### Pre-requisites
+
+-   SP1 Toolchain and associated linkers.
+-   Credentials to connect to SP1's infra.
+-   Docker.
+
+### Running
 
 Run the strata stack (`strata-client`, `strata-reth`, `bitcoind`) as per the instructions
 in the [`strata`](https://github.com/alpenlabs/strata/tree/bitvm2) repo. Then run:

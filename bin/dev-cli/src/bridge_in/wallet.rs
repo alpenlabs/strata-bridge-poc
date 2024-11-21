@@ -93,7 +93,7 @@ impl PsbtWallet for BitcoinRpcWallet {
 
         let raw_tx = finalized_psbt.hex.unwrap();
         let txid = self.client.send_raw_transaction(&raw_tx).unwrap();
-        info!(event = "transaction broadcasted with txid: {}", %txid);
+        info!(event = "transaction broadcasted with txid", %txid);
 
         Ok(())
     }
