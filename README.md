@@ -35,6 +35,7 @@ The following is the system diagram in the PoC:
 -   SP1 Toolchain and associated linkers.
 -   Credentials to connect to SP1's infra.
 -   Docker.
+-   `sqlx-cli` to run migrations.
 
 ### Running
 
@@ -42,6 +43,7 @@ Run the strata stack (`strata-client`, `strata-reth`, `bitcoind`) as per the ins
 in the [`strata`](https://github.com/alpenlabs/strata/tree/bitvm2) repo. Then run:
 
 ```bash
+make migrate
 PROFILE=release make run
 ```
 
