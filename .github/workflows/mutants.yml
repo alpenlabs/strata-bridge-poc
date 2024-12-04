@@ -16,7 +16,7 @@ concurrency:
 jobs:
   mutants-test:
     name: Generate mutants on diff against default branch and test
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     continue-on-error: true # FIXME: remove this if all mutants are covered
     strategy:
       fail-fast: false # Collect all mutants even if some are missed

@@ -13,7 +13,7 @@ env:
 jobs:
   test:
     name: Run integration tests and generate report
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 60 # better fail-safe than the default 360 in github actions
     steps:
       - uses: actions/checkout@v4

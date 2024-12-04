@@ -9,7 +9,7 @@ env:
 jobs:
   lint:
     name: Lint test files
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
@@ -40,7 +40,7 @@ jobs:
 
   run:
     name: Run functional tests
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
@@ -115,7 +115,7 @@ jobs:
 
   functional-tests-success:
     name: Check that all checks pass
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: always()
     needs: [lint, run]
     timeout-minutes: 60

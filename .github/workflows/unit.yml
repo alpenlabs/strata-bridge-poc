@@ -87,7 +87,7 @@ jobs:
 
   unit-success:
     name: Check that unit tests pass
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: always()
     needs: [test]
     timeout-minutes: 60
