@@ -69,7 +69,6 @@ bitcoin = { git = "https://github.com/rust-bitcoin/rust-bitcoin", branch = "bitv
 ] }
 bitcoin-script = { git = "https://github.com/BitVM/rust-bitcoin-script", rev = "9c6074d1d63b65194ec281f0d3cf8bc3c24fe4f3" }
 bitvm = { git = "https://github.com/alpenlabs/BitVM.git", branch = "bridge-poc" }
-# bitvm = { path = "../BitVM" }
 borsh = { version = "1.5.0", features = ["derive"] }
 chrono = "0.4.38"
 clap = { version = "4.5.20", features = ["cargo", "derive", "env"] }
