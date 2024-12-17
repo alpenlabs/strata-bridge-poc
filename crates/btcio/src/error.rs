@@ -167,6 +167,7 @@ impl From<esplora_client::Error> for ClientError {
             esplora_client::Error::InvalidHttpHeaderValue(header) => {
                 Self::Other(format!("Invalid HTTP header name: {header}"))
             }
+            esplora_client::Error::InvalidResponse => Self::Other("Invalid response".to_string()),
         }
     }
 }

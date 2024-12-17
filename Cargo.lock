@@ -2148,22 +2148,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4c7f02d4ea65f2c1853089ffd8d2787bdbc63de2f0d29dedbcf8ccdfa0ccd4cf"
 
 [[package]]
-name = "base58check"
-version = "0.1.0"
-source = "git+https://github.com/rust-bitcoin/rust-bitcoin?branch=bitvm#48efda928ae569a8fdee4ff5cc951646ab280205"
-dependencies = [
- "bitcoin-internals 0.2.0",
- "bitcoin_hashes 0.13.0",
-]
-
-[[package]]
 name = "base58ck"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c8d66485a3a2ea485c1913c4572ce0256067a5377ac8c75c4960e1cda98605f"
 dependencies = [
- "bitcoin-internals 0.3.0",
- "bitcoin_hashes 0.14.0",
+ "bitcoin-internals",
+ "bitcoin_hashes",
 ]
 
 [[package]]
@@ -2251,7 +2242,7 @@ dependencies = [
  "bitflags 2.6.0",
  "cexpr",
  "clang-sys",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "log",
  "prettyplease",
  "proc-macro2",
@@ -2279,44 +2270,19 @@ checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 
 [[package]]
 name = "bitcoin"
-version = "0.31.0"
-source = "git+https://github.com/rust-bitcoin/rust-bitcoin?branch=bitvm#48efda928ae569a8fdee4ff5cc951646ab280205"
-dependencies = [
- "base58check",
- "bech32 0.11.0",
- "bitcoin-internals 0.2.0",
- "bitcoin-io",
- "bitcoin-units",
- "bitcoin_hashes 0.13.0",
- "hex-conservative",
- "hex_lit",
- "secp256k1 0.28.2",
- "serde",
-]
-
-[[package]]
-name = "bitcoin"
-version = "0.32.3"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0032b0e8ead7074cda7fc4f034409607e3f03a6f71d66ade8a307f79b4d99e73"
+checksum = "ce6bc65742dea50536e35ad42492b234c27904a27f0abdcbce605015cb4ea026"
 dependencies = [
  "base58ck",
  "bech32 0.11.0",
- "bitcoin-internals 0.3.0",
+ "bitcoin-internals",
  "bitcoin-io",
  "bitcoin-units",
- "bitcoin_hashes 0.14.0",
+ "bitcoin_hashes",
  "hex-conservative",
  "hex_lit",
- "secp256k1 0.29.1",
- "serde",
-]
-
-[[package]]
-name = "bitcoin-internals"
-version = "0.2.0"
-source = "git+https://github.com/rust-bitcoin/rust-bitcoin?branch=bitvm#48efda928ae569a8fdee4ff5cc951646ab280205"
-dependencies = [
+ "secp256k1",
  "serde",
 ]
 
@@ -2331,15 +2297,25 @@ dependencies = [
 
 [[package]]
 name = "bitcoin-io"
-version = "0.1.2"
-source = "git+https://github.com/rust-bitcoin/rust-bitcoin?branch=bitvm#48efda928ae569a8fdee4ff5cc951646ab280205"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b47c4ab7a93edb0c7198c5535ed9b52b63095f4e9b45279c6736cec4b856baf"
+
+[[package]]
+name = "bitcoin-opcode-utils"
+version = "0.1.0"
+source = "git+https://github.com/FairgateLabs/rust-bitcoin-opcode-utils/#4d0fe98b59e23a2abef6ea145f6e384284de0f6b"
+dependencies = [
+ "bitcoin",
+]
 
 [[package]]
 name = "bitcoin-script"
 version = "0.2.0"
-source = "git+https://github.com/BitVM/rust-bitcoin-script#4af7ce2762e72e82b37cc8dbd130347dedc5238e"
+source = "git+https://github.com/FairgateLabs/rust-bitcoin-script?branch=bitvmx#02d28a723bda224c1059a6353760de8c576a1f38"
 dependencies = [
- "bitcoin 0.31.0",
+ "bitcoin",
+ "bitcoin-opcode-utils",
  "hex",
  "lazy_static",
  "proc-macro-error",
@@ -2350,9 +2326,10 @@ dependencies = [
 [[package]]
 name = "bitcoin-script"
 version = "0.3.0"
-source = "git+https://github.com/BitVM/rust-bitcoin-script?rev=9c6074d1d63b65194ec281f0d3cf8bc3c24fe4f3#9c6074d1d63b65194ec281f0d3cf8bc3c24fe4f3"
+source = "git+https://github.com/alpenlabs/rust-bitcoin-script?branch=strata-bridge-poc-bitcoin-0.32.5#71589494555ae5917b7f46a964b370d32f2fb9ce"
 dependencies = [
- "bitcoin 0.31.0",
+ "bitcoin",
+ "lazy_static",
  "script-macro",
  "stdext",
 ]
@@ -2360,20 +2337,40 @@ dependencies = [
 [[package]]
 name = "bitcoin-script-stack"
 version = "0.0.1"
-source = "git+https://github.com/FairgateLabs/rust-bitcoin-script-stack#e7268ae64e30448ad800c9fa9cf50df82fd0ec4b"
+source = "git+https://github.com/alpenlabs/fairgate-rust-bitcoin-script-stack?branch=bitcoin-0.32.5#e624ff0577f71e290daf30142970e7f3398d0634"
 dependencies = [
- "bitcoin 0.31.0",
+ "bitcoin",
+ "bitcoin-opcode-utils",
  "bitcoin-script 0.2.0",
- "bitcoin-scriptexec",
+ "bitcoin-scriptexec 0.0.0 (git+https://github.com/FairgateLabs/rust-bitcoin-scriptexec/?branch=bitvmx)",
  "hex",
 ]
 
 [[package]]
 name = "bitcoin-scriptexec"
 version = "0.0.0"
-source = "git+https://github.com/BitVM/rust-bitcoin-scriptexec/#5c88966fa6ed718cd5a8a8b4a0722dd1f4fad5fb"
+source = "git+https://github.com/FairgateLabs/rust-bitcoin-scriptexec/?branch=bitvmx#c1e425f024344dc6a112eb0512a575426e1f2efa"
 dependencies = [
- "bitcoin 0.31.0",
+ "bitcoin",
+ "bitcoin-opcode-utils",
+ "bitcoin-script 0.2.0",
+ "clap",
+ "console_error_panic_hook",
+ "getrandom",
+ "hex-conservative",
+ "lazy_static",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "bitcoin-scriptexec"
+version = "0.0.0"
+source = "git+https://github.com/BitVM/rust-bitcoin-scriptexec#b24608bff855ea8932ae236c7a04f13f730ab9f8"
+dependencies = [
+ "bitcoin",
  "clap",
  "console_error_panic_hook",
  "getrandom",
@@ -2390,17 +2387,7 @@ version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5285c8bcaa25876d07f37e3d30c303f2609179716e11d688f51e8f1fe70063e2"
 dependencies = [
- "bitcoin-internals 0.3.0",
- "serde",
-]
-
-[[package]]
-name = "bitcoin_hashes"
-version = "0.13.0"
-source = "git+https://github.com/rust-bitcoin/rust-bitcoin?branch=bitvm#48efda928ae569a8fdee4ff5cc951646ab280205"
-dependencies = [
- "bitcoin-io",
- "hex-conservative",
+ "bitcoin-internals",
  "serde",
 ]
 
@@ -2434,7 +2421,7 @@ version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d8909583c5fab98508e80ef73e5592a651c954993dc6b7739963257d19f0e71a"
 dependencies = [
- "bitcoin 0.32.3",
+ "bitcoin",
  "serde",
  "serde_json",
 ]
@@ -2470,7 +2457,7 @@ dependencies = [
 [[package]]
 name = "bitvm"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/BitVM.git?branch=bridge-poc#e5d20c18881e31178f8acc8dfb7d76a626773a69"
+source = "git+https://github.com/alpenlabs/BitVM.git?branch=bridge-poc#24fe0649a95797a362527998155bdcc6e759ccef"
 dependencies = [
  "alloy 0.2.1",
  "ark-bn254",
@@ -2479,17 +2466,17 @@ dependencies = [
  "ark-groth16",
  "async-trait",
  "aws-sdk-s3",
- "bitcoin 0.31.0",
+ "bitcoin",
  "bitcoin-script 0.3.0",
  "bitcoin-script-stack",
- "bitcoin-scriptexec",
+ "bitcoin-scriptexec 0.0.0 (git+https://github.com/BitVM/rust-bitcoin-scriptexec)",
  "blake3",
  "dotenv",
  "esplora-client",
  "futures",
  "hex",
  "lazy_static",
- "musig2 0.0.11",
+ "musig2",
  "num-bigint 0.4.6",
  "num-traits",
  "once_cell",
@@ -2838,9 +2825,9 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.20"
+version = "4.5.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b97f376d85a664d5837dbae44bf546e6477a679ff6610010f17276f686d867e8"
+checksum = "3135e7ec2ef7b10c6ed8950f0f792ed96ee093fa088608f1c76e569722700c84"
 dependencies = [
  "clap_builder",
  "clap_derive",
@@ -2848,9 +2835,9 @@ dependencies = [
 
 [[package]]
 name = "clap_builder"
-version = "4.5.20"
+version = "4.5.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "19bc80abd44e4bed93ca373a0704ccbd1b710dc5749406201bb018272808dc54"
+checksum = "30582fc632330df2bd26877bde0c1f4470d57c582bbc070376afcd04d8cb4838"
 dependencies = [
  "anstream",
  "anstyle",
@@ -2872,9 +2859,9 @@ dependencies = [
 
 [[package]]
 name = "clap_lex"
-version = "0.7.2"
+version = "0.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
+checksum = "f46ad14479a25103f283c0f10005961cf086d8dc42205bb44c46ac563475dca6"
 
 [[package]]
 name = "coins-bip32"
@@ -3445,7 +3432,7 @@ dependencies = [
  "alloy 0.3.6",
  "alloy-signer 0.3.6",
  "anyhow",
- "bitcoin 0.32.3",
+ "bitcoin",
  "bitcoincore-rpc",
  "clap",
  "hex",
@@ -3730,15 +3717,16 @@ dependencies = [
 
 [[package]]
 name = "esplora-client"
-version = "0.7.0"
-source = "git+https://github.com/BitVM/rust-esplora-client#3d61a8bf75fd4cac7eab454243a7daefe27230f9"
+version = "0.11.0"
+source = "git+https://github.com/BitVM/rust-esplora-client#c1881c0624398c2ed478ce71c2e8dfe6bef23ebe"
 dependencies = [
- "bitcoin 0.31.0",
+ "bitcoin",
  "hex-conservative",
  "log",
  "minreq",
  "reqwest 0.11.27",
  "serde",
+ "tokio",
 ]
 
 [[package]]
@@ -5429,7 +5417,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4979f22fdb869068da03c9f7528f8297c6fd2606bc3a4affe42e6a823fdb8da4"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -5573,7 +5561,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "add2d4aee30e4291ce5cffa3a322e441ff4d4bc57b38c8d9bf0e94faa50ab626"
 dependencies = [
  "bech32 0.11.0",
- "bitcoin 0.32.3",
+ "bitcoin",
 ]
 
 [[package]]
@@ -5656,24 +5644,6 @@ dependencies = [
 
 [[package]]
 name = "musig2"
-version = "0.0.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bed08befaac75bfb31ca5e87678c4e8490bcd21d0c98ccb4f12f4065a7567e83"
-dependencies = [
- "base16ct 0.2.0",
- "hmac",
- "once_cell",
- "rand",
- "secp 0.2.4",
- "secp256k1 0.28.2",
- "serde",
- "serdect",
- "sha2",
- "subtle",
-]
-
-[[package]]
-name = "musig2"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c89bee285da6010ad76c3467c4de8265bb4fa46fba0017df95ae55cad4436528"
@@ -5681,8 +5651,9 @@ dependencies = [
  "base16ct 0.2.0",
  "hmac",
  "once_cell",
- "secp 0.3.0",
- "secp256k1 0.29.1",
+ "rand",
+ "secp",
+ "secp256k1",
  "serde",
  "serdect",
  "sha2",
@@ -5930,7 +5901,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "af1844ef2428cc3e1cb900be36181049ef3d3193c63e43026cfe202983b27a56"
 dependencies = [
- "proc-macro-crate 1.3.1",
+ "proc-macro-crate 3.2.0",
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -6891,7 +6862,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e9552f850d5f0964a4e4d0bf306459ac29323ddfbae05e35a7c0d35cb0803cc5"
 dependencies = [
  "anyhow",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -6901,7 +6872,7 @@ dependencies = [
 name = "prover-test-utils"
 version = "0.1.0"
 dependencies = [
- "bitcoin 0.32.3",
+ "bitcoin",
  "borsh",
  "serde",
  "snark-bn254-verifier",
@@ -7344,7 +7315,7 @@ dependencies = [
  "reth-static-file-types",
  "reth-trie-common",
  "revm-primitives",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "thiserror-no-std",
 ]
@@ -7891,9 +7862,9 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 [[package]]
 name = "script-macro"
 version = "0.3.0"
-source = "git+https://github.com/BitVM/rust-bitcoin-script?rev=9c6074d1d63b65194ec281f0d3cf8bc3c24fe4f3#9c6074d1d63b65194ec281f0d3cf8bc3c24fe4f3"
+source = "git+https://github.com/alpenlabs/rust-bitcoin-script?branch=strata-bridge-poc-bitcoin-0.32.5#71589494555ae5917b7f46a964b370d32f2fb9ce"
 dependencies = [
- "bitcoin 0.31.0",
+ "bitcoin",
  "hex",
  "lazy_static",
  "proc-macro-error",
@@ -7959,43 +7930,17 @@ dependencies = [
 
 [[package]]
 name = "secp"
-version = "0.2.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1c4754628ff9006f80c6abd1cd1e88c5ca6f5a60eab151ad2e16268aab3514d0"
-dependencies = [
- "base16ct 0.2.0",
- "once_cell",
- "rand",
- "secp256k1 0.28.2",
- "serde",
- "serdect",
- "subtle",
-]
-
-[[package]]
-name = "secp"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd426921f62c7e334ca27173743cd90a7263566a3be76ef0b47773d631633cf9"
 dependencies = [
  "base16ct 0.2.0",
  "once_cell",
- "secp256k1 0.29.1",
+ "rand",
+ "secp256k1",
  "serde",
  "serdect",
  "subtle",
-]
-
-[[package]]
-name = "secp256k1"
-version = "0.28.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d24b59d129cdadea20aea4fb2352fa053712e5d713eee47d700cd4b2bc002f10"
-dependencies = [
- "bitcoin_hashes 0.13.0",
- "rand",
- "secp256k1-sys 0.9.2",
- "serde",
 ]
 
 [[package]]
@@ -8004,19 +7949,10 @@ version = "0.29.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9465315bc9d4566e1724f0fffcbcc446268cb522e60f9a27bcded6b19c108113"
 dependencies = [
- "bitcoin_hashes 0.14.0",
+ "bitcoin_hashes",
  "rand",
- "secp256k1-sys 0.10.1",
+ "secp256k1-sys",
  "serde",
-]
-
-[[package]]
-name = "secp256k1-sys"
-version = "0.9.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e5d1746aae42c19d583c3c1a8c646bfad910498e2051c551a7f2e3c0c9fbb7eb"
-dependencies = [
- "cc",
 ]
 
 [[package]]
@@ -8103,9 +8039,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.214"
+version = "1.0.216"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f55c3193aca71c12ad7890f1785d2b73e1b9f63a0bbc353c08ef26fe03fc56b5"
+checksum = "0b9781016e935a97e8beecf0c933758c97a5520d32930e460142b4cd80c6338e"
 dependencies = [
  "serde_derive",
 ]
@@ -8123,9 +8059,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.214"
+version = "1.0.216"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de523f781f095e28fa605cdce0f8307e451cc0fd14e2eb4cd2e98a355b147766"
+checksum = "46f859dbbf73865c6627ed570e78961cd3ac92407a2d117204c49232485da55e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8134,9 +8070,9 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.132"
+version = "1.0.133"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d726bfaff4b320266d395898905d0eba0345aae23b54aee3a737e260fd46db03"
+checksum = "c7fceb2473b9166b2294ef05efcb65a3db80803f0b03ef86a5fc88a2b85ee377"
 dependencies = [
  "itoa",
  "memchr",
@@ -9170,12 +9106,12 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "bitcoin 0.31.0",
+ "bitcoin",
  "chrono",
  "clap",
  "jsonrpsee",
  "rand",
- "secp256k1 0.28.2",
+ "secp256k1",
  "sqlx",
  "strata-bridge-agent",
  "strata-bridge-btcio",
@@ -9194,14 +9130,14 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bincode",
- "bitcoin 0.31.0",
+ "bitcoin",
  "bitcoin-script 0.3.0",
  "bitvm",
  "borsh",
  "jsonrpsee",
- "musig2 0.0.11",
+ "musig2",
  "rand",
- "secp256k1 0.28.2",
+ "secp256k1",
  "serde",
  "strata-bridge-btcio",
  "strata-bridge-db",
@@ -9224,7 +9160,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "base64 0.22.1",
- "bitcoin 0.31.0",
+ "bitcoin",
  "esplora-client",
  "reqwest 0.12.9",
  "serde",
@@ -9241,10 +9177,10 @@ name = "strata-bridge-db"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "bitcoin 0.31.0",
- "musig2 0.0.11",
+ "bitcoin",
+ "musig2",
  "rkyv",
- "secp256k1 0.28.2",
+ "secp256k1",
  "serde_json",
  "sqlx",
  "strata-bridge-primitives",
@@ -9265,13 +9201,13 @@ name = "strata-bridge-primitives"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bitcoin 0.31.0",
+ "bitcoin",
  "bitcoin-script 0.3.0",
  "bitvm",
  "lazy_static",
- "musig2 0.0.11",
+ "musig2",
  "rkyv",
- "secp256k1 0.28.2",
+ "secp256k1",
  "serde",
  "sha2",
 ]
@@ -9281,7 +9217,7 @@ name = "strata-bridge-proof-protocol"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "bitcoin 0.32.3",
+ "bitcoin",
  "borsh",
  "hex",
  "prover-test-utils",
@@ -9308,7 +9244,7 @@ dependencies = [
  "ark-ff 0.4.2",
  "ark-groth16",
  "bincode",
- "bitcoin 0.32.3",
+ "bitcoin",
  "bitcoin-script 0.3.0",
  "bitvm",
  "borsh",
@@ -9350,11 +9286,11 @@ dependencies = [
 [[package]]
 name = "strata-bridge-tx-builder"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
- "bitcoin 0.32.3",
+ "bitcoin",
  "lazy_static",
- "musig2 0.1.0",
+ "musig2",
  "serde",
  "strata-primitives",
  "thiserror 1.0.65",
@@ -9365,12 +9301,12 @@ name = "strata-bridge-tx-graph"
 version = "0.1.0"
 dependencies = [
  "bincode",
- "bitcoin 0.31.0",
+ "bitcoin",
  "bitcoin-script 0.3.0",
  "bitvm",
  "lazy_static",
  "rand",
- "secp256k1 0.28.2",
+ "secp256k1",
  "serde",
  "strata-bridge-db",
  "strata-bridge-primitives",
@@ -9381,16 +9317,16 @@ dependencies = [
 [[package]]
 name = "strata-btcio"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "anyhow",
  "async-trait",
  "base64 0.22.1",
- "bitcoin 0.32.3",
+ "bitcoin",
  "borsh",
  "bytes",
  "hex",
- "musig2 0.1.0",
+ "musig2",
  "rand",
  "reqwest 0.12.9",
  "serde",
@@ -9414,7 +9350,7 @@ dependencies = [
 [[package]]
 name = "strata-common"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "tracing",
  "tracing-subscriber 0.3.18",
@@ -9423,10 +9359,10 @@ dependencies = [
 [[package]]
 name = "strata-crypto"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "borsh",
- "secp256k1 0.29.1",
+ "secp256k1",
  "sha2",
  "strata-primitives",
 ]
@@ -9434,14 +9370,14 @@ dependencies = [
 [[package]]
 name = "strata-db"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "anyhow",
  "arbitrary",
- "bitcoin 0.32.3",
+ "bitcoin",
  "borsh",
  "hex",
- "musig2 0.1.0",
+ "musig2",
  "parking_lot",
  "serde",
  "strata-mmr",
@@ -9455,7 +9391,7 @@ dependencies = [
 [[package]]
 name = "strata-mmr"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "arbitrary",
  "borsh",
@@ -9468,19 +9404,19 @@ dependencies = [
 [[package]]
 name = "strata-primitives"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "anyhow",
  "arbitrary",
  "bincode",
- "bitcoin 0.32.3",
+ "bitcoin",
  "borsh",
  "digest 0.10.7",
  "hex",
- "musig2 0.1.0",
+ "musig2",
  "rand",
  "reth-primitives",
- "secp256k1 0.29.1",
+ "secp256k1",
  "serde",
  "serde_json",
  "sha2",
@@ -9491,9 +9427,9 @@ dependencies = [
 [[package]]
 name = "strata-proofimpl-btc-blockspace"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
- "bitcoin 0.32.3",
+ "bitcoin",
  "borsh",
  "serde",
  "sha2",
@@ -9515,9 +9451,9 @@ dependencies = [
 [[package]]
 name = "strata-rpc-types"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
- "bitcoin 0.32.3",
+ "bitcoin",
  "hex",
  "jsonrpsee",
  "serde",
@@ -9531,7 +9467,7 @@ dependencies = [
 [[package]]
 name = "strata-sp1-adapter"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "anyhow",
  "bincode",
@@ -9550,10 +9486,10 @@ dependencies = [
 [[package]]
 name = "strata-state"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "arbitrary",
- "bitcoin 0.32.3",
+ "bitcoin",
  "borsh",
  "digest 0.10.7",
  "ethnum",
@@ -9571,7 +9507,7 @@ dependencies = [
 [[package]]
 name = "strata-status"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "strata-primitives",
  "strata-rpc-types",
@@ -9584,11 +9520,11 @@ dependencies = [
 [[package]]
 name = "strata-storage"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "anyhow",
  "async-trait",
- "bitcoin 0.32.3",
+ "bitcoin",
  "lru",
  "paste",
  "strata-db",
@@ -9602,7 +9538,7 @@ dependencies = [
 [[package]]
 name = "strata-tasks"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "anyhow",
  "futures-util",
@@ -9614,14 +9550,14 @@ dependencies = [
 [[package]]
 name = "strata-tx-parser"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "anyhow",
  "arbitrary",
- "bitcoin 0.32.3",
+ "bitcoin",
  "borsh",
  "hex",
- "musig2 0.1.0",
+ "musig2",
  "strata-bridge-tx-builder",
  "strata-primitives",
  "strata-state",
@@ -9632,7 +9568,7 @@ dependencies = [
 [[package]]
 name = "strata-zkvm"
 version = "0.1.0"
-source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#2f8fa484e7c0f36b3916feeb09ef7877c817fb50"
+source = "git+https://github.com/alpenlabs/strata.git?branch=bitvm2#44db694a4bb4c43e93fb7bf66d6da569aabea0c0"
 dependencies = [
  "anyhow",
  "arbitrary",
@@ -10688,9 +10624,9 @@ checksum = "b8dad83b4f25e74f184f64c43b150b91efe7647395b42289f38e50566d82855b"
 
 [[package]]
 name = "wasm-bindgen"
-version = "0.2.95"
+version = "0.2.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "128d1e363af62632b8eb57219c8fd7877144af57558fb2ef0368d0087bddeb2e"
+checksum = "a474f6281d1d70c17ae7aa6a613c87fce69a127e2624002df63dcb39d6cf6396"
 dependencies = [
  "cfg-if",
  "once_cell",
@@ -10699,13 +10635,12 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-backend"
-version = "0.2.95"
+version = "0.2.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb6dd4d3ca0ddffd1dd1c9c04f94b868c37ff5fac97c30b97cff2d74fce3a358"
+checksum = "5f89bb38646b4f81674e8f5c3fb81b562be1fd936d84320f3264486418519c79"
 dependencies = [
  "bumpalo",
  "log",
- "once_cell",
  "proc-macro2",
  "quote",
  "syn 2.0.87",
@@ -10726,9 +10661,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro"
-version = "0.2.95"
+version = "0.2.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e79384be7f8f5a9dd5d7167216f022090cf1f9ec128e6e6a482a2cb5c5422c56"
+checksum = "2cc6181fd9a7492eef6fef1f33961e3695e4579b9872a6f7c83aee556666d4fe"
 dependencies = [
  "quote",
  "wasm-bindgen-macro-support",
@@ -10736,9 +10671,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-macro-support"
-version = "0.2.95"
+version = "0.2.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "26c6ab57572f7a24a4985830b120de1594465e5d500f24afe89e16b4e833ef68"
+checksum = "30d7a95b763d3c45903ed6c81f156801839e5ee968bb07e534c44df0fcd330c2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -10749,9 +10684,9 @@ dependencies = [
 
 [[package]]
 name = "wasm-bindgen-shared"
-version = "0.2.95"
+version = "0.2.99"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "65fc09f10666a9f147042251e0dda9c18f166ff7de300607007e96bdebc1068d"
+checksum = "943aab3fdaaa029a6e0271b35ea10b72b943135afe9bffca82384098ad0e06a6"
 
 [[package]]
 name = "wasm-streams"
