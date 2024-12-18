@@ -10,7 +10,7 @@ ark-ec.workspace = true
 ark-ff.workspace = true
 ark-groth16.workspace = true
 bincode.workspace = true
-bitcoin = { version = "=0.32.3", features = ["serde"] }
+bitcoin.workspace = true
 bitcoin-script.workspace = true
 bitvm.workspace = true
 borsh.workspace = true
